@@ -26,7 +26,8 @@ import type { Placed } from "../core/board";
 import { hash, mulberry32 } from "../core/rng";
 import { DIRS, DX, DY, type Edge, type Rot, type TileDef } from "../core/tiles";
 import { PALETTE } from "./palette";
-import { PLATE_SIZE, PLATE_TOP, buildTileGeometry } from "./tileMeshes";
+import type { MaterialMode, ModelLibrary } from "./models";
+import { PLATE_SIZE, PLATE_TOP, buildTile } from "./tileMeshes";
 
 const MIN_VIEW = 5.5;
 const MAX_VIEW = 16;
@@ -70,7 +71,11 @@ export class World {
   private readonly raycaster = new Raycaster();
   private readonly groundPlane = new Plane(new Vector3(0, 1, 0), -PLATE_TOP);
 
-  constructor(private readonly canvas: HTMLCanvasElement, public seed: number) {
+  constructor(
+    private readonly canvas: HTMLCanvasElement,
+    public seed: number,
+    private readonly library: ModelLibrary,
+  ) {
     this.renderer = new WebGLRenderer({ canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
@@ -147,18 +152,26 @@ export class World {
     }
   }
 
-  private tileGeometry(tile: TileDef, rot: Rot, x: number, y: number) {
-    return buildTileGeometry(tile, rot, mulberry32(hash(this.seed, x, y)), this.edgesAround(x, y));
+  private build(tile: TileDef, rot: Rot, x: number, y: number) {
+    return buildTile(tile, rot, mulberry32(hash(this.seed, x, y)), this.edgesAround(x, y));
   }
 
-  private makeMesh(tile: TileDef, rot: Rot, x: number, y: number, material: MeshStandardMaterial): Mesh {
-    const mesh = new Mesh(this.tileGeometry(tile, rot, x, y), material);
+  private makeMesh(tile: TileDef, rot: Rot, x: number, y: number, mode: MaterialMode): Mesh {
+    const { base, props } = this.build(tile, rot, x, y);
+    const material = mode === "solid" ? this.tileMaterial : mode === "ghost" ? this.ghostMaterial : this.pendingMaterial;
+    const mesh = new Mesh(base, material);
     mesh.position.set(x, 0, y);
+    for (const child of this.library.buildProps(props, mode)) mesh.add(child);
     return mesh;
   }
 
+  private disposeMesh(mesh: Mesh): void {
+    mesh.geometry.dispose();
+    for (const child of mesh.children) (child as Mesh).geometry.dispose();
+  }
+
   addTile(p: Placed, animate: boolean, refreshNeighbours = animate): void {
-    const mesh = this.makeMesh(p.tile, p.rot, p.x, p.y, this.tileMaterial);
+    const mesh = this.makeMesh(p.tile, p.rot, p.x, p.y, "solid");
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     this.scene.add(mesh);
@@ -166,8 +179,9 @@ export class World {
     for (const d of refreshNeighbours ? DIRS : []) {
       const n = this.tiles.get(`${p.x + DX[d]},${p.y + DY[d]}`);
       if (!n) continue;
+      const { base } = this.build(n.placed.tile, n.placed.rot, n.placed.x, n.placed.y);
       n.mesh.geometry.dispose();
-      n.mesh.geometry = this.tileGeometry(n.placed.tile, n.placed.rot, n.placed.x, n.placed.y);
+      n.mesh.geometry = base;
     }
     if (animate) {
       mesh.position.y = 0.8;
@@ -178,7 +192,7 @@ export class World {
   clearTiles(): void {
     for (const { mesh } of this.tiles.values()) {
       this.scene.remove(mesh);
-      mesh.geometry.dispose();
+      this.disposeMesh(mesh);
     }
     this.tiles.clear();
     this.hideGhost();
@@ -191,7 +205,7 @@ export class World {
     if (key === this.ghostKey) return;
     this.hideGhost();
     this.cursor.visible = true;
-    this.ghost = this.makeMesh(tile, rot, x, y, pending ? this.pendingMaterial : this.ghostMaterial);
+    this.ghost = this.makeMesh(tile, rot, x, y, pending ? "pending" : "ghost");
     this.ghost.position.y = 0.06;
     this.ghost.castShadow = pending;
     this.ghostPending = pending;
@@ -203,7 +217,7 @@ export class World {
     this.cursor.visible = false;
     if (!this.ghost) return;
     this.scene.remove(this.ghost);
-    this.ghost.geometry.dispose();
+    this.disposeMesh(this.ghost);
     this.ghost = null;
     this.ghostKey = "";
   }

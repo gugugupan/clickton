@@ -3,7 +3,6 @@ import {
   AnimationMixer,
   Box3,
   Clock,
-  CanvasTexture,
   Color,
   DirectionalLight,
   HemisphereLight,
@@ -13,7 +12,6 @@ import {
   Object3D,
   OrthographicCamera,
   Scene,
-  SRGBColorSpace,
   Texture,
   Vector3,
   WebGLRenderer,
@@ -21,6 +19,7 @@ import {
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { PartBuilder } from "../render/bricks";
 import { PALETTE } from "../render/palette";
+import { soften } from "../render/soften";
 import "./gallery.css";
 
 const files = {
@@ -95,36 +94,6 @@ plate.receiveShadow = true;
 scene.add(plate);
 
 const loader = new GLTFLoader();
-const softCache = new Map<Texture, Texture>();
-
-function soften(tex: Texture): Texture {
-  const cached = softCache.get(tex);
-  if (cached) return cached;
-  const img = tex.image as HTMLImageElement | ImageBitmap;
-  const canvas = document.createElement("canvas");
-  canvas.width = img.width;
-  canvas.height = img.height;
-  const g = canvas.getContext("2d")!;
-  g.drawImage(img, 0, 0);
-  const data = g.getImageData(0, 0, canvas.width, canvas.height);
-  const px = data.data;
-  for (let i = 0; i < px.length; i += 4) {
-    const r = px[i], gg = px[i + 1], b = px[i + 2];
-    const lum = 0.3 * r + 0.59 * gg + 0.11 * b;
-    px[i] = Math.min(255, (r * 0.62 + lum * 0.38) * 0.78 + 246 * 0.22);
-    px[i + 1] = Math.min(255, (gg * 0.62 + lum * 0.38) * 0.78 + 241 * 0.22);
-    px[i + 2] = Math.min(255, (b * 0.62 + lum * 0.38) * 0.78 + 233 * 0.22);
-  }
-  g.putImageData(data, 0, 0);
-  const soft = new CanvasTexture(canvas);
-  soft.flipY = tex.flipY;
-  soft.colorSpace = SRGBColorSpace;
-  soft.magFilter = tex.magFilter;
-  soft.minFilter = tex.minFilter;
-  softCache.set(tex, soft);
-  return soft;
-}
-
 function applyPalette(root: Object3D, soft: boolean): void {
   root.traverse((o) => {
     const m = o as Mesh;
@@ -157,7 +126,7 @@ async function thumbnail(item: Item, soft: boolean): Promise<string> {
     model.position.set(-(fitted.min.x + fitted.max.x) / 2, 0.1 - fitted.min.y, -(fitted.min.z + fitted.max.z) / 2);
     models.set(item.url, model);
   }
-  applyPalette(model, soft);
+  applyPalette(model, soft && !ANIMATED.has(item.pack));
   scene.add(model);
   renderer.render(scene, camera);
   scene.remove(model);
@@ -303,7 +272,7 @@ async function openViewer(item: Item): Promise<void> {
   viewerModel.scale.setScalar(Math.min(0.82 / Math.max(size.x, size.z), 1.1 / size.y));
   const fitted = new Box3().setFromObject(viewerModel);
   viewerModel.position.set(-(fitted.min.x + fitted.max.x) / 2, 0.1 - fitted.min.y, -(fitted.min.z + fitted.max.z) / 2);
-  applyPalette(viewerModel, ($("soft") as HTMLInputElement).checked);
+  applyPalette(viewerModel, ($("soft") as HTMLInputElement).checked && !ANIMATED.has(item.pack));
   mixer = new AnimationMixer(viewerModel);
   clips = gltf.animations;
   const select = $("clip") as HTMLSelectElement;

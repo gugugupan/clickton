@@ -1,0 +1,64 @@
+{
+  "packs": {
+    "medieval": {
+      "source": "medieval-hexagon/addons/kaykit_medieval_hexagon_pack/Assets/gltf",
+      "license": "medieval-hexagon/LICENSE.txt",
+      "texture": "hexagons_medieval.png",
+      "soft": true
+    },
+    "city": {
+      "source": "city-builder-bits/addons/kaykit_city_builder_bits/Assets/gltf",
+      "license": "city-builder-bits/LICENSE.txt",
+      "texture": "citybits_texture.png",
+      "soft": true
+    },
+    "forest": {
+      "source": "forest-nature/KayKit_Forest_Nature_Pack_1.0_FREE/Assets/gltf",
+      "license": "forest-nature/KayKit_Forest_Nature_Pack_1.0_FREE/License.txt",
+      "texture": "forest_texture.png",
+      "soft": true
+    }
+  },
+  "models": {
+    "home_a": { "pack": "medieval", "file": "buildings/blue/building_home_A_blue.gltf" },
+    "home_b": { "pack": "medieval", "file": "buildings/blue/building_home_B_blue.gltf" },
+    "tavern": { "pack": "medieval", "file": "buildings/blue/building_tavern_blue.gltf" },
+    "blacksmith": { "pack": "medieval", "file": "buildings/blue/building_blacksmith_blue.gltf" },
+    "market": { "pack": "medieval", "file": "buildings/blue/building_market_blue.gltf" },
+    "tower": { "pack": "medieval", "file": "buildings/blue/building_tower_A_blue.gltf" },
+    "church": { "pack": "medieval", "file": "buildings/blue/building_church_blue.gltf" },
+    "windmill": { "pack": "medieval", "file": "buildings/blue/building_windmill_blue.gltf" },
+    "well": { "pack": "medieval", "file": "buildings/blue/building_well_blue.gltf" },
+    "watermill": { "pack": "medieval", "file": "buildings/blue/building_watermill_blue.gltf" },
+    "crate": { "pack": "medieval", "file": "decoration/props/crate_A_big.gltf" },
+    "barrel": { "pack": "medieval", "file": "decoration/props/barrel.gltf" },
+    "sack": { "pack": "medieval", "file": "decoration/props/sack.gltf" },
+    "wheelbarrow": { "pack": "medieval", "file": "decoration/props/wheelbarrow.gltf" },
+    "lily_a": { "pack": "medieval", "file": "decoration/nature/waterlily_A.gltf" },
+    "lily_b": { "pack": "medieval", "file": "decoration/nature/waterlily_B.gltf" },
+    "waterplant": { "pack": "medieval", "file": "decoration/nature/waterplant_A.gltf" },
+    "apartment_a": { "pack": "city", "file": "building_A.gltf" },
+    "apartment_b": { "pack": "city", "file": "building_B.gltf" },
+    "apartment_c": { "pack": "city", "file": "building_C.gltf" },
+    "apartment_d": { "pack": "city", "file": "building_D.gltf" },
+    "apartment_e": { "pack": "city", "file": "building_E.gltf" },
+    "apartment_f": { "pack": "city", "file": "building_F.gltf" },
+    "apartment_g": { "pack": "city", "file": "building_G.gltf" },
+    "apartment_h": { "pack": "city", "file": "building_H.gltf" },
+    "bench": { "pack": "city", "file": "bench.gltf" },
+    "streetlight": { "pack": "city", "file": "streetlight.gltf" },
+    "hydrant": { "pack": "city", "file": "firehydrant.gltf" },
+    "tree_1": { "pack": "forest", "file": "Tree_1_A_Color1.gltf" },
+    "tree_2": { "pack": "forest", "file": "Tree_2_A_Color1.gltf" },
+    "tree_3": { "pack": "forest", "file": "Tree_2_C_Color1.gltf" },
+    "tree_4": { "pack": "forest", "file": "Tree_3_A_Color1.gltf" },
+    "tree_5": { "pack": "forest", "file": "Tree_4_A_Color1.gltf" },
+    "bush_1": { "pack": "forest", "file": "Bush_1_A_Color1.gltf" },
+    "bush_2": { "pack": "forest", "file": "Bush_2_A_Color1.gltf" },
+    "bush_3": { "pack": "forest", "file": "Bush_4_A_Color1.gltf" },
+    "rock_1": { "pack": "forest", "file": "Rock_1_A_Color1.gltf" },
+    "rock_2": { "pack": "forest", "file": "Rock_1_E_Color1.gltf" },
+    "grass_1": { "pack": "forest", "file": "Grass_1_A_Color1.gltf" },
+    "grass_2": { "pack": "forest", "file": "Grass_2_A_Color1.gltf" }
+  }
+}

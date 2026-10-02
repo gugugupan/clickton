@@ -23,6 +23,7 @@ const STRINGS = {
     zh: "要开始新城镇吗？当前城镇会被替换。",
     ja: "新しい町を始めますか？いまの町は置き換えられます。",
   },
+  loading: { en: "Unpacking the bricks…", zh: "正在倒出积木…", ja: "ブロックを広げています…" },
   place: { en: "Place", zh: "放置", ja: "置く" },
   cancel: { en: "Cancel", zh: "取消", ja: "やめる" },
   help: {

@@ -1,10 +1,11 @@
 import "./style.css";
 import { playPlace, playPop } from "./audio";
 import { Game } from "./core/game";
-import { randomSeed } from "./core/rng";
+import { mulberry32, randomSeed } from "./core/rng";
 import { POINTS, countHoleCells, type PlacementScore } from "./core/scoring";
 import { DIRS, DX, DY, TILES, opposite, type Rot } from "./core/tiles";
 import { LANGS, getLang, hasKey, setLang, t, type Lang } from "./i18n";
+import { ModelLibrary } from "./render/models";
 import { World } from "./render/scene";
 import { loadLocal, saveLocal } from "./save";
 import { drawTilePreview } from "./ui/tilePreview";
@@ -17,7 +18,16 @@ const bubble = $("bubble");
 const coarse = window.matchMedia("(pointer: coarse)").matches;
 
 let game = restore();
-const world = new World(canvas, game.seed);
+const library = new ModelLibrary();
+setLang(getLang());
+$("loading-text").textContent = t("loading");
+try {
+  await library.load((done, total) => ($("loading-bar").style.width = `${Math.round((done / total) * 100)}%`));
+} catch (e) {
+  console.error("model loading failed", e);
+}
+$("loading").classList.add("done");
+const world = new World(canvas, game.seed, library);
 world.edgesAround = (x, y) => DIRS.map((d) => game.board.edgeAt(x + DX[d], y + DY[d], opposite(d)));
 let rot: Rot = 0;
 let hover: { x: number; y: number } | null = null;
@@ -25,6 +35,8 @@ let pending: { x: number; y: number } | null = null;
 let holes = countHoleCells(game.board);
 
 function restore(): Game {
+  const demo = import.meta.env.DEV ? Number(new URLSearchParams(location.search).get("demo")) : 0;
+  if (demo > 0) return demoTown(demo);
   const saved = loadLocal();
   if (saved) {
     try {
@@ -34,13 +46,30 @@ function restore(): Game {
   return new Game(randomSeed());
 }
 
+function demoTown(n: number): Game {
+  const g = new Game(randomSeed());
+  const rnd = mulberry32(g.seed);
+  for (let i = 0; i < n; i++) {
+    const cells = g.board.frontier().sort((a, b) => Math.hypot(a.x, a.y) - Math.hypot(b.x, b.y));
+    const c = cells[Math.floor(rnd() * Math.min(cells.length, 6))];
+    let best: Rot = 0;
+    let bestScore = -Infinity;
+    for (const r of [0, 1, 2, 3] as Rot[]) {
+      const s = g.preview(c.x, c.y, r)!.total;
+      if (s > bestScore) [best, bestScore] = [r, s];
+    }
+    g.place(c.x, c.y, best);
+  }
+  return g;
+}
+
 function rebuildWorld(): void {
   world.seed = game.seed;
   world.clearTiles();
   for (const p of game.board.all()) world.addTile(p, false);
   world.setFrontier(game.board.frontier());
-  const last = game.moves[game.moves.length - 1];
-  world.focus(last?.x ?? 0, last?.y ?? 0);
+  const b = game.board.getBounds();
+  world.focus(b ? (b.minX + b.maxX) / 2 : 0, b ? (b.minY + b.maxY) / 2 : 0);
   fitTown(true);
 }
 
