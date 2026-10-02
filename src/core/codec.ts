@@ -1,14 +1,18 @@
 import type { Move } from "./game";
-import { TILES, type Rot } from "./tiles";
+import { RULES_VERSION, TILES, isKnownVersion, weightsFor, type Rot } from "./tiles";
 
-export const CODEC_VERSION = 1;
+export const CODEC_VERSION = RULES_VERSION;
 
 export const TILESET_FINGERPRINTS: Record<number, string> = {
   1: "e1ff7eb5",
+  2: "550aafc3",
 };
 
-export function tilesetFingerprint(): string {
-  const text = TILES.map((t) => `${t.key}:${t.weight}:${t.edges.join(",")}`).join("|");
+export function tilesetFingerprint(version = CODEC_VERSION): string {
+  const weights = weightsFor(version);
+  const text = TILES.filter((_, i) => weights[i] > 0)
+    .map((t) => `${t.key}:${weights[t.id]}:${t.edges.join(",")}`)
+    .join("|");
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193) >>> 0;
   return h.toString(16).padStart(8, "0");
@@ -74,7 +78,7 @@ export function packCity(city: SavedCity): Uint8Array {
 export function unpackCity(bytes: Uint8Array): SavedCity {
   const r = new Reader(bytes);
   const version = r.byte();
-  if (version !== CODEC_VERSION) throw new Error(`unsupported version ${version}`);
+  if (!isKnownVersion(version)) throw new Error(`unsupported version ${version}`);
   const seed = (r.byte() | (r.byte() << 8) | (r.byte() << 16) | (r.byte() << 24)) >>> 0;
   const count = r.varint();
   const moves: Move[] = [];

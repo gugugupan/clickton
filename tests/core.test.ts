@@ -160,11 +160,26 @@ function playRandom(seed: number, n: number): Game {
 }
 
 describe("share link compatibility", () => {
-  it("the tile set matches what this codec version was released with", async () => {
+  it("every released rules version still has the tile set it shipped with", async () => {
     const { tilesetFingerprint, TILESET_FINGERPRINTS } = await import("../src/core/codec");
-    expect(
-      tilesetFingerprint(),
-      "Tiles changed: bump CODEC_VERSION and record the new fingerprint so old share links keep their meaning",
-    ).toBe(TILESET_FINGERPRINTS[CODEC_VERSION]);
+    for (const [version, fingerprint] of Object.entries(TILESET_FINGERPRINTS)) {
+      expect(
+        tilesetFingerprint(Number(version)),
+        `Rules v${version} changed: add a new version instead so old share links keep their meaning`,
+      ).toBe(fingerprint);
+    }
+    expect(TILESET_FINGERPRINTS[CODEC_VERSION]).toBeDefined();
+  });
+
+  it("old links replay with the old weights, new games use the new ones", async () => {
+    const v1 = Array.from({ length: 300 }, (_, i) => tileForStep(42, i, 1));
+    const v2 = Array.from({ length: 300 }, (_, i) => tileForStep(42, i, 2));
+    expect(v1).not.toEqual(v2);
+    const g = playRandom(42, 30);
+    const city = { version: 1, seed: g.seed, moves: g.moves };
+    const decoded = await decodeCity(await encodeCity(city));
+    const replayed = Game.replay(decoded.seed, decoded.moves, decoded.version);
+    expect(replayed.version).toBe(1);
+    expect(replayed.currentTile).toBe(tileForStep(42, 30, 1));
   });
 });

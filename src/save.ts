@@ -1,11 +1,11 @@
-import { CODEC_VERSION, packCity, unpackCity, type SavedCity } from "./core/codec";
+import { packCity, unpackCity, type SavedCity } from "./core/codec";
 import type { Game } from "./core/game";
 
 const KEY = "clickton.save";
 
 export function saveLocal(game: Game): void {
   try {
-    const bytes = packCity({ version: CODEC_VERSION, seed: game.seed, moves: game.moves });
+    const bytes = packCity({ version: game.version, seed: game.seed, moves: game.moves });
     let s = "";
     for (const b of bytes) s += String.fromCharCode(b);
     localStorage.setItem(KEY, btoa(s));

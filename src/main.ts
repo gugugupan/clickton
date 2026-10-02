@@ -1,6 +1,6 @@
 import "./style.css";
 import { playChime, playPlace, playPop } from "./audio";
-import { CODEC_VERSION, decodeCity, encodeCity } from "./core/codec";
+import { decodeCity, encodeCity } from "./core/codec";
 import { Game } from "./core/game";
 import { mulberry32, randomSeed } from "./core/rng";
 import { POINTS, countHoleCells, type PlacementScore } from "./core/scoring";
@@ -52,7 +52,7 @@ async function restore(): Promise<Game> {
     try {
       const city = await decodeCity(code);
       viewing = true;
-      return Game.replay(city.seed, city.moves);
+      return Game.replay(city.seed, city.moves, city.version);
     } catch (e) {
       console.warn("could not open shared town", e);
       badLink = true;
@@ -64,7 +64,7 @@ async function restore(): Promise<Game> {
   const saved = loadLocal();
   if (saved) {
     try {
-      return Game.replay(saved.seed, saved.moves);
+      return Game.replay(saved.seed, saved.moves, saved.version);
     } catch {}
   }
   return new Game(randomSeed());
@@ -264,7 +264,7 @@ function toast(text: string): void {
 }
 
 async function shareTown(): Promise<void> {
-  const code = await encodeCity({ version: CODEC_VERSION, seed: game.seed, moves: game.moves });
+  const code = await encodeCity({ version: game.version, seed: game.seed, moves: game.moves });
   const url = `${location.origin}${location.pathname}#c=${code}`;
   if (coarse && navigator.share) {
     try {
@@ -296,7 +296,7 @@ function replay(): void {
   const token = ++replayToken;
   replayTarget = game;
   const moves = [...game.moves];
-  game = new Game(replayTarget.seed);
+  game = new Game(replayTarget.seed, replayTarget.version);
   holes = 0;
   rebuildWorld();
   refreshStats();
