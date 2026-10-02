@@ -20,12 +20,14 @@ import {
   WebGLRenderer,
   BoxGeometry,
   MeshLambertMaterial,
+  MeshBasicMaterial,
+  Group,
   Object3D,
 } from "three";
 import { MapControls } from "three/addons/controls/MapControls.js";
 import type { Placed } from "../core/board";
 import { hash, mulberry32 } from "../core/rng";
-import { DIRS, DX, DY, type Edge, type Rot, type TileDef } from "../core/tiles";
+import { DIRS, DX, DY, edgeOf, type Edge, type Rot, type TileDef } from "../core/tiles";
 import { PALETTE } from "./palette";
 import type { MaterialMode, ModelLibrary } from "./models";
 import { PLATE_SIZE, PLATE_TOP, buildTile } from "./tileMeshes";
@@ -66,6 +68,10 @@ export class World {
   edgesAround: (x: number, y: number) => (Edge | undefined)[] = () => [];
   private readonly drops: Drop[] = [];
   private ghost: Mesh | null = null;
+  private readonly edgeMarks = new Group();
+  private readonly matchMaterial = new MeshBasicMaterial({ color: PALETTE.edgeMatch, transparent: true, opacity: 0.9 });
+  private readonly mismatchMaterial = new MeshBasicMaterial({ color: PALETTE.edgeMismatch, transparent: true, opacity: 0.9 });
+  private readonly markGeometry = new BoxGeometry(0.82, 0.02, 0.07);
   private ghostKey = "";
   private frontier: LineSegments | null = null;
   private readonly cursor: LineSegments;
@@ -122,7 +128,7 @@ export class World {
       new LineBasicMaterial({ color: PALETTE.frontier, transparent: true, opacity: 0.9 }),
     );
     this.cursor.visible = false;
-    this.scene.add(this.cursor);
+    this.scene.add(this.cursor, this.edgeMarks);
 
     this.resize();
     window.addEventListener("resize", () => this.resize());
@@ -216,10 +222,26 @@ export class World {
     this.ghostPending = pending;
     this.scene.add(this.ghost);
     this.ghostKey = key;
+    this.showEdgeMarks(tile, rot, x, y);
+  }
+
+  private showEdgeMarks(tile: TileDef, rot: Rot, x: number, y: number): void {
+    this.edgeMarks.clear();
+    const around = this.edgesAround(x, y);
+    for (const d of DIRS) {
+      const theirs = around[d];
+      if (theirs === undefined) continue;
+      const mark = new Mesh(this.markGeometry, edgeOf(tile, rot, d) === theirs ? this.matchMaterial : this.mismatchMaterial);
+      mark.position.set(x + DX[d] * 0.5, PLATE_TOP + 0.012, y + DY[d] * 0.5);
+      mark.rotation.y = d % 2 === 0 ? 0 : Math.PI / 2;
+      mark.renderOrder = 2;
+      this.edgeMarks.add(mark);
+    }
   }
 
   hideGhost(): void {
     this.cursor.visible = false;
+    this.edgeMarks.clear();
     if (!this.ghost) return;
     this.scene.remove(this.ghost);
     this.disposeMesh(this.ghost);
@@ -283,6 +305,9 @@ export class World {
       this.viewHeight += (this.targetViewHeight - this.viewHeight) * 0.06;
       this.updateFrustum();
     }
+    const pulse = 0.65 + Math.sin(now / 220) * 0.25;
+    this.matchMaterial.opacity = pulse;
+    this.mismatchMaterial.opacity = pulse;
     if (this.ghost && this.ghostPending) this.ghost.position.y = 0.16 + Math.sin(now / 260) * 0.03;
     this.controls.update();
     const tgt = this.controls.target;
