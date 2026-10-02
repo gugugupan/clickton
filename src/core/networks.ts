@@ -124,7 +124,7 @@ export function isMeadow(p: Placed): boolean {
 }
 
 export function isPond(p: Placed): boolean {
-  return p.tile.key === "lake";
+  return p.tile.key === "lake" || !!p.tile.pool;
 }
 
 export function grassExits(board: Board, x: number, y: number): Dir[] {

@@ -216,6 +216,16 @@ export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (
     occupy(-1, 0);
     occupy(0, 1);
   }
+  if (tile.pool) {
+    b.cylinder(0.27, 0.02, 0, PLATE_TOP, 0, PALETTE.platform, 24);
+    b.cylinder(0.23, 0.026, 0, PLATE_TOP, 0, PALETTE.water, 24);
+    b.cylinder(0.08, 0.004, 0.06, PLATE_TOP + 0.026, -0.05, PALETTE.waterLight, 12);
+    for (let i = 0; i < 2; i++) {
+      const a = rng() * Math.PI * 2, r = 0.08 + rng() * 0.1;
+      prop(pick(rng, LILIES), Math.cos(a) * r, Math.sin(a) * r, { fit: 0.07, lift: 0.026, rotY: rng() * Math.PI * 2 });
+    }
+    occupy(0, 0);
+  }
   if (tile.halt) {
     b.box(0.14, 0.05, 0.92, -0.24, PLATE_TOP, 0, PALETTE.platform);
     prop("canopy_wide", -0.25, 0, { size: { x: 0.88, y: 0.2, z: 0.16 }, rotY: Math.PI / 2, lift: 0.05 });

@@ -75,6 +75,16 @@ export function drawTilePreview(canvas: HTMLCanvasElement, tile: TileDef, rot: R
     g.fillStyle = css(PALETTE.bufferStop);
     g.fillRect(-0.08, 0.06, 0.16, 0.06);
   }
+  if (tile.pool) {
+    g.fillStyle = css(PALETTE.platform);
+    g.beginPath();
+    g.arc(0, 0, 0.28, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = css(PALETTE.water);
+    g.beginPath();
+    g.arc(0, 0, 0.23, 0, Math.PI * 2);
+    g.fill();
+  }
   if (tile.halt) {
     g.fillStyle = css(PALETTE.platform);
     g.fillRect(-0.32, -0.46, 0.14, 0.92);

@@ -2,6 +2,7 @@ import "./style.css";
 import { playChime, playPlace, playPop } from "./audio";
 import { decodeCity, encodeCity } from "./core/codec";
 import { Game } from "./core/game";
+import { moodFor } from "./core/themes";
 import { mulberry32, randomSeed } from "./core/rng";
 import { POINTS, countHoleCells, type PlacementScore } from "./core/scoring";
 import { DIRS, DX, DY, TILES, opposite, tileByKey, type Rot } from "./core/tiles";
@@ -60,7 +61,7 @@ async function restore(): Promise<Game> {
     }
   }
   const demo = import.meta.env.DEV ? Number(new URLSearchParams(location.search).get("demo")) : 0;
-  if (demo > 0) return demoTown(demo);
+  if (demo > 0) return demoTown(demo, new URLSearchParams(location.search).get("theme"));
   const saved = loadLocal();
   if (saved) {
     try {
@@ -70,8 +71,10 @@ async function restore(): Promise<Game> {
   return new Game(randomSeed());
 }
 
-function demoTown(n: number): Game {
-  const g = new Game(randomSeed());
+function demoTown(n: number, theme: string | null): Game {
+  let seed = randomSeed();
+  while (theme && moodFor(seed).theme.key !== theme) seed = randomSeed();
+  const g = new Game(seed);
   const rnd = mulberry32(g.seed);
   for (let i = 0; i < n; i++) {
     const cells = g.board.frontier().sort((a, b) => Math.hypot(a.x, a.y) - Math.hypot(b.x, b.y));
@@ -129,6 +132,7 @@ function applyI18n(): void {
 function switchLang(l: Lang): void {
   setLang(l);
   applyI18n();
+  refreshStats();
 }
 
 function refreshTray(): void {
@@ -137,7 +141,19 @@ function refreshTray(): void {
   $("tile-name").textContent = t(`tile_${tile.key}` as Parameters<typeof t>[0]);
 }
 
+function themeLabel(): string {
+  const mood = game.mood;
+  return mood ? `${mood.theme.emoji} ${t(`theme_${mood.theme.key}` as Parameters<typeof t>[0])}` : "";
+}
+
+function announceTheme(): void {
+  const mood = game.mood;
+  if (!mood) return;
+  toast(`${t("themeIntro", themeLabel())} — ${t(`theme_${mood.theme.key}_desc` as Parameters<typeof t>[0])}`, 4500);
+}
+
 function refreshStats(): void {
+  $("theme").textContent = themeLabel();
   $("score").textContent = String(game.score);
   $("tiles").textContent = String(game.board.size);
   $("holes").textContent = String(holes);
@@ -255,12 +271,12 @@ function floatText(x: number, y: number, text: string, color: string): void {
   setTimeout(() => el.remove(), 950);
 }
 
-function toast(text: string): void {
+function toast(text: string, ms = 2400): void {
   const el = $("toast");
   el.textContent = text;
   el.classList.add("show");
   clearTimeout(Number(el.dataset.timer));
-  el.dataset.timer = String(setTimeout(() => el.classList.remove("show"), 2400));
+  el.dataset.timer = String(setTimeout(() => el.classList.remove("show"), ms));
 }
 
 async function shareTown(): Promise<void> {
@@ -350,6 +366,7 @@ function newTown(): void {
   refreshStats();
   refreshTray();
   updateGhost();
+  announceTheme();
 }
 
 let snapTargets: Cell[] = [];
@@ -513,6 +530,7 @@ applyI18n();
 rebuildWorld();
 refreshStats();
 if (badLink) toast(t("badLink"));
+else if (viewing || game.moves.length === 0) announceTheme();
 
 let previewTransform = "";
 

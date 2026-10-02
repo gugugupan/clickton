@@ -106,7 +106,7 @@ describe("game", () => {
     const g = new Game(7);
     expect(g.board.get(0, 0)?.tile.id).toBe(STARTER_TILE);
     expect(tileForStep(7, 3)).toBe(tileForStep(7, 3));
-    const kinds = new Set(Array.from({ length: 400 }, (_, i) => tileForStep(123, i)));
+    const kinds = new Set(Array.from({ length: 3000 }, (_, i) => tileForStep(123, i)));
     expect(kinds.size).toBe(TILES.length);
   });
 

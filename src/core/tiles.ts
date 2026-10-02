@@ -1,3 +1,5 @@
+import { themedWeights } from "./themes";
+
 export type Edge = "grass" | "road" | "rail" | "water" | "city";
 export type Dir = 0 | 1 | 2 | 3;
 export type Rot = 0 | 1 | 2 | 3;
@@ -24,6 +26,7 @@ export interface TileDef {
   station?: boolean;
   halt?: boolean;
   house?: boolean;
+  pool?: boolean;
 }
 
 type TileSpec = Omit<TileDef, "id">;
@@ -78,21 +81,27 @@ const SPECS: TileSpec[] = [
     groups: [{ type: L, dirs: [0, 2] }, { type: W, dirs: [1, 3] }],
     weight: 1,
   },
+  { key: "pool", edges: [G, G, G, G], groups: [], weight: 2, pool: true },
 ];
 
 export const TILES: readonly TileDef[] = SPECS.map((s, id) => ({ ...s, id }));
 
-export const RULES_VERSION = 2;
+export const RULES_VERSION = 3;
 
 const LEGACY_WEIGHTS: Record<number, Record<string, number>> = {
+  2: { grass: 6, road_straight: 10, road_curve: 8, road_t: 6, road_cross: 4, rail_straight: 7, rail_curve: 8, station: 2, station_road: 2, station_through: 5, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1 },
   1: { grass: 10, road_straight: 7, road_curve: 6, road_t: 3, road_cross: 1, rail_straight: 6, rail_curve: 5, station: 1, station_road: 1, station_through: 3, city_edge: 5, city_corner: 4, city_full: 2, city_road: 4, house_road: 4, river_straight: 4, river_curve: 3, lake: 2, level_crossing: 1, road_bridge: 1, rail_bridge: 1 },
 };
 
-export function weightsFor(version: number): number[] {
+export function baseWeights(version: number): number[] {
   if (version === RULES_VERSION) return TILES.map((t) => t.weight);
   const legacy = LEGACY_WEIGHTS[version];
   if (!legacy) throw new Error(`unknown rules version ${version}`);
   return TILES.map((t) => legacy[t.key] ?? 0);
+}
+
+export function weightsFor(version: number, seed: number): number[] {
+  return version >= 3 ? themedWeights(TILES, seed) : baseWeights(version);
 }
 
 export function isKnownVersion(version: number): boolean {

@@ -1,18 +1,21 @@
 import type { Move } from "./game";
-import { RULES_VERSION, TILES, isKnownVersion, weightsFor, type Rot } from "./tiles";
+import { moodFor, THEMES } from "./themes";
+import { RULES_VERSION, TILES, baseWeights, isKnownVersion, type Rot } from "./tiles";
 
 export const CODEC_VERSION = RULES_VERSION;
 
 export const TILESET_FINGERPRINTS: Record<number, string> = {
   1: "e1ff7eb5",
   2: "550aafc3",
+  3: "7eafaf96",
 };
 
 export function tilesetFingerprint(version = CODEC_VERSION): string {
-  const weights = weightsFor(version);
-  const text = TILES.filter((_, i) => weights[i] > 0)
+  const weights = baseWeights(version);
+  const tiles = TILES.filter((_, i) => weights[i] > 0)
     .map((t) => `${t.key}:${weights[t.id]}:${t.edges.join(",")}`)
     .join("|");
+  const text = version >= 3 ? `${tiles}#${JSON.stringify(THEMES)}#${moodFor(1).jitter.city.toFixed(6)}` : tiles;
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193) >>> 0;
   return h.toString(16).padStart(8, "0");

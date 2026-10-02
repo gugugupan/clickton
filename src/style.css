@@ -148,6 +148,17 @@ body {
   display: none;
 }
 
+.theme-line {
+  margin-top: 6px;
+  font-family: var(--font-title);
+  font-size: 13px;
+  color: var(--text);
+}
+
+.theme-line:empty {
+  display: none;
+}
+
 .stats {
   display: flex;
   gap: 18px;

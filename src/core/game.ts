@@ -1,6 +1,7 @@
 import { Board, type Placed } from "./board";
 import { hash, mulberry32 } from "./rng";
 import { scorePlacement, type PlacementScore } from "./scoring";
+import { moodFor, type WorldMood } from "./themes";
 import { RULES_VERSION, STARTER_TILE, TILES, weightsFor, type Rot } from "./tiles";
 
 export interface Move {
@@ -9,20 +10,22 @@ export interface Move {
   rot: Rot;
 }
 
-const weightCache = new Map<number, { weights: number[]; total: number }>();
+const weightCache = new Map<string, { weights: number[]; total: number }>();
 
-function weightTable(version: number): { weights: number[]; total: number } {
-  let table = weightCache.get(version);
+function weightTable(version: number, seed: number): { weights: number[]; total: number } {
+  const key = version >= 3 ? `${version}:${seed}` : String(version);
+  let table = weightCache.get(key);
   if (!table) {
-    const weights = weightsFor(version);
+    const weights = weightsFor(version, seed);
     table = { weights, total: weights.reduce((a, b) => a + b, 0) };
-    weightCache.set(version, table);
+    if (weightCache.size > 64) weightCache.clear();
+    weightCache.set(key, table);
   }
   return table;
 }
 
 export function tileForStep(seed: number, step: number, version = RULES_VERSION): number {
-  const { weights, total } = weightTable(version);
+  const { weights, total } = weightTable(version, seed);
   let r = mulberry32(hash(seed, step))() * total;
   for (let i = 0; i < weights.length; i++) {
     r -= weights[i];
@@ -51,6 +54,10 @@ export class Game {
 
   get step(): number {
     return this.moves.length;
+  }
+
+  get mood(): WorldMood | null {
+    return this.version >= 3 ? moodFor(this.seed) : null;
   }
 
   get currentTile(): number {

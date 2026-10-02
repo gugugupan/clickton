@@ -8,6 +8,7 @@ Inspired by LEGO Loco and Carcassonne. Not affiliated with the LEGO Group.
 
 - Tile edges: grass, road, rail, water, city. Loose matching — any tile can go next to any tile; only matching edges score.
 - Score per placement: +1 per matching edge (+2 for city), +3 when all four neighbours match, −2 per newly enclosed empty cell (refunded when filled).
+- Every new town rolls a world theme from its seed (Classic, Metropolis, Railway country, Waterside, Countryside, Crossroads, Quiet village) plus a ±20 % jitter per tile category, so each game feels different.
 - Share links store the seed and the move sequence (`#c=...`), so a 500-tile town is about 1.1 KB of URL.
 
 ## Development

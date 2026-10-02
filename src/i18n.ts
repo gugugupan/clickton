@@ -72,6 +72,22 @@ const STRINGS = {
   tile_river_straight: { en: "River", zh: "河流", ja: "川" },
   tile_river_curve: { en: "River bend", zh: "河湾", ja: "川の曲がり" },
   tile_lake: { en: "Pond", zh: "池塘", ja: "池" },
+  tile_pool: { en: "Garden pool", zh: "小水池", ja: "小さな池" },
+  theme_classic: { en: "Classic", zh: "经典", ja: "クラシック" },
+  theme_classic_desc: { en: "A bit of everything", zh: "什么都有一点", ja: "なんでも少しずつ" },
+  theme_metropolis: { en: "Metropolis", zh: "繁华都市", ja: "大都会" },
+  theme_metropolis_desc: { en: "Towers everywhere", zh: "高楼林立", ja: "ビルが立ち並ぶ" },
+  theme_railway: { en: "Railway country", zh: "铁路之乡", ja: "鉄道の里" },
+  theme_railway_desc: { en: "Tracks criss-cross the land — loops come easy", zh: "铁轨纵横，环线更好修", ja: "線路だらけ。環状線を作りやすい" },
+  theme_waterside: { en: "Waterside", zh: "湖光水乡", ja: "水の郷" },
+  theme_waterside_desc: { en: "Rivers and lakes all around", zh: "河流湖泊遍布", ja: "川と湖がいっぱい" },
+  theme_countryside: { en: "Countryside", zh: "田园牧歌", ja: "のどかな田園" },
+  theme_countryside_desc: { en: "Meadows and lots of animals", zh: "草地多，小动物多", ja: "草原と動物がいっぱい" },
+  theme_crossroads: { en: "Crossroads", zh: "交通枢纽", ja: "交通の要所" },
+  theme_crossroads_desc: { en: "Junctions everywhere, busy streets", zh: "路口密集，车来车往", ja: "交差点だらけで車がいっぱい" },
+  theme_village: { en: "Quiet village", zh: "宁静小镇", ja: "静かな村" },
+  theme_village_desc: { en: "Cottages and low houses", zh: "低矮民居为主", ja: "小さな家が中心" },
+  themeIntro: { en: "This world: %s", zh: "本局主题：%s", ja: "今回の世界：%s" },
   tile_level_crossing: { en: "Level crossing", zh: "平交道口", ja: "踏切" },
   tile_road_bridge: { en: "Road bridge", zh: "公路桥", ja: "道路橋" },
   tile_rail_bridge: { en: "Rail bridge", zh: "铁路桥", ja: "鉄橋" },
@@ -109,7 +125,7 @@ export function setLang(lang: Lang): void {
 
 export function t(key: StringKey, ...args: (string | number)[]): string {
   let s = STRINGS[key][current];
-  for (const a of args) s = s.replace("%d", String(a));
+  for (const a of args) s = s.replace(/%[ds]/, String(a));
   return s;
 }
 
