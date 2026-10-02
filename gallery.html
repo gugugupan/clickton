@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clickton asset picker</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Noto+Sans+SC:wght@500;700&display=swap" rel="stylesheet" />
+  </head>
+  <body>
+    <header class="bar">
+      <div>
+        <h1>Clickton 素材挑选</h1>
+        <p id="status">加载中…</p>
+      </div>
+      <div class="controls">
+        <label class="toggle"><input type="checkbox" id="soft" checked /> 柔和配色</label>
+        <input id="filter" type="search" placeholder="搜索，如 tree / train / house" />
+      </div>
+    </header>
+    <section class="picked">
+      <div class="picked-head">
+        <strong>已选 <span id="count">0</span> 个</strong>
+        <button id="copy">复制清单</button>
+        <button id="clear" class="ghost">清空</button>
+      </div>
+      <div id="picked-list" class="chips"></div>
+    </section>
+    <main id="packs"></main>
+    <script type="module" src="/src/gallery/main.ts"></script>
+  </body>
+</html>
