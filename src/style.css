@@ -606,3 +606,25 @@ body.replaying #skip {
   pointer-events: none;
   z-index: 30;
 }
+
+.photo-bar {
+  display: none;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  padding: 10px 12px;
+  gap: 10px;
+  align-items: center;
+}
+
+.photo-bar .pill {
+  flex: none;
+}
+
+body.photo #hud > *:not(.photo-bar):not(.toast) {
+  display: none !important;
+}
+
+body.photo .photo-bar {
+  display: flex;
+}

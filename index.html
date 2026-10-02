@@ -5,6 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no" />
     <meta name="theme-color" content="#F6F1E9" />
     <title>Clickton</title>
+    <meta name="description" content="An endless, cozy brick town: click tiles together, finish railways and roads, and watch trains, people and animals come alive." />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Clickton · 咔哒镇 · カチッとタウン" />
+    <meta property="og:description" content="An endless, cozy brick town. Click tiles together and watch it come alive." />
+    <meta property="og:image" content="https://gugugupan.github.io/clickton/og-image.jpg" />
+    <meta property="og:url" content="https://gugugupan.github.io/clickton/" />
+    <meta name="twitter:card" content="summary_large_image" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -33,6 +40,7 @@
       <nav class="card menu">
         <div class="langs" id="langs"></div>
         <button id="time" class="round small-round"></button>
+        <button id="photo" class="round small-round" data-i18n-label="photoMode">📷</button>
         <button id="share" class="soft share" data-i18n="share"></button>
         <button id="new-town" class="soft ghost" data-i18n="newTown"></button>
         <button id="build-own" class="soft" data-i18n="buildOwn"></button>
@@ -68,6 +76,11 @@
         <span id="replay-progress" class="progress"></span>
         <button id="replay" class="pill confirm">▶ <span data-i18n="replay"></span></button>
         <button id="skip" class="pill cancel" data-i18n="skip"></button>
+      </section>
+      <section id="photo-bar" class="card photo-bar">
+        <button id="photo-save" class="pill confirm">💾 <span data-i18n="savePhoto"></span></button>
+        <button id="photo-time" class="round small-round"></button>
+        <button id="photo-exit" class="pill cancel">✕ <span data-i18n="exitPhoto"></span></button>
       </section>
       <p id="help" class="help"></p>
       <div id="toast" class="toast" role="status"></div>

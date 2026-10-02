@@ -14,6 +14,7 @@ import { lookFor } from "./render/looks";
 import { World } from "./render/scene";
 import { Agents } from "./render/agents";
 import { loadLocal, saveLocal } from "./save";
+import { download, framePhoto, toBlob } from "./ui/photo";
 import { drawTilePreview } from "./ui/tilePreview";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -304,12 +305,40 @@ function toast(text: string, ms = 2400): void {
   el.dataset.timer = String(setTimeout(() => el.classList.remove("show"), ms));
 }
 
+function townPhoto(scale: number): HTMLCanvasElement {
+  world.hideGhost();
+  const mood = game.mood;
+  return framePhoto(world.capture(scale), {
+    title: t("gameName"),
+    subtitle: mood ? themeLabel() : t("tagline"),
+    stats: t("photoStats", game.score, game.board.size),
+  });
+}
+
+function setPhoto(on: boolean): void {
+  document.body.classList.toggle("photo", on);
+  world.setPhotoMode(on);
+  pending = null;
+  hover = null;
+  updateGhost();
+}
+
+async function savePhoto(): Promise<void> {
+  const blob = await toBlob(townPhoto(2));
+  download(blob, `clickton-${new Date().toISOString().slice(0, 10)}.png`);
+  playChime();
+  toast(t("photoSaved"));
+}
+
 async function shareTown(): Promise<void> {
   const code = await encodeCity({ version: game.linkVersion, seed: game.seed, moves: game.moves });
   const url = `${location.origin}${location.pathname}#c=${code}`;
   if (coarse && navigator.share) {
     try {
-      await navigator.share({ title: t("gameName"), text: t("shareText", game.score), url });
+      const file = new File([await toBlob(townPhoto(1.5))], "clickton.png", { type: "image/png" });
+      const data: ShareData = { title: t("gameName"), text: t("shareText", game.score), url };
+      if (navigator.canShare?.({ ...data, files: [file] })) data.files = [file];
+      await navigator.share(data);
       return;
     } catch (e) {
       if ((e as Error).name === "AbortError") return;
@@ -445,7 +474,7 @@ function trackGesture(e: PointerEvent): Gesture | null {
 canvas.addEventListener(
   "pointerdown",
   (e) => {
-    if (viewing) return;
+    if (viewing || document.body.classList.contains("photo")) return;
     if (gesture) {
       gesture.moved = true;
       return;
@@ -466,7 +495,7 @@ canvas.addEventListener("pointermove", (e) => {
     if (g.dragTile && g.moved) dragTileTo(e.clientX, e.clientY);
     return;
   }
-  if (viewing || e.pointerType !== "mouse" || pending) return;
+  if (viewing || document.body.classList.contains("photo") || e.pointerType !== "mouse" || pending) return;
   const c = world.pickCell(e.clientX, e.clientY);
   if (sameCell(c, hover)) return;
   hover = c;
@@ -529,7 +558,11 @@ trayTile.addEventListener("pointerup", endTrayGesture);
 trayTile.addEventListener("pointercancel", endTrayGesture);
 
 window.addEventListener("keydown", (e) => {
-  if (viewing) return;
+  if (e.key === "Escape" && document.body.classList.contains("photo")) {
+    setPhoto(false);
+    return;
+  }
+  if (viewing || document.body.classList.contains("photo")) return;
   if (e.key === "r" || e.key === "R" || e.key === "e" || e.key === "E") rotate(1);
   if (e.key === "q" || e.key === "Q") rotate(-1);
   if (e.key === "Enter" || e.key === " ") {
@@ -601,10 +634,16 @@ try {
 function refreshTimeButton(): void {
   const b = $("time");
   b.textContent = TIME_ICON[dayNight.mode];
+  $("photo-time").textContent = TIME_ICON[dayNight.mode];
   const label = t(dayNight.mode === "auto" ? "timeAuto" : dayNight.mode === "day" ? "timeDay" : "timeNight");
   b.title = label;
   b.setAttribute("aria-label", label);
 }
+
+$("photo").addEventListener("click", () => setPhoto(true));
+$("photo-exit").addEventListener("click", () => setPhoto(false));
+$("photo-save").addEventListener("click", () => void savePhoto());
+$("photo-time").addEventListener("click", () => $("time").click());
 
 $("time").addEventListener("click", () => {
   dayNight.mode = dayNight.mode === "auto" ? "day" : dayNight.mode === "day" ? "night" : "auto";

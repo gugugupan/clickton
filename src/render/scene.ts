@@ -459,6 +459,29 @@ export class World {
     return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
   }
 
+  setPhotoMode(on: boolean): void {
+    this.controls.maxPolarAngle = on ? 1.38 : 1.15;
+    this.controls.minZoom = on ? 0.25 : 0.35;
+    this.controls.maxZoom = on ? 6 : 3.5;
+  }
+
+  capture(scale: number): HTMLCanvasElement {
+    const ratio = this.renderer.getPixelRatio();
+    const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
+    this.renderer.setPixelRatio(Math.min(3, ratio * scale));
+    this.renderer.setSize(w, h, false);
+    this.glowMaterial.size = GLOW_SIZE * this.pixelsPerUnit() * this.renderer.getPixelRatio();
+    this.renderer.shadowMap.needsUpdate = true;
+    this.renderer.render(this.scene, this.camera);
+    const out = document.createElement("canvas");
+    out.width = this.canvas.width;
+    out.height = this.canvas.height;
+    out.getContext("2d")!.drawImage(this.canvas, 0, 0);
+    this.renderer.setPixelRatio(ratio);
+    this.renderer.setSize(w, h, false);
+    return out;
+  }
+
   pixelsPerUnit(): number {
     return (this.canvas.clientHeight * this.camera.zoom) / (this.camera.top - this.camera.bottom);
   }
