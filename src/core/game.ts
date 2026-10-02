@@ -2,6 +2,7 @@ import { Board, type Placed } from "./board";
 import { hash, mulberry32 } from "./rng";
 import { scorePlacement, type PlacementScore } from "./scoring";
 import { balancedWeights } from "./balance";
+import { CHALLENGE_TILES, seedForDay } from "./daily";
 import { moodFor, type WorldMood } from "./themes";
 import { RULES_VERSION, STARTER_TILE, TILES, weightsFor, type Rot } from "./tiles";
 
@@ -14,6 +15,8 @@ export interface Move {
 }
 
 export const EXPLICIT_FLAG = 0x80;
+export const CHALLENGE_FLAG = 0x40;
+export const VERSION_MASK = 0x3f;
 
 export const DISCARD_EVERY = 10;
 export const DISCARD_MAX = 1;
@@ -57,31 +60,46 @@ export class Game {
   private charges = 0;
 
   readonly explicit: boolean;
+  readonly challenge: boolean;
   readonly version: number;
 
   constructor(
     readonly seed: number,
     version = RULES_VERSION,
+    readonly day = 0,
   ) {
     this.explicit = (version & EXPLICIT_FLAG) !== 0;
-    this.version = version & ~EXPLICIT_FLAG;
+    this.challenge = (version & CHALLENGE_FLAG) !== 0;
+    this.version = version & VERSION_MASK;
     if (this.explicit) return;
     this.board.place(STARTER_TILE, 0, 0, 0);
     if (this.queued) this.queue.push(this.draw(0), this.draw(1));
   }
 
   get linkVersion(): number {
-    return this.explicit ? this.version | EXPLICIT_FLAG : this.version;
+    return this.version | (this.explicit ? EXPLICIT_FLAG : 0) | (this.challenge ? CHALLENGE_FLAG : 0);
   }
 
-  static replay(seed: number, moves: readonly Move[], version = RULES_VERSION): Game {
-    const g = new Game(seed, version);
+  get finished(): boolean {
+    return this.challenge && this.placements >= CHALLENGE_TILES;
+  }
+
+  get remaining(): number {
+    return Math.max(0, CHALLENGE_TILES - this.placements);
+  }
+
+  static daily(day: number): Game {
+    return new Game(seedForDay(day), RULES_VERSION | CHALLENGE_FLAG, day);
+  }
+
+  static replay(seed: number, moves: readonly Move[], version = RULES_VERSION, day = 0): Game {
+    const g = new Game(seed, version, day);
     for (const m of moves) g.apply(m);
     return g;
   }
 
   restart(): Game {
-    return new Game(this.seed, this.linkVersion);
+    return new Game(this.seed, this.linkVersion, this.day);
   }
 
   apply(m: Move): Placed | null {
@@ -143,6 +161,7 @@ export class Game {
   }
 
   place(x: number, y: number, rot: Rot): { placed: Placed; score: PlacementScore } {
+    if (this.finished) throw new Error("the daily challenge is over");
     const tileId = this.currentTile;
     if (!this.board.canPlace(x, y)) throw new Error(`cannot place at ${x},${y}`);
     const score = scorePlacement(this.board, tileId, rot, x, y);

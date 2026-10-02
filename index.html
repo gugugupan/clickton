@@ -41,7 +41,10 @@
         <div class="langs" id="langs"></div>
         <button id="time" class="round small-round"></button>
         <button id="photo" class="round small-round" data-i18n-label="photoMode">📷</button>
+        <button id="help-btn" class="round small-round" data-i18n-label="helpBtn">?</button>
         <button id="share" class="soft share" data-i18n="share"></button>
+        <button id="daily" class="soft ghost" data-i18n="dailyChallenge"></button>
+        <button id="back-town" class="soft ghost" data-i18n="backToTown"></button>
         <button id="new-town" class="soft ghost" data-i18n="newTown"></button>
         <button id="build-own" class="soft" data-i18n="buildOwn"></button>
       </nav>
@@ -72,10 +75,35 @@
         </div>
       </section>
       <section id="viewer-bar" class="card viewer-bar">
-        <span data-i18n="viewing"></span>
+        <span id="viewer-label" data-i18n="viewing"></span>
         <span id="replay-progress" class="progress"></span>
         <button id="replay" class="pill confirm">▶ <span data-i18n="replay"></span></button>
         <button id="skip" class="pill cancel" data-i18n="skip"></button>
+        <button id="try-daily" class="pill confirm" data-i18n="tryDaily"></button>
+      </section>
+      <section id="result" class="result-backdrop">
+        <div class="card result-card">
+          <h2 data-i18n="dailyDone"></h2>
+          <div id="result-date" class="label"></div>
+          <div id="result-score" class="result-score"></div>
+          <div id="result-stats" class="label"></div>
+          <div id="result-best" class="label"></div>
+          <div class="result-actions">
+            <button id="result-share" class="pill confirm" data-i18n="shareResult"></button>
+            <button id="result-again" class="pill cancel" data-i18n="playAgain"></button>
+            <button id="result-close" class="pill cancel" data-i18n="backToTown"></button>
+          </div>
+        </div>
+      </section>
+      <section id="tutorial" class="tutorial">
+        <div class="card tut-card">
+          <p id="tut-text"></p>
+          <div class="tut-actions">
+            <span id="tut-step" class="label"></span>
+            <button id="tut-skip" class="pill cancel"></button>
+            <button id="tut-next" class="pill confirm"></button>
+          </div>
+        </div>
       </section>
       <section id="photo-bar" class="card photo-bar">
         <button id="photo-save" class="pill confirm">💾 <span data-i18n="savePhoto"></span></button>

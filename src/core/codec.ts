@@ -1,4 +1,4 @@
-import { EXPLICIT_FLAG, type Move } from "./game";
+import { CHALLENGE_FLAG, EXPLICIT_FLAG, VERSION_MASK, type Move } from "./game";
 import { BALANCE } from "./balance";
 import { moodFor, SPECIAL_BOOST, THEMES } from "./themes";
 import { RULES_VERSION, TILES, baseWeights, isKnownVersion, type Rot } from "./tiles";
@@ -32,6 +32,7 @@ export interface SavedCity {
   version: number;
   seed: number;
   moves: Move[];
+  day?: number;
 }
 
 const zigzag = (n: number) => (n << 1) ^ (n >> 31);
@@ -74,10 +75,11 @@ export function packCity(city: SavedCity): Uint8Array {
   const out: number[] = [city.version];
   const s = city.seed >>> 0;
   out.push(s & 0xff, (s >>> 8) & 0xff, (s >>> 16) & 0xff, (s >>> 24) & 0xff);
+  if (city.version & CHALLENGE_FLAG) writeVarint(out, city.day ?? 0);
   writeVarint(out, city.moves.length);
   let px = 0, py = 0;
   const explicit = (city.version & EXPLICIT_FLAG) !== 0;
-  const flags = (city.version & ~EXPLICIT_FLAG) >= 5;
+  const flags = (city.version & VERSION_MASK) >= 5;
   for (const m of city.moves) {
     if (m.skip && !flags) throw new Error("discards need rules v5");
     if (m.skip) {
@@ -97,12 +99,13 @@ export function unpackCity(bytes: Uint8Array): SavedCity {
   const r = new Reader(bytes);
   const version = r.byte();
   const explicit = (version & EXPLICIT_FLAG) !== 0;
-  if (!isKnownVersion(version & ~EXPLICIT_FLAG)) throw new Error(`unsupported version ${version}`);
+  if (!isKnownVersion(version & VERSION_MASK)) throw new Error(`unsupported version ${version}`);
   const seed = (r.byte() | (r.byte() << 8) | (r.byte() << 16) | (r.byte() << 24)) >>> 0;
+  const day = version & CHALLENGE_FLAG ? r.varint() : undefined;
   const count = r.varint();
   const moves: Move[] = [];
   let px = 0, py = 0;
-  const flags = (version & ~EXPLICIT_FLAG) >= 5;
+  const flags = (version & VERSION_MASK) >= 5;
   for (let i = 0; i < count; i++) {
     const a = r.varint();
     if (flags && a & 4) {
@@ -120,7 +123,7 @@ export function unpackCity(bytes: Uint8Array): SavedCity {
     py = y;
   }
   if (!r.done) throw new Error("trailing data");
-  return { version, seed, moves };
+  return day === undefined ? { version, seed, moves } : { version, seed, moves, day };
 }
 
 async function pipe(bytes: Uint8Array, stream: CompressionStream | DecompressionStream): Promise<Uint8Array> {

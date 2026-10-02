@@ -9,6 +9,8 @@ Inspired by LEGO Loco and Carcassonne. Not affiliated with the LEGO Group.
 - Tile edges: grass, road, rail, water, city. Loose matching — any tile can go next to any tile; only matching edges score.
 - Score per placement: +1 per matching edge (+2 for city), +3 when all four neighbours match, plus a rail bonus when a line or loop is completed.
 - Every new town rolls a world theme from its seed (Classic, Metropolis, Railway country, Waterside, Countryside, Crossroads, Quiet village) plus a ±20 % jitter per tile category, so each game feels different.
+- Daily challenge: everyone gets the same 60 tiles each day (Japan time); share your result link to compare.
+- Day and night cycle (4 minutes), photo mode with framed PNG export, first-visit tutorial (replay with "?").
 - Share links store the seed and the move sequence (`#c=...`), so a 500-tile town is about 1.1 KB of URL.
 
 ## Development
@@ -26,4 +28,4 @@ Code layout: `src/core/` is pure game logic (no three.js) and is fully unit-test
 
 3D models are CC0 packs: [KayKit](https://kaylousberg.com/game-assets) by Kay Lousberg (City Builder Bits street props, Medieval Hexagon props and water plants, Forest Nature Pack, Holiday Bits train) and [Kenney](https://kenney.nl) (City Kit Suburban houses, City Kit Commercial shops and towers, Blocky Characters, Cube Pets). Only the models listed in `src/render/assets.json` are committed under `public/models/` (each pack keeps its license file). To refresh them, put the original packs in `assets-raw/` (gitignored) and run `npm run assets`. Base plates, roads, rails, water and end caps are generated in code.
 
-Dev helpers: `/?demo=300` builds a random 300-tile town (dev server only); `/gallery.html` is the local asset picker.
+Dev helpers: `/?demo=300&theme=waterside` builds a random 300-tile town (dev server only); add `&stats` (works in production too) for fps / draw calls; `/gallery.html` is the local asset picker. `npm run assets` compresses models with gltf-transform (meshopt + quantization).

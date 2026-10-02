@@ -2,6 +2,8 @@ import "./style.css";
 import { playChime, playPlace, playPop } from "./audio";
 import { decodeCity, encodeCity } from "./core/codec";
 import { DISCARD_EVERY, Game } from "./core/game";
+import { dayLabel, todayNumber } from "./core/daily";
+import { completedRailLines, completedRoadNetworks } from "./core/networks";
 import { moodFor } from "./core/themes";
 import { mulberry32, randomSeed } from "./core/rng";
 import { POINTS, type PlacementScore } from "./core/scoring";
@@ -13,7 +15,8 @@ import { DayNight, type TimeMode } from "./render/daynight";
 import { lookFor } from "./render/looks";
 import { World } from "./render/scene";
 import { Agents } from "./render/agents";
-import { loadLocal, saveLocal } from "./save";
+import { loadLocal, recordScore, saveLocal } from "./save";
+import { startTutorial, tutorialSeen } from "./ui/tutorial";
 import { download, framePhoto, toBlob } from "./ui/photo";
 import { drawTilePreview } from "./ui/tilePreview";
 
@@ -60,22 +63,37 @@ async function restore(): Promise<Game> {
     try {
       const city = await decodeCity(code);
       viewing = true;
-      return Game.replay(city.seed, city.moves, city.version);
+      return Game.replay(city.seed, city.moves, city.version, city.day);
     } catch (e) {
       console.warn("could not open shared town", e);
       badLink = true;
       history.replaceState(null, "", location.pathname + location.search);
     }
   }
+  if (new URLSearchParams(location.search).has("daily")) {
+    history.replaceState(null, "", location.pathname);
+    return loadDaily();
+  }
   const demo = import.meta.env.DEV ? Number(new URLSearchParams(location.search).get("demo")) : 0;
   if (demo > 0) return demoTown(demo, new URLSearchParams(location.search).get("theme"));
   const saved = loadLocal();
   if (saved) {
     try {
-      return Game.replay(saved.seed, saved.moves, saved.version);
+      return Game.replay(saved.seed, saved.moves, saved.version, saved.day);
     } catch {}
   }
   return new Game(randomSeed());
+}
+
+function loadDaily(): Game {
+  const today = todayNumber();
+  const saved = loadLocal("daily");
+  if (saved && saved.day === today) {
+    try {
+      return Game.replay(saved.seed, saved.moves, saved.version, saved.day);
+    } catch {}
+  }
+  return Game.daily(today);
 }
 
 function demoTown(n: number, theme: string | null): Game {
@@ -181,7 +199,9 @@ function announceTheme(): void {
 }
 
 function refreshStats(): void {
-  $("theme").textContent = themeLabel();
+  const daily = game.challenge ? ` · 📅 ${t("tilesLeft", game.remaining)}` : "";
+  $("theme").textContent = themeLabel() + daily;
+  document.body.classList.toggle("daily", game.challenge && !viewing);
   $("score").textContent = String(game.score);
   $("tiles").textContent = String(game.board.size);
 }
@@ -258,6 +278,10 @@ function cancelPending(): void {
 }
 
 function place(x: number, y: number): void {
+  if (game.finished) {
+    showResult();
+    return;
+  }
   if (!game.board.canPlace(x, y)) return;
   const { placed, score } = game.place(x, y, rot);
   world.addTile(placed, true);
@@ -278,6 +302,35 @@ function place(x: number, y: number): void {
   refreshTray();
   if (coarse) hover = null;
   updateGhost();
+  if (game.finished) setTimeout(showResult, 900);
+}
+
+function switchGame(next: Game): void {
+  saveLocal(game);
+  game = next;
+  rot = 0;
+  hover = null;
+  pending = null;
+  rebuildWorld();
+  refreshStats();
+  refreshTray();
+  updateGhost();
+  announceTheme();
+  if (game.finished) showResult();
+}
+
+function showResult(): void {
+  const lines = completedRailLines(game.board);
+  const loops = lines.filter((l) => l.loop).length;
+  $("result-date").textContent = dayLabel(game.day);
+  $("result-score").textContent = String(game.score);
+  $("result-stats").textContent = t("resultStats", loops, lines.length - loops, completedRoadNetworks(game.board).length);
+  $("result-best").textContent = t("bestToday", recordScore(game.day, game.score));
+  $("result").classList.add("open");
+}
+
+function closeResult(): void {
+  $("result").classList.remove("open");
 }
 
 function floatScore(x: number, y: number, total: number): void {
@@ -331,12 +384,13 @@ async function savePhoto(): Promise<void> {
 }
 
 async function shareTown(): Promise<void> {
-  const code = await encodeCity({ version: game.linkVersion, seed: game.seed, moves: game.moves });
+  const code = await encodeCity({ version: game.linkVersion, seed: game.seed, moves: game.moves, day: game.day });
   const url = `${location.origin}${location.pathname}#c=${code}`;
+  const text = game.challenge ? t("shareDaily", dayLabel(game.day), game.score) : t("shareText", game.score);
   if (coarse && navigator.share) {
     try {
       const file = new File([await toBlob(townPhoto(1.5))], "clickton.png", { type: "image/png" });
-      const data: ShareData = { title: t("gameName"), text: t("shareText", game.score), url };
+      const data: ShareData = { title: t("gameName"), text, url };
       if (navigator.canShare?.({ ...data, files: [file] })) data.files = [file];
       await navigator.share(data);
       return;
@@ -589,6 +643,11 @@ setLang(getLang());
 applyI18n();
 rebuildWorld();
 refreshStats();
+if (viewing && game.challenge) {
+  document.body.classList.add("daily-link");
+  $("viewer-label").textContent = t("viewingDaily", dayLabel(game.day));
+}
+if (!viewing && !tutorialSeen() && !new URLSearchParams(location.search).has("demo")) startTutorial();
 if (badLink) toast(t("badLink"));
 else if (viewing || game.moves.length === 0) announceTheme();
 
@@ -641,6 +700,22 @@ function refreshTimeButton(): void {
 }
 
 $("photo").addEventListener("click", () => setPhoto(true));
+$("daily").addEventListener("click", () => switchGame(loadDaily()));
+$("back-town").addEventListener("click", () => {
+  closeResult();
+  const saved = loadLocal("town");
+  switchGame(saved ? Game.replay(saved.seed, saved.moves, saved.version, saved.day) : new Game(randomSeed()));
+});
+$("result-close").addEventListener("click", () => $("back-town").click());
+$("result-share").addEventListener("click", () => void shareTown());
+$("result-again").addEventListener("click", () => {
+  closeResult();
+  switchGame(Game.daily(todayNumber()));
+});
+$("try-daily").addEventListener("click", () => {
+  location.href = `${location.pathname}?daily`;
+});
+$("help-btn").addEventListener("click", startTutorial);
 $("photo-exit").addEventListener("click", () => setPhoto(false));
 $("photo-save").addEventListener("click", () => void savePhoto());
 $("photo-time").addEventListener("click", () => $("time").click());
