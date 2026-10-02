@@ -20,6 +20,7 @@ import {
   WebGLRenderer,
   BoxGeometry,
   MeshLambertMaterial,
+  Object3D,
 } from "three";
 import { MapControls } from "three/addons/controls/MapControls.js";
 import type { Placed } from "../core/board";
@@ -125,6 +126,10 @@ export class World {
 
     this.resize();
     window.addEventListener("resize", () => this.resize());
+  }
+
+  add(object: Object3D): void {
+    this.scene.add(object);
   }
 
   resize(): void {

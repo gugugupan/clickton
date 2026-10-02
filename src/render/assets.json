@@ -17,48 +17,228 @@
       "license": "forest-nature/KayKit_Forest_Nature_Pack_1.0_FREE/License.txt",
       "texture": "forest_texture.png",
       "soft": true
+    },
+    "holiday": {
+      "source": "holiday-bits/KayKit_Holiday_Bits_1.0_FREE/Assets/gltf",
+      "texture": "holiday_bits_texture.png",
+      "soft": true,
+      "licenseNote": "KayKit : Holiday Bits (1.0) by Kay Lousberg (www.kaylousberg.com). Released under CC0 1.0 Universal (public domain), as stated on https://kaylousberg.itch.io/holiday-bits. The free download does not include a license file."
     }
   },
   "models": {
-    "home_a": { "pack": "medieval", "file": "buildings/blue/building_home_A_blue.gltf" },
-    "home_b": { "pack": "medieval", "file": "buildings/blue/building_home_B_blue.gltf" },
-    "tavern": { "pack": "medieval", "file": "buildings/blue/building_tavern_blue.gltf" },
-    "blacksmith": { "pack": "medieval", "file": "buildings/blue/building_blacksmith_blue.gltf" },
-    "market": { "pack": "medieval", "file": "buildings/blue/building_market_blue.gltf" },
-    "tower": { "pack": "medieval", "file": "buildings/blue/building_tower_A_blue.gltf" },
-    "church": { "pack": "medieval", "file": "buildings/blue/building_church_blue.gltf" },
-    "windmill": { "pack": "medieval", "file": "buildings/blue/building_windmill_blue.gltf" },
-    "well": { "pack": "medieval", "file": "buildings/blue/building_well_blue.gltf" },
-    "watermill": { "pack": "medieval", "file": "buildings/blue/building_watermill_blue.gltf" },
-    "crate": { "pack": "medieval", "file": "decoration/props/crate_A_big.gltf" },
-    "barrel": { "pack": "medieval", "file": "decoration/props/barrel.gltf" },
-    "sack": { "pack": "medieval", "file": "decoration/props/sack.gltf" },
-    "wheelbarrow": { "pack": "medieval", "file": "decoration/props/wheelbarrow.gltf" },
-    "lily_a": { "pack": "medieval", "file": "decoration/nature/waterlily_A.gltf" },
-    "lily_b": { "pack": "medieval", "file": "decoration/nature/waterlily_B.gltf" },
-    "waterplant": { "pack": "medieval", "file": "decoration/nature/waterplant_A.gltf" },
-    "apartment_a": { "pack": "city", "file": "building_A.gltf" },
-    "apartment_b": { "pack": "city", "file": "building_B.gltf" },
-    "apartment_c": { "pack": "city", "file": "building_C.gltf" },
-    "apartment_d": { "pack": "city", "file": "building_D.gltf" },
-    "apartment_e": { "pack": "city", "file": "building_E.gltf" },
-    "apartment_f": { "pack": "city", "file": "building_F.gltf" },
-    "apartment_g": { "pack": "city", "file": "building_G.gltf" },
-    "apartment_h": { "pack": "city", "file": "building_H.gltf" },
-    "bench": { "pack": "city", "file": "bench.gltf" },
-    "streetlight": { "pack": "city", "file": "streetlight.gltf" },
-    "hydrant": { "pack": "city", "file": "firehydrant.gltf" },
-    "tree_1": { "pack": "forest", "file": "Tree_1_A_Color1.gltf" },
-    "tree_2": { "pack": "forest", "file": "Tree_2_A_Color1.gltf" },
-    "tree_3": { "pack": "forest", "file": "Tree_2_C_Color1.gltf" },
-    "tree_4": { "pack": "forest", "file": "Tree_3_A_Color1.gltf" },
-    "tree_5": { "pack": "forest", "file": "Tree_4_A_Color1.gltf" },
-    "bush_1": { "pack": "forest", "file": "Bush_1_A_Color1.gltf" },
-    "bush_2": { "pack": "forest", "file": "Bush_2_A_Color1.gltf" },
-    "bush_3": { "pack": "forest", "file": "Bush_4_A_Color1.gltf" },
-    "rock_1": { "pack": "forest", "file": "Rock_1_A_Color1.gltf" },
-    "rock_2": { "pack": "forest", "file": "Rock_1_E_Color1.gltf" },
-    "grass_1": { "pack": "forest", "file": "Grass_1_A_Color1.gltf" },
-    "grass_2": { "pack": "forest", "file": "Grass_2_A_Color1.gltf" }
+    "home_a": {
+      "pack": "medieval",
+      "file": "buildings/blue/building_home_A_blue.gltf"
+    },
+    "home_b": {
+      "pack": "medieval",
+      "file": "buildings/blue/building_home_B_blue.gltf"
+    },
+    "tavern": {
+      "pack": "medieval",
+      "file": "buildings/blue/building_tavern_blue.gltf"
+    },
+    "blacksmith": {
+      "pack": "medieval",
+      "file": "buildings/blue/building_blacksmith_blue.gltf"
+    },
+    "market": {
+      "pack": "medieval",
+      "file": "buildings/blue/building_market_blue.gltf"
+    },
+    "tower": {
+      "pack": "medieval",
+      "file": "buildings/blue/building_tower_A_blue.gltf"
+    },
+    "church": {
+      "pack": "medieval",
+      "file": "buildings/blue/building_church_blue.gltf"
+    },
+    "windmill": {
+      "pack": "medieval",
+      "file": "buildings/blue/building_windmill_blue.gltf"
+    },
+    "well": {
+      "pack": "medieval",
+      "file": "buildings/blue/building_well_blue.gltf"
+    },
+    "watermill": {
+      "pack": "medieval",
+      "file": "buildings/blue/building_watermill_blue.gltf"
+    },
+    "crate": {
+      "pack": "medieval",
+      "file": "decoration/props/crate_A_big.gltf"
+    },
+    "barrel": {
+      "pack": "medieval",
+      "file": "decoration/props/barrel.gltf"
+    },
+    "sack": {
+      "pack": "medieval",
+      "file": "decoration/props/sack.gltf"
+    },
+    "wheelbarrow": {
+      "pack": "medieval",
+      "file": "decoration/props/wheelbarrow.gltf"
+    },
+    "lily_a": {
+      "pack": "medieval",
+      "file": "decoration/nature/waterlily_A.gltf"
+    },
+    "lily_b": {
+      "pack": "medieval",
+      "file": "decoration/nature/waterlily_B.gltf"
+    },
+    "waterplant": {
+      "pack": "medieval",
+      "file": "decoration/nature/waterplant_A.gltf"
+    },
+    "apartment_a": {
+      "pack": "city",
+      "file": "building_A.gltf"
+    },
+    "apartment_b": {
+      "pack": "city",
+      "file": "building_B.gltf"
+    },
+    "apartment_c": {
+      "pack": "city",
+      "file": "building_C.gltf"
+    },
+    "apartment_d": {
+      "pack": "city",
+      "file": "building_D.gltf"
+    },
+    "apartment_e": {
+      "pack": "city",
+      "file": "building_E.gltf"
+    },
+    "apartment_f": {
+      "pack": "city",
+      "file": "building_F.gltf"
+    },
+    "apartment_g": {
+      "pack": "city",
+      "file": "building_G.gltf"
+    },
+    "apartment_h": {
+      "pack": "city",
+      "file": "building_H.gltf"
+    },
+    "bench": {
+      "pack": "city",
+      "file": "bench.gltf"
+    },
+    "streetlight": {
+      "pack": "city",
+      "file": "streetlight.gltf"
+    },
+    "hydrant": {
+      "pack": "city",
+      "file": "firehydrant.gltf"
+    },
+    "tree_1": {
+      "pack": "forest",
+      "file": "Tree_1_A_Color1.gltf"
+    },
+    "tree_2": {
+      "pack": "forest",
+      "file": "Tree_2_A_Color1.gltf"
+    },
+    "tree_3": {
+      "pack": "forest",
+      "file": "Tree_2_C_Color1.gltf"
+    },
+    "tree_4": {
+      "pack": "forest",
+      "file": "Tree_3_A_Color1.gltf"
+    },
+    "tree_5": {
+      "pack": "forest",
+      "file": "Tree_4_A_Color1.gltf"
+    },
+    "bush_1": {
+      "pack": "forest",
+      "file": "Bush_1_A_Color1.gltf"
+    },
+    "bush_2": {
+      "pack": "forest",
+      "file": "Bush_2_A_Color1.gltf"
+    },
+    "bush_3": {
+      "pack": "forest",
+      "file": "Bush_4_A_Color1.gltf"
+    },
+    "rock_1": {
+      "pack": "forest",
+      "file": "Rock_1_A_Color1.gltf"
+    },
+    "rock_2": {
+      "pack": "forest",
+      "file": "Rock_1_E_Color1.gltf"
+    },
+    "grass_1": {
+      "pack": "forest",
+      "file": "Grass_1_A_Color1.gltf"
+    },
+    "grass_2": {
+      "pack": "forest",
+      "file": "Grass_2_A_Color1.gltf"
+    },
+    "locomotive": {
+      "pack": "holiday",
+      "file": "train_locomotive.gltf"
+    },
+    "tender": {
+      "pack": "holiday",
+      "file": "train_tender_coal.gltf"
+    },
+    "wagon": {
+      "pack": "holiday",
+      "file": "train_wagon.gltf"
+    }
+  },
+  "agents": {
+    "people": {
+      "source": "blocky-characters/Models/GLB format",
+      "license": "blocky-characters/License.txt",
+      "files": [
+        "character-a.glb",
+        "character-b.glb",
+        "character-c.glb",
+        "character-d.glb",
+        "character-e.glb",
+        "character-f.glb",
+        "character-g.glb",
+        "character-h.glb",
+        "character-i.glb",
+        "character-j.glb",
+        "character-k.glb",
+        "character-l.glb",
+        "character-m.glb",
+        "character-n.glb",
+        "character-o.glb",
+        "character-p.glb",
+        "character-q.glb",
+        "character-r.glb"
+      ]
+    },
+    "pets": {
+      "source": "cube-pets/Models/GLB format",
+      "license": "cube-pets/License.txt",
+      "files": [
+        "animal-bunny.glb",
+        "animal-chick.glb",
+        "animal-cow.glb",
+        "animal-pig.glb",
+        "animal-deer.glb",
+        "animal-fox.glb",
+        "animal-dog.glb",
+        "animal-cat.glb",
+        "animal-beaver.glb",
+        "animal-fish.glb"
+      ]
+    }
   }
 }

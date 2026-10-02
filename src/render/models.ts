@@ -75,6 +75,10 @@ export class ModelLibrary {
     );
   }
 
+  size(key: ModelKey): Vector3 | undefined {
+    return this.models.get(key)?.size;
+  }
+
   material(pack: PackKey, mode: MaterialMode): MeshStandardMaterial {
     const id = `${pack}:${mode}`;
     let mat = this.materials.get(id);

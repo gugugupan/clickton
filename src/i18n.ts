@@ -25,6 +25,7 @@ const STRINGS = {
   },
   loading: { en: "Unpacking the bricks…", zh: "正在倒出积木…", ja: "ブロックを広げています…" },
   place: { en: "Place", zh: "放置", ja: "置く" },
+  trainArrived: { en: "All aboard!", zh: "火车来啦！", ja: "列車が来た！" },
   cancel: { en: "Cancel", zh: "取消", ja: "やめる" },
   help: {
     en: "Click a spot or drag your tile onto the map · Click the tile or R to rotate · Enter to place, Esc to cancel",

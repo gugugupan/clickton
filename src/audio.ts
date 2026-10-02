@@ -43,3 +43,10 @@ export function playPop(): void {
   if (!ac) return;
   bubble(ac, ac.currentTime, 520, 1100, 0.12, 0.07);
 }
+
+export function playChime(): void {
+  const ac = audio();
+  if (!ac) return;
+  const now = ac.currentTime;
+  [523, 659, 784].forEach((f, i) => bubble(ac, now + i * 0.11, f * 0.8, f, 0.16, 0.18));
+}

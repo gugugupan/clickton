@@ -1,5 +1,5 @@
 import "./style.css";
-import { playPlace, playPop } from "./audio";
+import { playChime, playPlace, playPop } from "./audio";
 import { Game } from "./core/game";
 import { mulberry32, randomSeed } from "./core/rng";
 import { POINTS, countHoleCells, type PlacementScore } from "./core/scoring";
@@ -7,6 +7,7 @@ import { DIRS, DX, DY, TILES, opposite, type Rot } from "./core/tiles";
 import { LANGS, getLang, hasKey, setLang, t, type Lang } from "./i18n";
 import { ModelLibrary } from "./render/models";
 import { World } from "./render/scene";
+import { Agents } from "./render/agents";
 import { loadLocal, saveLocal } from "./save";
 import { drawTilePreview } from "./ui/tilePreview";
 
@@ -21,13 +22,19 @@ let game = restore();
 const library = new ModelLibrary();
 setLang(getLang());
 $("loading-text").textContent = t("loading");
+const agents = new Agents(library, coarse);
+const progress = (offset: number, share: number) => (done: number, total: number) =>
+  ($("loading-bar").style.width = `${Math.round((offset + (done / total) * share) * 100)}%`);
 try {
-  await library.load((done, total) => ($("loading-bar").style.width = `${Math.round((done / total) * 100)}%`));
+  await library.load(progress(0, 0.5));
+  await agents.load(progress(0.5, 0.5));
 } catch (e) {
   console.error("model loading failed", e);
 }
 $("loading").classList.add("done");
 const world = new World(canvas, game.seed, library);
+world.add(agents.root);
+if (import.meta.env.DEV) Object.assign(window, { __clickton: { agents, world, getGame: () => game } });
 world.edgesAround = (x, y) => DIRS.map((d) => game.board.edgeAt(x + DX[d], y + DY[d], opposite(d)));
 let rot: Rot = 0;
 let hover: { x: number; y: number } | null = null;
@@ -68,6 +75,8 @@ function rebuildWorld(): void {
   world.clearTiles();
   for (const p of game.board.all()) world.addTile(p, false);
   world.setFrontier(game.board.frontier());
+  agents.clear();
+  agents.sync(game.board, game.seed);
   const b = game.board.getBounds();
   world.focus(b ? (b.minX + b.maxX) / 2 : 0, b ? (b.minY + b.maxY) / 2 : 0);
   fitTown(true);
@@ -198,6 +207,9 @@ function place(x: number, y: number): void {
   fitTown();
   playPlace(score.total > 0);
   floatScore(x, y, score.total);
+  const trains = agents.sync(game.board, game.seed);
+  if (trains.length) setTimeout(playChime, 250);
+  for (const tr of trains) floatText(tr.x, tr.y, `🚂 ${t("trainArrived")}`, "var(--text)");
   rot = 0;
   saveLocal(game);
   refreshStats();
@@ -207,13 +219,18 @@ function place(x: number, y: number): void {
 }
 
 function floatScore(x: number, y: number, total: number): void {
+  const color = total > 0 ? "var(--sage-ink)" : total < 0 ? "var(--terracotta-ink)" : "var(--text-soft)";
+  floatText(x, y, `${total > 0 ? "+" : ""}${total}`, color);
+}
+
+function floatText(x: number, y: number, text: string, color: string): void {
   const p = world.toScreen(x, y, 0.6);
   const el = document.createElement("div");
   el.className = "float-score";
   el.style.left = `${p.x}px`;
   el.style.top = `${p.y}px`;
-  el.style.color = total > 0 ? "var(--sage-ink)" : total < 0 ? "var(--terracotta-ink)" : "var(--text-soft)";
-  el.textContent = `${total > 0 ? "+" : ""}${total}`;
+  el.style.color = color;
+  el.textContent = text;
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 950);
 }
@@ -397,7 +414,12 @@ function alignPreview(): void {
   preview.style.transform = tf;
 }
 
+let lastFrame = performance.now();
+
 function frame(now: number): void {
+  const dt = Math.min(0.1, (now - lastFrame) / 1000);
+  lastFrame = now;
+  agents.update(dt, game.board);
   world.render(now);
   positionBubble();
   alignPreview();
