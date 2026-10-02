@@ -28,7 +28,8 @@ import type { Rot, TileDef } from "../core/tiles";
 import { PALETTE } from "./palette";
 import { PLATE_SIZE, PLATE_TOP, buildTileGeometry } from "./tileMeshes";
 
-const VIEW_HEIGHT = 5.5;
+const MIN_VIEW = 5.5;
+const MAX_VIEW = 16;
 const DROP_MS = 260;
 
 interface Drop {
@@ -50,6 +51,15 @@ export class World {
     opacity: 0.6,
     depthWrite: false,
   });
+  private readonly pendingMaterial = new MeshStandardMaterial({
+    vertexColors: true,
+    roughness: 0.85,
+    transparent: true,
+    opacity: 0.92,
+  });
+  private ghostPending = false;
+  private viewHeight = MIN_VIEW;
+  private targetViewHeight = MIN_VIEW;
   private readonly tiles = new Map<string, Mesh>();
   private readonly drops: Drop[] = [];
   private ghost: Mesh | null = null;
@@ -114,12 +124,26 @@ export class World {
   resize(): void {
     const w = this.canvas.clientWidth, h = this.canvas.clientHeight;
     this.renderer.setSize(w, h, false);
-    const aspect = w / h;
-    this.camera.left = (-VIEW_HEIGHT * aspect) / 2;
-    this.camera.right = (VIEW_HEIGHT * aspect) / 2;
-    this.camera.top = VIEW_HEIGHT / 2;
-    this.camera.bottom = -VIEW_HEIGHT / 2;
+    this.updateFrustum();
+  }
+
+  private updateFrustum(): void {
+    const aspect = this.canvas.clientWidth / this.canvas.clientHeight;
+    const v = this.viewHeight * Math.max(1, 0.8 / aspect);
+    this.camera.left = (-v * aspect) / 2;
+    this.camera.right = (v * aspect) / 2;
+    this.camera.top = v / 2;
+    this.camera.bottom = -v / 2;
     this.camera.updateProjectionMatrix();
+  }
+
+  fitTown(width: number, depth: number, instant = false): void {
+    const extent = Math.max(width, depth);
+    this.targetViewHeight = Math.min(MAX_VIEW, Math.max(MIN_VIEW, 3.5 + extent * 0.6));
+    if (instant) {
+      this.viewHeight = this.targetViewHeight;
+      this.updateFrustum();
+    }
   }
 
   private makeMesh(tile: TileDef, rot: Rot, x: number, y: number, material: MeshStandardMaterial): Mesh {
@@ -150,15 +174,17 @@ export class World {
     this.hideGhost();
   }
 
-  showGhost(tile: TileDef, rot: Rot, x: number, y: number): void {
-    const key = `${tile.id}:${rot}:${x}:${y}`;
+  showGhost(tile: TileDef, rot: Rot, x: number, y: number, pending = false): void {
+    const key = `${tile.id}:${rot}:${x}:${y}:${pending}`;
     this.cursor.visible = true;
     this.cursor.position.set(x, PLATE_TOP + 0.005, y);
     if (key === this.ghostKey) return;
     this.hideGhost();
     this.cursor.visible = true;
-    this.ghost = this.makeMesh(tile, rot, x, y, this.ghostMaterial);
+    this.ghost = this.makeMesh(tile, rot, x, y, pending ? this.pendingMaterial : this.ghostMaterial);
     this.ghost.position.y = 0.06;
+    this.ghost.castShadow = pending;
+    this.ghostPending = pending;
     this.scene.add(this.ghost);
     this.ghostKey = key;
   }
@@ -191,13 +217,18 @@ export class World {
     this.scene.add(this.frontier);
   }
 
-  pickCell(clientX: number, clientY: number): { x: number; y: number } | null {
+  pickPoint(clientX: number, clientY: number): { x: number; y: number } | null {
     const r = this.canvas.getBoundingClientRect();
     const ndc = new Vector2(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
     this.raycaster.setFromCamera(ndc, this.camera);
     const hit = new Vector3();
     if (!this.raycaster.ray.intersectPlane(this.groundPlane, hit)) return null;
-    return { x: Math.round(hit.x), y: Math.round(hit.z) };
+    return { x: hit.x, y: hit.z };
+  }
+
+  pickCell(clientX: number, clientY: number): { x: number; y: number } | null {
+    const p = this.pickPoint(clientX, clientY);
+    return p && { x: Math.round(p.x), y: Math.round(p.y) };
   }
 
   toScreen(x: number, y: number, height = 0.4): { x: number; y: number } {
@@ -219,6 +250,11 @@ export class World {
       d.mesh.position.y = 0.8 * (1 - easeOutBounce(t));
       if (t >= 1) this.drops.splice(i, 1);
     }
+    if (Math.abs(this.targetViewHeight - this.viewHeight) > 0.005) {
+      this.viewHeight += (this.targetViewHeight - this.viewHeight) * 0.06;
+      this.updateFrustum();
+    }
+    if (this.ghost && this.ghostPending) this.ghost.position.y = 0.16 + Math.sin(now / 260) * 0.03;
     this.controls.update();
     const tgt = this.controls.target;
     this.sun.position.set(tgt.x + 8, 16, tgt.z + 5);

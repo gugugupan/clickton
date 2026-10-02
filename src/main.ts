@@ -20,6 +20,7 @@ let game = restore();
 const world = new World(canvas, game.seed);
 let rot: Rot = 0;
 let hover: { x: number; y: number } | null = null;
+let pending: { x: number; y: number } | null = null;
 let holes = countHoleCells(game.board);
 
 function restore(): Game {
@@ -39,6 +40,7 @@ function rebuildWorld(): void {
   world.setFrontier(game.board.frontier());
   const last = game.moves[game.moves.length - 1];
   world.focus(last?.x ?? 0, last?.y ?? 0);
+  fitTown(true);
 }
 
 function applyI18n(): void {
@@ -93,19 +95,24 @@ function describe(s: PlacementScore): string {
   return notes.join(" · ");
 }
 
-function updateHover(): void {
-  if (!hover) {
+type Cell = { x: number; y: number };
+
+const sameCell = (a: Cell | null, b: Cell | null) => !!a && !!b && a.x === b.x && a.y === b.y;
+
+function shownCell(): Cell | null {
+  return pending ?? hover;
+}
+
+function updateGhost(): void {
+  $("tray").classList.toggle("pending", !!pending);
+  const c = shownCell();
+  const s = c && game.preview(c.x, c.y, rot);
+  if (!c || !s) {
     world.hideGhost();
     bubble.style.display = "none";
     return;
   }
-  const s = game.preview(hover.x, hover.y, rot);
-  if (!s) {
-    world.hideGhost();
-    bubble.style.display = "none";
-    return;
-  }
-  world.showGhost(TILES[game.currentTile], rot, hover.x, hover.y);
+  world.showGhost(TILES[game.currentTile], rot, c.x, c.y, !!pending);
   const note = describe(s);
   bubble.className = `bubble ${s.total > 0 ? "good" : s.total < 0 ? "bad" : "zero"}`;
   bubble.innerHTML = `${s.total > 0 ? "+" : ""}${s.total}${note ? `<small>${note}</small>` : ""}`;
@@ -114,17 +121,42 @@ function updateHover(): void {
 }
 
 function positionBubble(): void {
-  if (!hover || bubble.style.display === "none") return;
-  const p = world.toScreen(hover.x, hover.y, 0.9);
+  const c = shownCell();
+  if (!c || bubble.style.display === "none") return;
+  const p = world.toScreen(c.x, c.y, pending ? 1.05 : 0.9);
   bubble.style.left = `${p.x}px`;
   bubble.style.top = `${p.y}px`;
+}
+
+function fitTown(instant = false): void {
+  const b = game.board.getBounds();
+  if (b) world.fitTown(b.maxX - b.minX + 1, b.maxY - b.minY + 1, instant);
 }
 
 function rotate(delta: 1 | -1): void {
   rot = ((rot + delta + 4) % 4) as Rot;
   playTick();
   refreshTray();
-  updateHover();
+  updateGhost();
+}
+
+function setPending(c: Cell | null): void {
+  if (sameCell(c, pending)) return;
+  pending = c;
+  updateGhost();
+}
+
+function confirmPending(): void {
+  if (!pending) return;
+  const { x, y } = pending;
+  pending = null;
+  place(x, y);
+}
+
+function cancelPending(): void {
+  if (!pending) return;
+  pending = null;
+  updateGhost();
 }
 
 function place(x: number, y: number): void {
@@ -133,14 +165,15 @@ function place(x: number, y: number): void {
   holes = score.holeCellsAfter;
   world.addTile(placed, true);
   world.setFrontier(game.board.frontier());
+  fitTown();
   playClick(score.total > 0 ? 1 : 0.8);
   floatScore(x, y, score.total);
   rot = 0;
   saveLocal(game);
   refreshStats();
   refreshTray();
-  hover = coarse ? null : hover;
-  updateHover();
+  if (coarse) hover = null;
+  updateGhost();
 }
 
 function floatScore(x: number, y: number, total: number): void {
@@ -161,61 +194,161 @@ function newTown(): void {
   rot = 0;
   holes = 0;
   hover = null;
+  pending = null;
   rebuildWorld();
   saveLocal(game);
   refreshStats();
   refreshTray();
-  updateHover();
+  updateGhost();
 }
 
-let down: { x: number; y: number; button: number } | null = null;
+let snapTargets: Cell[] = [];
 
-canvas.addEventListener("pointerdown", (e) => {
-  down = { x: e.clientX, y: e.clientY, button: e.button };
-});
+function snapCell(clientX: number, clientY: number): Cell | null {
+  const p = world.pickPoint(clientX, clientY);
+  if (!p) return null;
+  let best: Cell | null = null;
+  let bestDist = 1.6;
+  for (const c of snapTargets) {
+    const d = Math.hypot(c.x - p.x, c.y - p.y);
+    if (d < bestDist) {
+      bestDist = d;
+      best = c;
+    }
+  }
+  return best;
+}
+
+function dragTileTo(clientX: number, clientY: number): void {
+  const c = snapCell(clientX, clientY);
+  if (c && !sameCell(c, pending)) {
+    setPending(c);
+    playTick();
+  }
+}
+
+interface Gesture {
+  id: number;
+  x: number;
+  y: number;
+  button: number;
+  dragTile: boolean;
+  moved: boolean;
+}
+
+let gesture: Gesture | null = null;
+
+function startGesture(e: PointerEvent, dragTile: boolean): void {
+  gesture = { id: e.pointerId, x: e.clientX, y: e.clientY, button: e.button, dragTile, moved: false };
+  if (dragTile) snapTargets = game.board.frontier();
+}
+
+function trackGesture(e: PointerEvent): Gesture | null {
+  const g = gesture;
+  if (!g || g.id !== e.pointerId) return null;
+  if (!g.moved && Math.hypot(e.clientX - g.x, e.clientY - g.y) > 6) g.moved = true;
+  return g;
+}
+
+canvas.addEventListener(
+  "pointerdown",
+  (e) => {
+    if (gesture) {
+      gesture.moved = true;
+      return;
+    }
+    const onPending = e.button === 0 && sameCell(world.pickCell(e.clientX, e.clientY), pending);
+    startGesture(e, onPending);
+    if (onPending) {
+      world.controls.enabled = false;
+      canvas.setPointerCapture(e.pointerId);
+    }
+  },
+  { capture: true },
+);
 
 canvas.addEventListener("pointermove", (e) => {
-  if (e.pointerType !== "mouse" || down) return;
+  const g = trackGesture(e);
+  if (g) {
+    if (g.dragTile && g.moved) dragTileTo(e.clientX, e.clientY);
+    return;
+  }
+  if (e.pointerType !== "mouse" || pending) return;
   const c = world.pickCell(e.clientX, e.clientY);
-  if (c?.x === hover?.x && c?.y === hover?.y) return;
+  if (sameCell(c, hover)) return;
   hover = c;
-  updateHover();
+  updateGhost();
 });
 
-canvas.addEventListener("pointerup", (e) => {
-  const d = down;
-  down = null;
-  if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) return;
-  if (d.button === 2) {
+function endCanvasGesture(e: PointerEvent): void {
+  const g = trackGesture(e);
+  if (!g) return;
+  gesture = null;
+  world.controls.enabled = true;
+  if (e.type === "pointercancel") return;
+  if (g.dragTile) {
+    if (!g.moved) rotate(1);
+    return;
+  }
+  if (g.moved) return;
+  if (g.button === 2) {
     rotate(1);
     return;
   }
-  if (d.button !== 0) return;
+  if (g.button !== 0) return;
   const c = world.pickCell(e.clientX, e.clientY);
-  if (!c) return;
-  if (e.pointerType === "mouse" || (hover && hover.x === c.x && hover.y === c.y)) {
-    place(c.x, c.y);
-  } else {
-    hover = c;
-    updateHover();
-  }
-});
+  if (c && game.board.canPlace(c.x, c.y)) setPending(c);
+}
+
+canvas.addEventListener("pointerup", endCanvasGesture);
+canvas.addEventListener("pointercancel", endCanvasGesture);
 
 canvas.addEventListener("pointerleave", () => {
-  if (coarse) return;
+  if (coarse || pending) return;
   hover = null;
-  updateHover();
+  updateGhost();
 });
 
 canvas.addEventListener("contextmenu", (e) => e.preventDefault());
 
+const trayTile = $("tray-tile");
+
+trayTile.addEventListener("pointerdown", (e) => {
+  if (gesture) return;
+  e.preventDefault();
+  startGesture(e, true);
+  trayTile.setPointerCapture(e.pointerId);
+});
+
+trayTile.addEventListener("pointermove", (e) => {
+  const g = trackGesture(e);
+  if (g?.moved) dragTileTo(e.clientX, e.clientY);
+});
+
+function endTrayGesture(e: PointerEvent): void {
+  const g = trackGesture(e);
+  if (!g) return;
+  gesture = null;
+  if (e.type !== "pointercancel" && !g.moved) rotate(1);
+}
+
+trayTile.addEventListener("pointerup", endTrayGesture);
+trayTile.addEventListener("pointercancel", endTrayGesture);
+
 window.addEventListener("keydown", (e) => {
   if (e.key === "r" || e.key === "R" || e.key === "e" || e.key === "E") rotate(1);
   if (e.key === "q" || e.key === "Q") rotate(-1);
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    confirmPending();
+  }
+  if (e.key === "Escape") cancelPending();
 });
 
 $("rot-left").addEventListener("click", () => rotate(-1));
 $("rot-right").addEventListener("click", () => rotate(1));
+$("confirm").addEventListener("click", confirmPending);
+$("cancel").addEventListener("click", cancelPending);
 $("new-town").addEventListener("click", newTown);
 
 setLang(getLang());
