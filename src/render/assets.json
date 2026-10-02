@@ -273,6 +273,39 @@
     "skyscraper_e": {
       "pack": "commercial",
       "file": "building-skyscraper-e.glb"
+    },
+    "station_house": {
+      "pack": "suburban",
+      "file": "building-type-p.glb",
+      "tint": "#e0a193"
+    },
+    "canopy": {
+      "pack": "commercial",
+      "file": "detail-overhang.glb"
+    },
+    "canopy_wide": {
+      "pack": "commercial",
+      "file": "detail-overhang-wide.glb"
+    },
+    "car_hatchback": {
+      "pack": "city",
+      "file": "car_hatchback.gltf"
+    },
+    "car_sedan": {
+      "pack": "city",
+      "file": "car_sedan.gltf"
+    },
+    "car_stationwagon": {
+      "pack": "city",
+      "file": "car_stationwagon.gltf"
+    },
+    "car_taxi": {
+      "pack": "city",
+      "file": "car_taxi.gltf"
+    },
+    "car_police": {
+      "pack": "city",
+      "file": "car_police.gltf"
     }
   },
   "agents": {

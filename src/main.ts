@@ -225,9 +225,11 @@ function place(x: number, y: number): void {
   fitTown();
   playPlace(score.total > 0);
   floatScore(x, y, score.total);
-  const trains = agents.sync(game.board, game.seed);
-  if (trains.length) setTimeout(playChime, 250);
-  for (const tr of trains) floatText(tr.x, tr.y, `🚂 ${t("trainArrived")}`, "var(--text)");
+  const opened = agents.sync(game.board, game.seed);
+  if (opened.trains.length) setTimeout(playChime, 250);
+  else if (opened.roads.length) setTimeout(playPop, 200);
+  for (const tr of opened.trains) floatText(tr.x, tr.y, `🚂 ${t("trainArrived")}`, "var(--text)");
+  for (const rd of opened.roads) floatText(rd.x, rd.y, `🚗 ${t("roadOpened")}`, "var(--text)");
   rot = 0;
   saveLocal(game);
   refreshStats();
@@ -312,7 +314,7 @@ function replay(): void {
     holes = score.holeCellsAfter;
     world.addTile(placed, true);
     fitTown();
-    if (agents.sync(game.board, game.seed).length) playChime();
+    if (agents.sync(game.board, game.seed).trains.length) playChime();
     if (i % 3 === 1) playPop();
     refreshStats();
     $("replay-progress").textContent = `${i} / ${moves.length}`;

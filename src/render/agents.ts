@@ -1,12 +1,13 @@
 import { AnimationClip, AnimationMixer, Box3, Group, Mesh, Object3D, Vector3 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import type { Board } from "../core/board";
-import { completedRailLines, grassExits, hasRoad, isHome, isMeadow, isPond, roadExits, type RailLine } from "../core/networks";
+import { completedRailLines, completedRoadNetworks, grassExits, hasRoad, isHome, isMeadow, isPond, roadExits, type RailLine } from "../core/networks";
 import { hash } from "../core/rng";
 import { DIRS, DX, DY, groupsOf, type Dir } from "../core/tiles";
 import catalog from "./assets.json";
 import type { ModelKey, ModelLibrary } from "./models";
 import { PLATE_TOP } from "./tileMeshes";
+import { playPop } from "../audio";
 
 interface Rig {
   scene: Object3D;
@@ -170,6 +171,59 @@ function nodePosition(board: Board, x: number, y: number): { x: number; z: numbe
   return { x, z: y };
 }
 
+const CAR_MODELS: ModelKey[] = ["car_hatchback", "car_sedan", "car_stationwagon", "car_taxi", "car_police"];
+const CAR_LANE = 0.065;
+
+class Car {
+  readonly root = new Group();
+  private readonly pos = new Vector3();
+  private readonly target = new Vector3();
+  private cell: { x: number; y: number };
+  private heading: Dir | null = null;
+  private grow = 0;
+  private readonly speed = 0.38 + Math.random() * 0.14;
+
+  constructor(library: ModelLibrary, start: { x: number; y: number }, model: ModelKey) {
+    const size = library.size(model);
+    const alongX = size ? size.x > size.z : false;
+    for (const mesh of library.buildProps([{ model, x: 0, z: 0, y: 0, rotY: alongX ? -Math.PI / 2 : 0, fit: 0.17 }], "solid")) {
+      this.root.add(mesh);
+    }
+    this.cell = { ...start };
+    this.pos.set(start.x, PLATE_TOP + 0.02, start.y);
+    this.target.copy(this.pos);
+    this.root.position.copy(this.pos);
+    this.root.scale.setScalar(0.001);
+  }
+
+  update(dt: number, board: Board): void {
+    if (this.grow < 1) {
+      this.grow = Math.min(1, this.grow + dt * 3);
+      this.root.scale.setScalar(easeOutBack(this.grow));
+    }
+    const dx = this.target.x - this.pos.x, dz = this.target.z - this.pos.z;
+    if (!moveToward(this.pos, this.target, dt * this.speed)) {
+      const want = Math.atan2(dx, dz);
+      let delta = want - this.root.rotation.y;
+      delta = Math.atan2(Math.sin(delta), Math.cos(delta));
+      this.root.rotation.y += delta * Math.min(1, dt * 8);
+      this.root.position.copy(this.pos);
+      return;
+    }
+    this.root.position.copy(this.pos);
+    const exits = roadExits(board, this.cell.x, this.cell.y);
+    if (!exits.length) return;
+    const back = this.heading === null ? null : (((this.heading + 2) % 4) as Dir);
+    const forward = exits.filter((d) => d !== back);
+    const options = forward.length ? forward : exits;
+    const d = options[Math.floor(Math.random() * options.length)];
+    this.heading = d;
+    this.cell = { x: this.cell.x + DX[d], y: this.cell.y + DY[d] };
+    const node = nodePosition(board, this.cell.x, this.cell.y);
+    this.target.set(node.x - DY[d] * CAR_LANE, this.pos.y, node.z + DX[d] * CAR_LANE);
+  }
+}
+
 class Animal {
   readonly puppet: Puppet;
   private readonly pos = new Vector3();
@@ -215,6 +269,12 @@ class Animal {
     }
     this.target.set(this.tile.x + (Math.random() - 0.5) * 0.7, this.pos.y, this.tile.y + (Math.random() - 0.5) * 0.7);
   }
+}
+
+interface Pose {
+  x: number;
+  z: number;
+  yaw: number;
 }
 
 interface TrackPoint {
@@ -277,6 +337,8 @@ class Train {
   private grow = 0;
   private readonly stops: number[] = [];
   private nextStop = 0;
+  private turnPending = false;
+  private hop: { t: number; from: Pose[]; to: Pose[]; centre: { x: number; z: number }; head: number } | null = null;
 
   constructor(private readonly line: RailLine, library: ModelLibrary, halts: boolean[] = []) {
     const marks: number[] = [];
@@ -321,12 +383,51 @@ class Train {
     return { x: a.x + tx * t, z: a.z + tz * t, tx, tz };
   }
 
-  private place(): void {
-    this.cars.forEach((car, i) => {
-      const p = this.sample(this.head - i * CAR_SPACING);
-      car.position.set(p.x, PLATE_TOP + 0.05, p.z);
-      car.rotation.y = Math.atan2(p.tx, p.tz);
+  private poses(head: number, dir: number): Pose[] {
+    return this.cars.map((_, i) => {
+      const p = this.sample(head - dir * i * CAR_SPACING);
+      return { x: p.x, z: p.z, yaw: Math.atan2(p.tx, p.tz) + (dir < 0 ? Math.PI : 0) };
     });
+  }
+
+  private place(): void {
+    this.poses(this.head, this.dir).forEach((p, i) => {
+      this.cars[i].position.set(p.x, PLATE_TOP + 0.05, p.z);
+      this.cars[i].rotation.y = p.yaw;
+    });
+  }
+
+  private startHop(): void {
+    const tail = this.head - this.dir * (this.cars.length - 1) * CAR_SPACING;
+    const from = this.poses(this.head, this.dir);
+    const to = this.poses(tail, -this.dir);
+    const a = from[0], b = from[from.length - 1];
+    this.hop = { t: 0, from, to, centre: { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 }, head: tail };
+    playPop();
+  }
+
+  private updateHop(dt: number): void {
+    const hop = this.hop!;
+    hop.t = Math.min(1, hop.t + dt / 0.7);
+    const t = hop.t;
+    const spin = Math.PI * (t * t * (3 - 2 * t));
+    const snap = t ** 4;
+    const lift = Math.sin(Math.PI * t) * 0.16;
+    this.cars.forEach((car, i) => {
+      const f = hop.from[i], to = hop.to[i];
+      const dx = f.x - hop.centre.x, dz = f.z - hop.centre.z;
+      const rx = hop.centre.x + dx * Math.cos(spin) + dz * Math.sin(spin);
+      const rz = hop.centre.z - dx * Math.sin(spin) + dz * Math.cos(spin);
+      car.position.set(rx * (1 - snap) + to.x * snap, PLATE_TOP + 0.05 + lift, rz * (1 - snap) + to.z * snap);
+      car.rotation.y = f.yaw + spin;
+    });
+    if (t >= 1) {
+      this.head = hop.head;
+      this.dir = -this.dir;
+      this.hop = null;
+      this.dwell = 0.6;
+      this.place();
+    }
   }
 
   get start(): { x: number; y: number } {
@@ -339,8 +440,16 @@ class Train {
       this.root.scale.setScalar(1);
       for (const car of this.cars) car.scale.setScalar(easeOutBack(this.grow));
     }
+    if (this.hop) {
+      this.updateHop(dt);
+      return;
+    }
     if (this.dwell > 0) {
       this.dwell -= dt;
+      if (this.dwell <= 0 && this.turnPending) {
+        this.turnPending = false;
+        this.startHop();
+      }
       return;
     }
     if (this.line.loop) {
@@ -360,15 +469,15 @@ class Train {
         }
       }
     } else {
-      const min = Math.min(this.length - 0.04, (this.cars.length - 1) * CAR_SPACING + 0.04);
-      const max = this.length - 0.04;
-      const toEnd = this.dir > 0 ? max - this.head : this.head - min;
+      const body = (this.cars.length - 1) * CAR_SPACING;
+      const end = this.dir > 0 ? this.length - 0.04 : 0.04;
+      const toEnd = Math.max(0, (end - this.head) * this.dir);
       const speed = TRAIN_SPEED * Math.min(1, 0.2 + toEnd / 0.4);
-      this.head += this.dir * speed * dt;
-      if (this.head >= max || this.head <= min) {
-        this.head = Math.max(min, Math.min(max, this.head));
-        this.dir = -this.dir;
-        this.dwell = 1.6;
+      this.head += this.dir * Math.min(speed * dt, toEnd);
+      if (toEnd <= speed * dt) {
+        this.head = end;
+        this.dwell = 1.4;
+        this.turnPending = body >= 0;
       }
     }
     this.place();
@@ -382,6 +491,8 @@ export class Agents {
   private readonly trains = new Map<string, Train>();
   private readonly persons = new Map<string, Person>();
   private readonly animals = new Map<string, Animal>();
+  private readonly cars: Car[] = [];
+  private readonly roads = new Set<string>();
   private readonly cap: number;
 
   constructor(private readonly library: ModelLibrary, coarse: boolean) {
@@ -413,10 +524,25 @@ export class Agents {
     this.trains.clear();
     this.persons.clear();
     this.animals.clear();
+    this.cars.length = 0;
+    this.roads.clear();
   }
 
-  sync(board: Board, seed: number): { x: number; y: number }[] {
+  sync(board: Board, seed: number): { trains: { x: number; y: number }[]; roads: { x: number; y: number }[] } {
     const newTrains: { x: number; y: number }[] = [];
+    const newRoads: { x: number; y: number }[] = [];
+    for (const net of completedRoadNetworks(board)) {
+      if (this.roads.has(net.key)) continue;
+      this.roads.add(net.key);
+      newRoads.push(net.cells[0]);
+      const count = Math.max(1, Math.floor(net.cells.length / 4));
+      for (let i = 0; i < count && this.cars.length < this.cap / 4; i++) {
+        const h = hash(seed, net.cells[0].x, net.cells[0].y, 3 + i);
+        const car = new Car(this.library, net.cells[h % net.cells.length], CAR_MODELS[(h >>> 8) % CAR_MODELS.length]);
+        this.cars.push(car);
+        this.root.add(car.root);
+      }
+    }
     for (const line of completedRailLines(board)) {
       if (this.trains.has(line.key)) continue;
       const halts = line.steps.map((st) => !!board.get(st.x, st.y)?.tile.halt);
@@ -443,12 +569,13 @@ export class Agents {
         this.root.add(animal.puppet.root);
       }
     }
-    return newTrains;
+    return { trains: newTrains, roads: newRoads };
   }
 
   update(dt: number, board: Board): void {
     for (const t of this.trains.values()) t.update(dt);
     for (const p of this.persons.values()) p.update(dt, board);
     for (const a of this.animals.values()) a.update(dt, board);
+    for (const c of this.cars) c.update(dt, board);
   }
 }

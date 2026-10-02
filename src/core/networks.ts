@@ -133,3 +133,43 @@ export function grassExits(board: Board, x: number, y: number): Dir[] {
     return board.edgeAt(x, y, d) === "grass" && n !== undefined && isMeadow(n) && board.edgeAt(n.x, n.y, opposite(d)) === "grass";
   });
 }
+
+export interface RoadNetwork {
+  key: string;
+  cells: { x: number; y: number }[];
+}
+
+export function completedRoadNetworks(board: Board): RoadNetwork[] {
+  const seen = new Set<string>();
+  const networks: RoadNetwork[] = [];
+  const placed = [...board.all()].sort((a, b) => a.y - b.y || a.x - b.x);
+  for (const p of placed) {
+    if (!hasRoad(board, p.x, p.y) || seen.has(`${p.x},${p.y}`)) continue;
+    const cells: { x: number; y: number }[] = [];
+    const stack = [{ x: p.x, y: p.y }];
+    seen.add(`${p.x},${p.y}`);
+    let open = false;
+    while (stack.length) {
+      const c = stack.pop()!;
+      cells.push(c);
+      const q = board.get(c.x, c.y)!;
+      for (const g of groupsOf(q.tile, q.rot).filter((g) => g.type === "road")) {
+        for (const d of g.dirs) {
+          const nx = c.x + DX[d], ny = c.y + DY[d];
+          if (board.edgeAt(nx, ny, opposite(d)) !== "road") {
+            open = true;
+            continue;
+          }
+          const k = `${nx},${ny}`;
+          if (seen.has(k)) continue;
+          seen.add(k);
+          stack.push({ x: nx, y: ny });
+        }
+      }
+    }
+    if (open) continue;
+    cells.sort((a, b) => a.y - b.y || a.x - b.x);
+    networks.push({ key: `road:${cells[0].x},${cells[0].y}:${cells.length}`, cells });
+  }
+  return networks;
+}

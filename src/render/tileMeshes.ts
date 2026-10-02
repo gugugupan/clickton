@@ -161,8 +161,8 @@ export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (
     model: ModelKey,
     x: number,
     z: number,
-    o: { fit?: number; height?: number; maxHeight?: number; lift?: number; rotY?: number },
-  ) => props.push({ model, x, z, y: PLATE_TOP + (o.lift ?? 0), rotY: o.rotY ?? 0, fit: o.fit, height: o.height, maxHeight: o.maxHeight });
+    o: Pick<Prop, "fit" | "height" | "maxHeight" | "size"> & { lift?: number; rotY?: number },
+  ) => props.push({ model, x, z, y: PLATE_TOP + (o.lift ?? 0), rotY: o.rotY ?? 0, fit: o.fit, height: o.height, maxHeight: o.maxHeight, size: o.size });
   b.box(PLATE_SIZE, PLATE_TOP, PLATE_SIZE, 0, 0, 0, PALETTE.grass);
 
   const occupied = new Set<string>();
@@ -196,7 +196,7 @@ export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (
     const y = PLATE_TOP;
     let paths = g.type === "road" || g.type === "rail" ? pathsFor(g) : [];
     if (tile.station && g.type === "rail") paths = [linePath(edgeMid(g.dirs[0]), { x: 0, z: -0.02 })];
-    if (tile.station && g.type === "road") paths = [linePath(edgeMid(g.dirs[0]), { x: 0, z: 0.3 })];
+    if (tile.station && g.type === "road") paths = [linePath(edgeMid(g.dirs[0]), { x: 0, z: 0.36 })];
     if (g.type === "road") drawRoad(b, paths, g.dirs.length !== 2 && !tile.station, y);
     if (g.type === "rail") drawRail(b, paths, y + (tile.groups.some((o) => o.type === "road") ? 0.004 : 0));
     if (hasBridge && g.type !== "water") drawBridgeRails(b, g.dirs, y + 0.02);
@@ -206,11 +206,8 @@ export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (
     b.box(0.2, 0.05, 0.05, 0, PLATE_TOP + 0.02, 0.01, PALETTE.bufferStop);
     b.box(0.08, 0.012, 0.052, 0, PLATE_TOP + 0.06, 0.01, PALETTE.white);
     b.box(0.14, 0.05, 0.48, -0.24, PLATE_TOP, -0.24, PALETTE.platform);
-    for (const z of [-0.42, -0.08]) b.box(0.02, 0.14, 0.02, -0.28, PLATE_TOP + 0.05, z, PALETTE.trunk);
-    b.box(0.2, 0.02, 0.44, -0.25, PLATE_TOP + 0.19, -0.24, PALETTE.roofs[0]);
-    b.box(0.38, 0.16, 0.18, 0, PLATE_TOP, 0.19, PALETTE.walls[3]);
-    b.box(0.03, 0.08, 0.005, 0, PLATE_TOP, 0.282, PALETTE.trunk);
-    b.box(0.44, 0.04, 0.24, 0, PLATE_TOP + 0.16, 0.19, PALETTE.roofs[1]);
+    prop("canopy", -0.25, -0.24, { size: { x: 0.46, y: 0.2, z: 0.16 }, rotY: Math.PI / 2, lift: 0.05 });
+    prop("station_house", 0, 0.2, { fit: 0.38, maxHeight: 0.28 });
     prop("crate", -0.24, -0.4, { fit: 0.08, lift: 0.05 });
     prop("barrel", -0.24, -0.29, { fit: 0.055, lift: 0.05 });
     prop("sack", -0.22, -0.2, { fit: 0.06, lift: 0.05, rotY: 0.6 });
@@ -221,11 +218,8 @@ export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (
   }
   if (tile.halt) {
     b.box(0.14, 0.05, 0.92, -0.24, PLATE_TOP, 0, PALETTE.platform);
-    for (const z of [-0.3, 0.3]) b.box(0.02, 0.14, 0.02, -0.28, PLATE_TOP + 0.05, z, PALETTE.trunk);
-    b.box(0.2, 0.02, 0.74, -0.25, PLATE_TOP + 0.19, 0, PALETTE.roofs[0]);
-    b.box(0.2, 0.15, 0.3, 0.27, PLATE_TOP, 0, PALETTE.walls[3]);
-    b.box(0.005, 0.08, 0.03, 0.168, PLATE_TOP, 0, PALETTE.trunk);
-    b.box(0.26, 0.04, 0.36, 0.27, PLATE_TOP + 0.15, 0, PALETTE.roofs[1]);
+    prop("canopy_wide", -0.25, 0, { size: { x: 0.88, y: 0.2, z: 0.16 }, rotY: Math.PI / 2, lift: 0.05 });
+    prop("station_house", 0.28, 0, { fit: 0.34, maxHeight: 0.26, rotY: -Math.PI / 2 });
     prop("crate", -0.24, 0.38, { fit: 0.07, lift: 0.05 });
     prop("barrel", -0.24, -0.4, { fit: 0.05, lift: 0.05 });
     prop("streetlight", 0.27, 0.35, { height: 0.22 });

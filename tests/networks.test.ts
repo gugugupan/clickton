@@ -126,3 +126,25 @@ describe("rail completion bonus", () => {
     expect(scorePlacement(b, tileByKey("grass").id, 0, 0, 1).railPoints).toBe(0);
   });
 });
+
+describe("road networks", async () => {
+  const { completedRoadNetworks } = await import("../src/core/networks");
+
+  it("a road closed off at both ends by houses is complete", () => {
+    const b = board([
+      ["house_road", 0, 0, 0],
+      ["road_straight", 0, 0, 1],
+      ["house_road", 2, 0, 2],
+    ]);
+    const nets = completedRoadNetworks(b);
+    expect(nets).toHaveLength(1);
+    expect(nets[0].cells).toHaveLength(3);
+  });
+
+  it("any road edge facing empty ground or another edge type keeps it open", () => {
+    expect(completedRoadNetworks(board([["house_road", 0, 0, 0], ["road_straight", 0, 0, 1]]))).toHaveLength(0);
+    expect(
+      completedRoadNetworks(board([["house_road", 0, 0, 0], ["road_straight", 0, 0, 1], ["grass", 0, 0, 2]])),
+    ).toHaveLength(0);
+  });
+});

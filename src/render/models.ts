@@ -2,7 +2,7 @@ import { Box3, BufferGeometry, Matrix4, Mesh, MeshStandardMaterial, Texture, Vec
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import catalog from "./assets.json";
-import { soften } from "./soften";
+import { soften, tintDark } from "./soften";
 
 export type ModelKey = keyof typeof catalog.models;
 export type PackKey = keyof typeof catalog.packs;
@@ -17,10 +17,11 @@ export interface Prop {
   fit?: number;
   height?: number;
   maxHeight?: number;
+  size?: { x: number; y: number; z: number };
 }
 
 interface Model {
-  pack: PackKey;
+  pack: string;
   geometry: BufferGeometry;
   size: Vector3;
 }
@@ -34,24 +35,26 @@ const MODES: Record<MaterialMode, { opacity: number; transparent: boolean }> = {
 export class ModelLibrary {
   private readonly models = new Map<ModelKey, Model>();
   private readonly materials = new Map<string, MeshStandardMaterial>();
-  private readonly textures = new Map<PackKey, Texture>();
+  private readonly textures = new Map<string, Texture>();
 
   async load(onProgress: (done: number, total: number) => void): Promise<void> {
     const loader = new GLTFLoader();
-    const entries = Object.entries(catalog.models) as [ModelKey, { pack: PackKey; file: string }][];
+    const entries = Object.entries(catalog.models) as [ModelKey, { pack: PackKey; file: string; tint?: string }][];
     let done = 0;
     await Promise.all(
       entries.map(async ([key, def]) => {
         const url = `${import.meta.env.BASE_URL}models/${def.pack}/${def.file.split("/").pop()}`;
         const gltf = await loader.loadAsync(url);
         gltf.scene.updateMatrixWorld(true);
+        const group = def.tint ? `${def.pack}${def.tint}` : def.pack;
         const parts: BufferGeometry[] = [];
         gltf.scene.traverse((o) => {
           const m = o as Mesh;
           if (!m.isMesh) return;
           const mat = (Array.isArray(m.material) ? m.material[0] : m.material) as MeshStandardMaterial;
-          if (mat.map && !this.textures.has(def.pack)) {
-            this.textures.set(def.pack, catalog.packs[def.pack].soft ? soften(mat.map) : mat.map);
+          if (mat.map && !this.textures.has(group)) {
+            const base = catalog.packs[def.pack].soft ? soften(mat.map) : mat.map;
+            this.textures.set(group, def.tint ? tintDark(base, def.tint) : base);
           }
           const g = new BufferGeometry();
           for (const name of ["position", "normal", "uv"]) {
@@ -69,7 +72,7 @@ export class ModelLibrary {
         const box = new Box3().setFromBufferAttribute(geometry.getAttribute("position") as never);
         const center = box.getCenter(new Vector3());
         geometry.translate(-center.x, -box.min.y, -center.z);
-        this.models.set(key, { pack: def.pack, geometry, size: box.getSize(new Vector3()) });
+        this.models.set(key, { pack: group, geometry, size: box.getSize(new Vector3()) });
         onProgress(++done, entries.length);
       }),
     );
@@ -79,7 +82,7 @@ export class ModelLibrary {
     return this.models.get(key)?.size;
   }
 
-  material(pack: PackKey, mode: MaterialMode): MeshStandardMaterial {
+  material(pack: string, mode: MaterialMode): MeshStandardMaterial {
     const id = `${pack}:${mode}`;
     let mat = this.materials.get(id);
     if (!mat) {
@@ -98,7 +101,7 @@ export class ModelLibrary {
   }
 
   buildProps(props: readonly Prop[], mode: MaterialMode): Mesh[] {
-    const byPack = new Map<PackKey, BufferGeometry[]>();
+    const byPack = new Map<string, BufferGeometry[]>();
     const m = new Matrix4();
     for (const p of props) {
       const model = this.models.get(p.model);
@@ -106,8 +109,9 @@ export class ModelLibrary {
       let scale = p.height ? p.height / model.size.y : (p.fit ?? 0.3) / Math.max(model.size.x, model.size.z);
       if (p.maxHeight) scale = Math.min(scale, p.maxHeight / model.size.y);
       const g = model.geometry.clone();
+      if (p.size) g.scale(p.size.x / model.size.x, p.size.y / model.size.y, p.size.z / model.size.z);
       g.applyMatrix4(m.makeRotationY(p.rotY));
-      g.scale(scale, scale, scale);
+      if (!p.size) g.scale(scale, scale, scale);
       g.translate(p.x, p.y ?? 0, p.z);
       const list = byPack.get(model.pack) ?? [];
       list.push(g);

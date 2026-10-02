@@ -37,6 +37,7 @@ const STRINGS = {
   helpView: { en: "Drag to pan · Scroll to zoom · Right-drag to turn", zh: "拖动平移 · 滚轮缩放 · 右键拖动旋转视角", ja: "ドラッグで移動 · ホイールでズーム · 右ドラッグで回転" },
   place: { en: "Place", zh: "放置", ja: "置く" },
   trainArrived: { en: "All aboard!", zh: "火车来啦！", ja: "列車が来た！" },
+  roadOpened: { en: "Road open!", zh: "道路通车！", ja: "道路が開通！" },
   loopDone: { en: "🚂 Loop complete +%d", zh: "🚂 环线完成 +%d", ja: "🚂 環状線完成 +%d" },
   lineDone: { en: "🚂 Line complete +%d", zh: "🚂 线路完成 +%d", ja: "🚂 路線完成 +%d" },
   cancel: { en: "Cancel", zh: "取消", ja: "やめる" },

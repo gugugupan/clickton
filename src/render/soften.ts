@@ -29,3 +29,30 @@ export function soften(tex: Texture): Texture {
   cache.set(tex, soft);
   return soft;
 }
+
+export function tintDark(tex: Texture, hex: string): Texture {
+  const img = tex.image as HTMLImageElement | ImageBitmap | HTMLCanvasElement;
+  const canvas = document.createElement("canvas");
+  canvas.width = img.width;
+  canvas.height = img.height;
+  const g = canvas.getContext("2d")!;
+  g.drawImage(img, 0, 0);
+  const data = g.getImageData(0, 0, canvas.width, canvas.height);
+  const px = data.data;
+  const tr = parseInt(hex.slice(1, 3), 16), tg = parseInt(hex.slice(3, 5), 16), tb = parseInt(hex.slice(5, 7), 16);
+  for (let i = 0; i < px.length; i += 4) {
+    const lum = (0.3 * px[i] + 0.59 * px[i + 1] + 0.11 * px[i + 2]) / 255;
+    const w = Math.max(0, Math.min(1, (0.62 - lum) / 0.35));
+    const shade = 0.98 + lum * 0.15;
+    px[i] = px[i] * (1 - w) + tr * shade * w;
+    px[i + 1] = px[i + 1] * (1 - w) + tg * shade * w;
+    px[i + 2] = px[i + 2] * (1 - w) + tb * shade * w;
+  }
+  g.putImageData(data, 0, 0);
+  const out = new CanvasTexture(canvas);
+  out.flipY = tex.flipY;
+  out.colorSpace = SRGBColorSpace;
+  out.magFilter = tex.magFilter;
+  out.minFilter = tex.minFilter;
+  return out;
+}
