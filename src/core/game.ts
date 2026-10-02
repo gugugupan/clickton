@@ -10,7 +10,10 @@ export interface Move {
   y: number;
   rot: Rot;
   skip?: boolean;
+  tile?: number;
 }
+
+export const EXPLICIT_FLAG = 0x80;
 
 export const DISCARD_EVERY = 10;
 export const DISCARD_MAX = 1;
@@ -53,21 +56,51 @@ export class Game {
   private readonly queue: number[] = [];
   private charges = 0;
 
+  readonly explicit: boolean;
+  readonly version: number;
+
   constructor(
     readonly seed: number,
-    readonly version = RULES_VERSION,
+    version = RULES_VERSION,
   ) {
+    this.explicit = (version & EXPLICIT_FLAG) !== 0;
+    this.version = version & ~EXPLICIT_FLAG;
+    if (this.explicit) return;
     this.board.place(STARTER_TILE, 0, 0, 0);
     if (this.queued) this.queue.push(this.draw(0), this.draw(1));
   }
 
+  get linkVersion(): number {
+    return this.explicit ? this.version | EXPLICIT_FLAG : this.version;
+  }
+
   static replay(seed: number, moves: readonly Move[], version = RULES_VERSION): Game {
     const g = new Game(seed, version);
-    for (const m of moves) {
-      if (m.skip) g.discard();
-      else g.place(m.x, m.y, m.rot);
-    }
+    for (const m of moves) g.apply(m);
     return g;
+  }
+
+  restart(): Game {
+    return new Game(this.seed, this.linkVersion);
+  }
+
+  apply(m: Move): Placed | null {
+    if (m.skip) {
+      this.discard();
+      return null;
+    }
+    return m.tile !== undefined ? this.placeTile(m.tile, m.x, m.y, m.rot).placed : this.place(m.x, m.y, m.rot).placed;
+  }
+
+  placeTile(tileId: number, x: number, y: number, rot: Rot): { placed: Placed; score: PlacementScore } {
+    if (!this.explicit) throw new Error("only showcase towns choose their own tiles");
+    if (!this.board.canPlace(x, y)) throw new Error(`cannot place at ${x},${y}`);
+    const score = scorePlacement(this.board, tileId, rot, x, y);
+    const placed = this.board.place(tileId, rot, x, y);
+    this.moves.push({ x, y, rot, tile: tileId });
+    this.score += score.total;
+    this.placements++;
+    return { placed, score };
   }
 
   private get queued(): boolean {
@@ -87,10 +120,12 @@ export class Game {
   }
 
   get currentTile(): number {
+    if (this.explicit) return 0;
     return this.queued ? this.queue[this.step] : tileForStep(this.seed, this.step, this.version);
   }
 
   get nextTile(): number {
+    if (this.explicit) return 0;
     return this.queued ? this.queue[this.step + 1] : tileForStep(this.seed, this.step + 1, this.version);
   }
 

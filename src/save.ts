@@ -5,7 +5,7 @@ const KEY = "clickton.save";
 
 export function saveLocal(game: Game): void {
   try {
-    const bytes = packCity({ version: game.version, seed: game.seed, moves: game.moves });
+    const bytes = packCity({ version: game.linkVersion, seed: game.seed, moves: game.moves });
     let s = "";
     for (const b of bytes) s += String.fromCharCode(b);
     localStorage.setItem(KEY, btoa(s));

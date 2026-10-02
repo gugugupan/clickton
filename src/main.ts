@@ -299,7 +299,7 @@ function toast(text: string, ms = 2400): void {
 }
 
 async function shareTown(): Promise<void> {
-  const code = await encodeCity({ version: game.version, seed: game.seed, moves: game.moves });
+  const code = await encodeCity({ version: game.linkVersion, seed: game.seed, moves: game.moves });
   const url = `${location.origin}${location.pathname}#c=${code}`;
   if (coarse && navigator.share) {
     try {
@@ -331,7 +331,7 @@ function replay(): void {
   const token = ++replayToken;
   replayTarget = game;
   const moves = [...game.moves];
-  game = new Game(replayTarget.seed, replayTarget.version);
+  game = replayTarget.restart();
   rebuildWorld();
   refreshStats();
   document.body.classList.add("replaying");
@@ -344,12 +344,11 @@ function replay(): void {
       return;
     }
     const m = moves[i++];
-    if (m.skip) {
-      game.discard();
+    const placed = game.apply(m);
+    if (!placed) {
       setTimeout(step, interval);
       return;
     }
-    const { placed } = game.place(m.x, m.y, m.rot);
     world.addTile(placed, true);
     fitTown();
     if (agents.sync(game.board, game.seed).trains.length) playChime();

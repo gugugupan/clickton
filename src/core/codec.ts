@@ -1,4 +1,4 @@
-import type { Move } from "./game";
+import { EXPLICIT_FLAG, type Move } from "./game";
 import { BALANCE } from "./balance";
 import { moodFor, THEMES } from "./themes";
 import { RULES_VERSION, TILES, baseWeights, isKnownVersion, type Rot } from "./tiles";
@@ -73,7 +73,8 @@ export function packCity(city: SavedCity): Uint8Array {
   out.push(s & 0xff, (s >>> 8) & 0xff, (s >>> 16) & 0xff, (s >>> 24) & 0xff);
   writeVarint(out, city.moves.length);
   let px = 0, py = 0;
-  const flags = city.version >= 5;
+  const explicit = (city.version & EXPLICIT_FLAG) !== 0;
+  const flags = (city.version & ~EXPLICIT_FLAG) >= 5;
   for (const m of city.moves) {
     if (m.skip && !flags) throw new Error("discards need rules v5");
     if (m.skip) {
@@ -82,6 +83,7 @@ export function packCity(city: SavedCity): Uint8Array {
     }
     writeVarint(out, flags ? (zigzag(m.x - px) << 3) | m.rot : (zigzag(m.x - px) << 2) | m.rot);
     writeVarint(out, zigzag(m.y - py));
+    if (explicit) writeVarint(out, m.tile ?? 0);
     px = m.x;
     py = m.y;
   }
@@ -91,12 +93,13 @@ export function packCity(city: SavedCity): Uint8Array {
 export function unpackCity(bytes: Uint8Array): SavedCity {
   const r = new Reader(bytes);
   const version = r.byte();
-  if (!isKnownVersion(version)) throw new Error(`unsupported version ${version}`);
+  const explicit = (version & EXPLICIT_FLAG) !== 0;
+  if (!isKnownVersion(version & ~EXPLICIT_FLAG)) throw new Error(`unsupported version ${version}`);
   const seed = (r.byte() | (r.byte() << 8) | (r.byte() << 16) | (r.byte() << 24)) >>> 0;
   const count = r.varint();
   const moves: Move[] = [];
   let px = 0, py = 0;
-  const flags = version >= 5;
+  const flags = (version & ~EXPLICIT_FLAG) >= 5;
   for (let i = 0; i < count; i++) {
     const a = r.varint();
     if (flags && a & 4) {
@@ -105,7 +108,11 @@ export function unpackCity(bytes: Uint8Array): SavedCity {
     }
     const x = px + unzigzag(a >>> (flags ? 3 : 2));
     const y = py + unzigzag(r.varint());
-    moves.push({ x, y, rot: (a & 3) as Rot });
+    if (explicit) {
+      const tile = r.varint();
+      if (tile >= TILES.length) throw new Error(`unknown tile ${tile}`);
+      moves.push({ x, y, rot: (a & 3) as Rot, tile });
+    } else moves.push({ x, y, rot: (a & 3) as Rot });
     px = x;
     py = y;
   }

@@ -78,3 +78,22 @@ describe("next tile and discards", () => {
     expect(r.nextTile).toBe(g.nextTile);
   });
 });
+
+describe("showcase towns", () => {
+  it("links can carry hand-picked tiles and replay exactly", async () => {
+    const { EXPLICIT_FLAG } = await import("../src/core/game");
+    const g = new Game(5, CODEC_VERSION | EXPLICIT_FLAG);
+    expect(g.board.size).toBe(0);
+    g.placeTile(id("city_full"), 0, 0, 0);
+    g.placeTile(id("city_edge"), 0, 1, 0);
+    g.placeTile(id("road_end"), 1, 0, 3);
+    expect(() => g.placeTile(id("grass"), 5, 5, 0)).toThrow();
+    const city = { version: g.linkVersion, seed: g.seed, moves: g.moves };
+    const back = await decodeCity(await encodeCity(city));
+    const r = Game.replay(back.seed, back.moves, back.version);
+    expect(r.explicit).toBe(true);
+    expect(r.board.get(0, 1)?.tile.key).toBe("city_edge");
+    expect(r.board.get(1, 0)?.tile.key).toBe("road_end");
+    expect(r.score).toBe(g.score);
+  });
+});
