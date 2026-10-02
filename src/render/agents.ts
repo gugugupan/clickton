@@ -353,6 +353,7 @@ class Train {
   private grow = 0;
   private readonly stops: number[] = [];
   private nextStop = 0;
+  private served: number | null = null;
   private turnPending = false;
   private turn: Turn | null = null;
   private slide: { t: number; ox: number; oz: number } | null = null;
@@ -520,26 +521,44 @@ class Train {
       } else {
         const half = ((this.cars.length - 1) * CAR_SPACING) / 2;
         const stop = this.stops[this.nextStop % this.stops.length];
-        const ahead = (((stop - (this.head - half)) % this.length) + this.length) % this.length;
+        let ahead = (((stop - (this.head - half)) % this.length) + this.length) % this.length;
+        const nearStop = ahead < 0.05 || ahead > this.length - 0.05;
+        if (this.served === stop && nearStop) ahead = this.length;
+        else {
+          if (this.served === stop) this.served = null;
+          if (ahead > this.length - 1e-4) ahead = 0;
+        }
         const step = TRAIN_SPEED * Math.min(1, 0.25 + ahead / 0.45) * dt;
-        if (ahead > 1e-3 && ahead <= step) {
+        if (ahead <= step) {
           this.head += ahead;
           this.dwell = 2;
+          this.served = stop;
           this.nextStop++;
         } else {
           this.head += step;
         }
       }
     } else {
-      const body = (this.cars.length - 1) * CAR_SPACING;
+      const half = ((this.cars.length - 1) * CAR_SPACING) / 2;
       const end = this.dir > 0 ? this.length - 0.04 : 0.04;
-      const toEnd = Math.max(0, (end - this.head) * this.dir);
-      const speed = TRAIN_SPEED * Math.min(1, 0.2 + toEnd / 0.4);
-      this.head += this.dir * Math.min(speed * dt, toEnd);
-      if (toEnd <= speed * dt) {
-        this.head = end;
-        this.dwell = 1.4;
-        this.turnPending = body >= 0;
+      let target = end;
+      let halt = false;
+      for (const stop of this.stops) {
+        const at = stop + this.dir * half;
+        const ahead = (at - this.head) * this.dir;
+        if (stop !== this.served && ahead >= 0 && (at - end) * this.dir < 0 && ahead < (target - this.head) * this.dir) {
+          target = at;
+          halt = true;
+        }
+      }
+      const toTarget = Math.max(0, (target - this.head) * this.dir);
+      const speed = TRAIN_SPEED * Math.min(1, 0.2 + toTarget / 0.4);
+      this.head += this.dir * Math.min(speed * dt, toTarget);
+      if (toTarget <= speed * dt) {
+        this.head = target;
+        this.dwell = halt ? 2 : 1.4;
+        this.turnPending = !halt;
+        this.served = halt ? this.stops.find((st) => Math.abs(st + this.dir * half - target) < 1e-6) ?? null : null;
       }
     }
     this.place();
