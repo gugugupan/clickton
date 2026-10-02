@@ -31,7 +31,7 @@ const MEADOW_PETS = ["bunny", "chick", "cow", "pig", "deer", "fox", "dog", "cat"
 const PERSON_HEIGHT = 0.15;
 const CAR_SPACING = 0.27;
 const TRAIN_SPEED = 0.7;
-const TURN_RADIUS = 0.13;
+const SIDING_OFFSET = 0.2;
 
 class Puppet {
   readonly root = new Group();
@@ -277,20 +277,18 @@ interface Pose {
   yaw: number;
 }
 
-interface Turn {
-  p: number;
-  speed: number;
-  trackLen: number;
-  radius: number;
-  tailS: number;
-  headS: number;
+interface Runaround {
+  phase: "lift" | "run" | "drop" | "done";
+  t: number;
+  unit: number;
   dir: number;
-  hx: number;
-  hz: number;
-  fx: number;
-  fz: number;
-  nx: number;
-  nz: number;
+  head: number;
+  newHead: number;
+  ox: number;
+  oz: number;
+  s: number;
+  speed: number;
+  from: Pose[];
 }
 
 interface TrackPoint {
@@ -355,8 +353,7 @@ class Train {
   private nextStop = 0;
   private served: number | null = null;
   private turnPending = false;
-  private turn: Turn | null = null;
-  private slide: { t: number; ox: number; oz: number } | null = null;
+  private runaround: Runaround | null = null;
 
   constructor(private readonly line: RailLine, library: ModelLibrary, halts: boolean[] = []) {
     const marks: number[] = [];
@@ -369,9 +366,9 @@ class Train {
       this.stops.push((start + end) / 2);
     });
     const maxCars = line.loop
-      ? Math.max(1, Math.floor((this.length - 0.3) / CAR_SPACING))
-      : Math.max(1, Math.floor((this.length - 0.1) / (2 * CAR_SPACING)) + 1);
-    const kinds: ModelKey[] = ["locomotive", "tender", "wagon", "wagon"].slice(0, Math.min(4, maxCars)) as ModelKey[];
+      ? Math.floor((this.length - 0.3) / CAR_SPACING)
+      : Math.floor((this.length - 0.08) / CAR_SPACING) - 1;
+    const kinds: ModelKey[] = (["locomotive", "tender", "wagon"] as ModelKey[]).slice(0, Math.max(1, Math.min(3, maxCars)));
     for (const kind of kinds) {
       const size = library.size(kind);
       const car = new Group();
@@ -411,82 +408,94 @@ class Train {
   }
 
   private place(): void {
-    const k = this.slide ? this.slide.t * this.slide.t * (3 - 2 * this.slide.t) : 1;
-    const ox = this.slide ? this.slide.ox * (1 - k) : 0, oz = this.slide ? this.slide.oz * (1 - k) : 0;
-    const lift = this.slide ? Math.sin(Math.PI * this.slide.t) * 0.08 : 0;
     this.poses(this.head, this.dir).forEach((p, i) => {
-      this.cars[i].position.set(p.x + ox, PLATE_TOP + 0.05 + lift, p.z + oz);
+      this.cars[i].position.set(p.x, PLATE_TOP + 0.05, p.z);
       this.cars[i].rotation.y = p.yaw;
     });
   }
 
-  private startTurn(): void {
+  private pose(s: number, dir: number): Pose {
+    const p = this.sample(s);
+    return { x: p.x, z: p.z, yaw: Math.atan2(p.tx, p.tz) + (dir < 0 ? Math.PI : 0) };
+  }
+
+  private startRunaround(): void {
     const n = this.cars.length;
+    const unit = Math.min(2, n);
+    const wagons = n - unit;
     const h = this.sample(this.head);
     const len = Math.hypot(h.tx, h.tz) || 1;
     const fx = (h.tx / len) * this.dir, fz = (h.tz / len) * this.dir;
-    this.turn = {
-      p: (n - 1) * CAR_SPACING,
-      speed: TRAIN_SPEED * 0.25,
-      trackLen: (n - 1) * CAR_SPACING,
-      radius: TURN_RADIUS,
-      tailS: this.head - this.dir * (n - 1) * CAR_SPACING,
-      headS: this.head,
+    const side = wagons > 0 ? SIDING_OFFSET : 0;
+    this.runaround = {
+      phase: "lift",
+      t: 0,
+      unit,
       dir: this.dir,
-      hx: h.x,
-      hz: h.z,
-      fx,
-      fz,
-      nx: fz,
-      nz: -fx,
+      head: this.head,
+      newHead: this.head - this.dir * (wagons > 0 ? unit + n - 1 : n - 1) * CAR_SPACING,
+      ox: fz * side,
+      oz: -fx * side,
+      s: this.head - this.dir * (unit - 1) * CAR_SPACING,
+      speed: 0,
+      from: this.poses(this.head, this.dir).slice(0, unit),
     };
   }
 
-  private turnPose(turn: Turn, p: number): Pose & { lift: number } {
-    if (p <= turn.trackLen) {
-      const q = this.sample(turn.tailS + turn.dir * p);
-      return { x: q.x, z: q.z, yaw: Math.atan2(q.tx * turn.dir, q.tz * turn.dir), lift: 0 };
-    }
-    const r = turn.radius;
-    const u = p - turn.trackLen;
-    const bend = Math.PI * r;
-    if (u <= bend) {
-      const a = u / r;
-      const cx = turn.hx + turn.nx * r, cz = turn.hz + turn.nz * r;
-      const x = cx - turn.nx * r * Math.cos(a) + turn.fx * r * Math.sin(a);
-      const z = cz - turn.nz * r * Math.cos(a) + turn.fz * r * Math.sin(a);
-      const tx = turn.nx * Math.sin(a) + turn.fx * Math.cos(a);
-      const tz = turn.nz * Math.sin(a) + turn.fz * Math.cos(a);
-      return { x, z, yaw: Math.atan2(tx, tz), lift: Math.sin(Math.PI * (u / bend)) * 0.06 };
-    }
-    const c = u - bend;
-    return {
-      x: turn.hx + 2 * r * turn.nx - turn.fx * c,
-      z: turn.hz + 2 * r * turn.nz - turn.fz * c,
-      yaw: Math.atan2(-turn.fx, -turn.fz),
-      lift: 0,
-    };
+  private unitPose(r: Runaround, j: number, offset: number, lift: number): void {
+    const p = this.pose(r.s + r.dir * j * CAR_SPACING, -r.dir);
+    this.cars[j].position.set(p.x + r.ox * offset, PLATE_TOP + 0.05 + lift, p.z + r.oz * offset);
+    this.cars[j].rotation.y = p.yaw;
   }
 
-  private updateTurn(dt: number): void {
-    const turn = this.turn!;
-    turn.speed = Math.min(TRAIN_SPEED * 0.6, turn.speed + dt * 0.8);
-    turn.p += turn.speed * dt;
-    const bend = Math.PI * turn.radius;
-    const last = turn.p - (this.cars.length - 1) * CAR_SPACING;
-    if (last >= turn.trackLen + bend) {
-      this.dir = -turn.dir;
-      this.head = turn.headS - turn.dir * (turn.p - turn.trackLen - bend);
-      this.slide = { t: 0, ox: 2 * turn.radius * turn.nx, oz: 2 * turn.radius * turn.nz };
-      this.turn = null;
-      this.place();
-      return;
+  private updateRunaround(dt: number): void {
+    const r = this.runaround!;
+    if (r.phase === "lift") {
+      r.t = Math.min(1, r.t + dt / 0.6);
+      const k = r.t * r.t * (3 - 2 * r.t);
+      const a = r.from[0], b = r.from[r.unit - 1];
+      const cx = (a.x + b.x) / 2, cz = (a.z + b.z) / 2;
+      const spin = Math.PI * k;
+      const snap = r.t ** 4;
+      for (let j = 0; j < r.unit; j++) {
+        const f = r.from[j];
+        const dx = f.x - cx, dz = f.z - cz;
+        const rx = cx + dx * Math.cos(spin) + dz * Math.sin(spin) + r.ox * k;
+        const rz = cz - dx * Math.sin(spin) + dz * Math.cos(spin) + r.oz * k;
+        const end = this.pose(r.s + r.dir * j * CAR_SPACING, -r.dir);
+        this.cars[j].position.set(
+          rx * (1 - snap) + (end.x + r.ox) * snap,
+          PLATE_TOP + 0.05 + Math.sin(Math.PI * r.t) * 0.08,
+          rz * (1 - snap) + (end.z + r.oz) * snap,
+        );
+        this.cars[j].rotation.y = f.yaw + spin;
+      }
+      if (r.t >= 1) r.phase = r.unit === this.cars.length ? "done" : "run";
+    } else if (r.phase === "run") {
+      const left = Math.max(0, (r.s - r.newHead) * r.dir);
+      r.speed = Math.min(TRAIN_SPEED * 0.6, r.speed + dt * 0.9, 0.12 + left * 1.2);
+      r.s -= r.dir * Math.min(r.speed * dt, left);
+      for (let j = 0; j < r.unit; j++) this.unitPose(r, j, 1, 0);
+      if (left <= r.speed * dt + 1e-6) {
+        r.s = r.newHead;
+        r.phase = "drop";
+        r.t = 0;
+      }
+    } else if (r.phase === "drop") {
+      r.t = Math.min(1, r.t + dt / 0.45);
+      const k = r.t * r.t * (3 - 2 * r.t);
+      for (let j = 0; j < r.unit; j++) this.unitPose(r, j, 1 - k, Math.sin(Math.PI * r.t) * 0.06);
+      if (r.t >= 1) r.phase = "done";
     }
-    this.cars.forEach((car, i) => {
-      const pose = this.turnPose(turn, turn.p - i * CAR_SPACING);
-      car.position.set(pose.x, PLATE_TOP + 0.05 + pose.lift, pose.z);
-      car.rotation.y = pose.yaw;
-    });
+    if (r.phase !== "done") return;
+    const unitCars = this.cars.slice(0, r.unit);
+    const wagonCars = this.cars.slice(r.unit).reverse();
+    this.cars.splice(0, this.cars.length, ...unitCars, ...wagonCars);
+    this.head = r.newHead;
+    this.dir = -r.dir;
+    this.runaround = null;
+    this.dwell = wagonCars.length ? 0.8 : 0.3;
+    this.place();
   }
 
   get start(): { x: number; y: number } {
@@ -499,19 +508,15 @@ class Train {
       this.root.scale.setScalar(1);
       for (const car of this.cars) car.scale.setScalar(easeOutBack(this.grow));
     }
-    if (this.turn) {
-      this.updateTurn(dt);
+    if (this.runaround) {
+      this.updateRunaround(dt);
       return;
-    }
-    if (this.slide) {
-      this.slide.t = Math.min(1, this.slide.t + dt / 0.45);
-      if (this.slide.t >= 1) this.slide = null;
     }
     if (this.dwell > 0) {
       this.dwell -= dt;
       if (this.dwell <= 0 && this.turnPending) {
         this.turnPending = false;
-        this.startTurn();
+        this.startRunaround();
       }
       return;
     }

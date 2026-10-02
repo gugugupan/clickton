@@ -8,6 +8,7 @@ export const TILESET_FINGERPRINTS: Record<number, string> = {
   1: "e1ff7eb5",
   2: "550aafc3",
   3: "7eafaf96",
+  4: "8e9a79d6",
 };
 
 export function tilesetFingerprint(version = CODEC_VERSION): string {

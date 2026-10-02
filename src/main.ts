@@ -4,7 +4,7 @@ import { decodeCity, encodeCity } from "./core/codec";
 import { Game } from "./core/game";
 import { moodFor } from "./core/themes";
 import { mulberry32, randomSeed } from "./core/rng";
-import { POINTS, countHoleCells, type PlacementScore } from "./core/scoring";
+import { POINTS, type PlacementScore } from "./core/scoring";
 import { DIRS, DX, DY, TILES, opposite, tileByKey, type Rot } from "./core/tiles";
 import { Board } from "./core/board";
 import { LANGS, getLang, hasKey, setLang, t, type Lang } from "./i18n";
@@ -43,10 +43,13 @@ const world = new World(canvas, game.seed, library);
 world.add(agents.root);
 if (import.meta.env.DEV) Object.assign(window, { __clickton: { agents, world, getGame: () => game, Board, tileByKey } });
 world.edgesAround = (x, y) => DIRS.map((d) => game.board.edgeAt(x + DX[d], y + DY[d], opposite(d)));
+const LAKE_RING = [
+  [0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, 1], [-1, -1],
+];
+world.lakesAround = (x, y) => LAKE_RING.map(([dx, dy]) => !!game.board.get(x + dx, y + dy)?.tile.pool);
 let rot: Rot = 0;
 let hover: { x: number; y: number } | null = null;
 let pending: { x: number; y: number } | null = null;
-let holes = countHoleCells(game.board);
 
 async function restore(): Promise<Game> {
   const code = new URLSearchParams(location.hash.slice(1)).get("c");
@@ -158,14 +161,11 @@ function refreshStats(): void {
   $("theme").textContent = themeLabel();
   $("score").textContent = String(game.score);
   $("tiles").textContent = String(game.board.size);
-  $("holes").textContent = String(holes);
 }
 
 function describe(s: PlacementScore): string {
   const notes: string[] = [];
   if (s.perfect) notes.push(`${t("perfect")} +${POINTS.perfect}`);
-  if (s.holePoints < 0) notes.push(t("holeMade", s.holePoints));
-  if (s.holePoints > 0) notes.push(t("holeFilled", s.holePoints));
   if (s.railPoints > 0) notes.push(t(s.loopsClosed ? "loopDone" : "lineDone", s.railPoints));
   return notes.join(" · ");
 }
@@ -237,7 +237,6 @@ function cancelPending(): void {
 function place(x: number, y: number): void {
   if (!game.board.canPlace(x, y)) return;
   const { placed, score } = game.place(x, y, rot);
-  holes = score.holeCellsAfter;
   world.addTile(placed, true);
   world.setFrontier(game.board.frontier());
   fitTown();
@@ -315,7 +314,6 @@ function replay(): void {
   replayTarget = game;
   const moves = [...game.moves];
   game = new Game(replayTarget.seed, replayTarget.version);
-  holes = 0;
   rebuildWorld();
   refreshStats();
   document.body.classList.add("replaying");
@@ -328,8 +326,7 @@ function replay(): void {
       return;
     }
     const m = moves[i++];
-    const { placed, score } = game.place(m.x, m.y, m.rot);
-    holes = score.holeCellsAfter;
+    const { placed } = game.place(m.x, m.y, m.rot);
     world.addTile(placed, true);
     fitTown();
     if (agents.sync(game.board, game.seed).trains.length) playChime();
@@ -345,7 +342,6 @@ function skipReplay(): void {
   if (!replayTarget) return;
   replayToken++;
   game = replayTarget;
-  holes = countHoleCells(game.board);
   finishReplay();
   rebuildWorld();
   refreshStats();
@@ -360,7 +356,6 @@ function newTown(): void {
   if (game.board.size > 1 && !window.confirm(t("confirmNewTown"))) return;
   game = new Game(randomSeed());
   rot = 0;
-  holes = 0;
   hover = null;
   pending = null;
   rebuildWorld();

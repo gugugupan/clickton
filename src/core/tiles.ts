@@ -39,17 +39,17 @@ const SPECS: TileSpec[] = [
   { key: "road_curve", edges: [R, R, G, G], groups: [{ type: R, dirs: [0, 1] }], weight: 8 },
   { key: "road_t", edges: [R, R, R, G], groups: [{ type: R, dirs: [0, 1, 2] }], weight: 6 },
   { key: "road_cross", edges: [R, R, R, R], groups: [{ type: R, dirs: [0, 1, 2, 3] }], weight: 4 },
-  { key: "rail_straight", edges: [L, G, L, G], groups: [{ type: L, dirs: [0, 2] }], weight: 7 },
-  { key: "rail_curve", edges: [L, L, G, G], groups: [{ type: L, dirs: [0, 1] }], weight: 8 },
-  { key: "station", edges: [L, G, G, G], groups: [{ type: L, dirs: [0] }], weight: 2, station: true },
+  { key: "rail_straight", edges: [L, G, L, G], groups: [{ type: L, dirs: [0, 2] }], weight: 9 },
+  { key: "rail_curve", edges: [L, L, G, G], groups: [{ type: L, dirs: [0, 1] }], weight: 10 },
+  { key: "station", edges: [L, G, G, G], groups: [{ type: L, dirs: [0] }], weight: 1, station: true },
   {
     key: "station_road",
     edges: [L, G, R, G],
     groups: [{ type: L, dirs: [0] }, { type: R, dirs: [2] }],
-    weight: 2,
+    weight: 1,
     station: true,
   },
-  { key: "station_through", edges: [L, G, L, G], groups: [{ type: L, dirs: [0, 2] }], weight: 5, halt: true },
+  { key: "station_through", edges: [L, G, L, G], groups: [{ type: L, dirs: [0, 2] }], weight: 2, halt: true },
   { key: "city_edge", edges: [C, G, G, G], groups: [{ type: C, dirs: [0] }], weight: 8 },
   { key: "city_corner", edges: [C, C, G, G], groups: [{ type: C, dirs: [0, 1] }], weight: 7 },
   { key: "city_full", edges: [C, C, C, C], groups: [{ type: C, dirs: [0, 1, 2, 3] }], weight: 5 },
@@ -86,9 +86,10 @@ const SPECS: TileSpec[] = [
 
 export const TILES: readonly TileDef[] = SPECS.map((s, id) => ({ ...s, id }));
 
-export const RULES_VERSION = 3;
+export const RULES_VERSION = 4;
 
 const LEGACY_WEIGHTS: Record<number, Record<string, number>> = {
+  3: { grass: 6, road_straight: 10, road_curve: 8, road_t: 6, road_cross: 4, rail_straight: 7, rail_curve: 8, station: 2, station_road: 2, station_through: 5, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1, pool: 2 },
   2: { grass: 6, road_straight: 10, road_curve: 8, road_t: 6, road_cross: 4, rail_straight: 7, rail_curve: 8, station: 2, station_road: 2, station_through: 5, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1 },
   1: { grass: 10, road_straight: 7, road_curve: 6, road_t: 3, road_cross: 1, rail_straight: 6, rail_curve: 5, station: 1, station_road: 1, station_through: 3, city_edge: 5, city_corner: 4, city_full: 2, city_road: 4, house_road: 4, river_straight: 4, river_curve: 3, lake: 2, level_crossing: 1, road_bridge: 1, rail_bridge: 1 },
 };
@@ -101,7 +102,8 @@ export function baseWeights(version: number): number[] {
 }
 
 export function weightsFor(version: number, seed: number): number[] {
-  return version >= 3 ? themedWeights(TILES, seed) : baseWeights(version);
+  const base = baseWeights(version);
+  return version >= 3 ? themedWeights(TILES, base, seed) : base;
 }
 
 export function isKnownVersion(version: number): boolean {

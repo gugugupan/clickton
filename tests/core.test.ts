@@ -3,7 +3,7 @@ import { Board } from "../src/core/board";
 import { decodeCity, encodeCity, packCity, unpackCity, CODEC_VERSION } from "../src/core/codec";
 import { Game, tileForStep, type Move } from "../src/core/game";
 import { hash, mulberry32 } from "../src/core/rng";
-import { POINTS, countHoleCells, scorePlacement } from "../src/core/scoring";
+import { POINTS, scorePlacement } from "../src/core/scoring";
 import { DIRS, STARTER_TILE, TILES, edgeOf, groupsOf, tileByKey, type Rot } from "../src/core/tiles";
 
 const id = (key: string) => tileByKey(key).id;
@@ -84,21 +84,9 @@ describe("scoring", () => {
     }
     const s = scorePlacement(b, id("grass"), 0, 0, 0);
     expect(s.perfect).toBe(true);
-    expect(s.total).toBe(4 * POINTS.match + POINTS.perfect + POINTS.hole * -1);
+    expect(s.total).toBe(4 * POINTS.match + POINTS.perfect);
   });
 
-  it("penalises enclosing an empty cell and refunds filling it", () => {
-    const b = new Board();
-    const ring: [number, number][] = [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2], [1, 2], [0, 2]];
-    for (const [x, y] of ring) b.place(id("grass"), 0, x, y);
-    expect(countHoleCells(b)).toBe(0);
-    const closing = scorePlacement(b, id("grass"), 0, 0, 1);
-    expect(closing.holeCellsAfter).toBe(1);
-    expect(closing.holePoints).toBe(POINTS.hole);
-    b.place(id("grass"), 0, 0, 1);
-    const filling = scorePlacement(b, id("grass"), 0, 1, 1);
-    expect(filling.holePoints).toBe(-POINTS.hole);
-  });
 });
 
 describe("game", () => {

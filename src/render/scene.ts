@@ -67,6 +67,7 @@ export class World {
   private targetViewHeight = MIN_VIEW;
   private readonly tiles = new Map<string, { mesh: Mesh; placed: Placed }>();
   edgesAround: (x: number, y: number) => (Edge | undefined)[] = () => [];
+  lakesAround: (x: number, y: number) => boolean[] = () => [];
   private readonly drops: Drop[] = [];
   private ghost: Mesh | null = null;
   private readonly edgeMarks = new Group();
@@ -177,7 +178,7 @@ export class World {
   }
 
   private build(tile: TileDef, rot: Rot, x: number, y: number) {
-    return buildTile(tile, rot, mulberry32(hash(this.seed, x, y)), this.edgesAround(x, y), this.look);
+    return buildTile(tile, rot, mulberry32(hash(this.seed, x, y)), this.edgesAround(x, y), this.look, this.lakesAround(x, y));
   }
 
   private makeMesh(tile: TileDef, rot: Rot, x: number, y: number, mode: MaterialMode): Mesh {
@@ -200,8 +201,11 @@ export class World {
     mesh.receiveShadow = true;
     this.scene.add(mesh);
     this.tiles.set(`${p.x},${p.y}`, { mesh, placed: p });
-    for (const d of refreshNeighbours ? DIRS : []) {
-      const n = this.tiles.get(`${p.x + DX[d]},${p.y + DY[d]}`);
+    const ring = [
+      [0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, 1], [-1, -1],
+    ];
+    for (const [dx, dy] of refreshNeighbours ? ring : []) {
+      const n = this.tiles.get(`${p.x + dx},${p.y + dy}`);
       if (!n) continue;
       const { base } = this.build(n.placed.tile, n.placed.rot, n.placed.x, n.placed.y);
       n.mesh.geometry.dispose();

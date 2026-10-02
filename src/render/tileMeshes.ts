@@ -161,6 +161,7 @@ export function buildTile(
   rng: Rng,
   around?: readonly (Edge | undefined)[],
   look: Look = DEFAULT_LOOK,
+  lakes: readonly boolean[] = [],
 ): TileBuild {
   const b = new PartBuilder();
   const props: Prop[] = [];
@@ -236,8 +237,24 @@ export function buildTile(
     occupy(0, 1);
   }
   if (tile.pool) {
+    const orth = (c: number) => lakes[(c + rot) % 4] ?? false;
+    const diag = (c: number) => lakes[4 + ((c + rot) % 4)] ?? false;
     b.cylinder(0.27, 0.02, 0, PLATE_TOP, 0, PALETTE.platform, 24);
     b.cylinder(0.23, 0.026, 0, PLATE_TOP, 0, look.water, 24);
+    for (const c of DIRS) {
+      if (!orth(c)) continue;
+      const along = c % 2 === 0;
+      const cx = DX[c] * 0.25, cz = DY[c] * 0.25;
+      b.box(along ? 0.54 : 0.5, 0.02, along ? 0.5 : 0.54, cx, PLATE_TOP, cz, PALETTE.platform);
+      b.box(along ? 0.46 : 0.5, 0.026, along ? 0.5 : 0.46, cx, PLATE_TOP, cz, look.water);
+      occupy(DX[c], DY[c]);
+      const next = ((c + 1) % 4) as Dir;
+      if (orth(next) && diag(c)) {
+        const sx = DX[c] + DX[next], sz = DY[c] + DY[next];
+        b.box(0.5, 0.026, 0.5, sx * 0.25, PLATE_TOP, sz * 0.25, look.water);
+        occupy(sx, sz);
+      }
+    }
     b.cylinder(0.08, 0.004, 0.06, PLATE_TOP + 0.026, -0.05, look.waterLight, 12);
     for (let i = 0; i < 2; i++) {
       const a = rng() * Math.PI * 2, r = 0.08 + rng() * 0.1;

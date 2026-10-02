@@ -74,10 +74,10 @@ export function moodFor(seed: number): WorldMood {
   return { theme, jitter };
 }
 
-export function themedWeights(tiles: readonly TileDef[], seed: number): number[] {
+export function themedWeights(tiles: readonly TileDef[], base: readonly number[], seed: number): number[] {
   const { theme, jitter } = moodFor(seed);
-  return tiles.map((t) => {
+  return tiles.map((t, i) => {
     const c = categoryOf(t);
-    return t.weight * (theme.categories[c] ?? 1) * (theme.tiles[t.key] ?? 1) * jitter[c];
+    return base[i] * (theme.categories[c] ?? 1) * (theme.tiles[t.key] ?? 1) * jitter[c];
   });
 }

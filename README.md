@@ -1,13 +1,13 @@
 # Clickton · 咔哒镇 · カチッとタウン
 
-An endless, cozy tile-placement brick town. Draw a random 1×1 tile, rotate it, and click it into place next to your town. Matching edges score points, enclosed gaps cost points, and the town comes alive: finished railways get trains, houses bring people, meadows fill with animals. There is no ending — stop whenever you like and share your town as a URL.
+An endless, cozy tile-placement brick town. Draw a random 1×1 tile, rotate it, and click it into place next to your town. Matching edges score points, finished railways pay a bonus (loops pay most), and the town comes alive: finished railways get trains, houses bring people, meadows fill with animals. There is no ending — stop whenever you like and share your town as a URL.
 
 Inspired by LEGO Loco and Carcassonne. Not affiliated with the LEGO Group.
 
 ## Rules (v1)
 
 - Tile edges: grass, road, rail, water, city. Loose matching — any tile can go next to any tile; only matching edges score.
-- Score per placement: +1 per matching edge (+2 for city), +3 when all four neighbours match, −2 per newly enclosed empty cell (refunded when filled).
+- Score per placement: +1 per matching edge (+2 for city), +3 when all four neighbours match, plus a rail bonus when a line or loop is completed.
 - Every new town rolls a world theme from its seed (Classic, Metropolis, Railway country, Waterside, Countryside, Crossroads, Quiet village) plus a ±20 % jitter per tile category, so each game feels different.
 - Share links store the seed and the move sequence (`#c=...`), so a 500-tile town is about 1.1 KB of URL.
 
