@@ -1,5 +1,8 @@
 import {
+  AnimationClip,
+  AnimationMixer,
   Box3,
+  Clock,
   CanvasTexture,
   Color,
   DirectionalLight,
@@ -20,17 +23,21 @@ import { PartBuilder } from "../render/bricks";
 import { PALETTE } from "../render/palette";
 import "./gallery.css";
 
-const files = import.meta.glob("/assets-raw/**/gltf/**/*.gltf", { query: "?url", import: "default", eager: true }) as Record<
-  string,
-  string
->;
+const files = {
+  ...import.meta.glob("/assets-raw/**/gltf/**/*.gltf", { query: "?url", import: "default", eager: true }),
+  ...import.meta.glob("/assets-raw/**/GLB format/*.glb", { query: "?url", import: "default", eager: true }),
+} as Record<string, string>;
 
 const PACKS: { key: string; title: string; match: string }[] = [
   { key: "city", title: "City Builder Bits", match: "/city-builder-bits/" },
   { key: "medieval", title: "Medieval Hexagon（建筑与装饰）", match: "/medieval-hexagon/" },
   { key: "forest", title: "Forest Nature Pack", match: "/forest-nature/" },
   { key: "holiday", title: "Holiday Bits", match: "/holiday-bits/" },
+  { key: "people", title: "Blocky Characters（小人，有动画）", match: "/blocky-characters/" },
+  { key: "pets", title: "Cube Pets（动物，有动画）", match: "/cube-pets/" },
 ];
+
+const ANIMATED = new Set(["people", "pets"]);
 
 const COLOR_SUFFIX = /_(blue|red|green|yellow|white|brown|Color\d)$/;
 
@@ -48,7 +55,7 @@ function collect(): Item[] {
     if (!pack) continue;
     if (/\/tiles\//.test(path)) continue;
     if (/\/buildings\/(green|red|yellow)\//.test(path)) continue;
-    const name = path.split("/").pop()!.replace(".gltf", "");
+    const name = path.split("/").pop()!.replace(/\.(gltf|glb)$/, "");
     if (/withoutBase|Singlesided|SingleSided|_Mesh$/.test(name)) continue;
     const key = `${pack.key}:${name.replace(COLOR_SUFFIX, "")}`;
     if (seen.has(key)) continue;
@@ -218,6 +225,16 @@ function buildCards(): void {
       const label = document.createElement("span");
       label.textContent = item.name;
       el.append(img, label);
+      if (ANIMATED.has(item.pack)) {
+        const play = document.createElement("span");
+        play.className = "play";
+        play.textContent = "▶ 动画";
+        play.onclick = (e) => {
+          e.stopPropagation();
+          void openViewer(item);
+        };
+        el.append(play);
+      }
       el.onclick = () => toggle(idOf(item));
       grid.append(el);
       cards.set(idOf(item), { el, img, item });
@@ -266,6 +283,57 @@ $("clear").addEventListener("click", () => {
   savePicked();
   renderPicked();
 });
+
+const viewer = new WebGLRenderer({ antialias: true });
+viewer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+viewer.setSize(280, 280);
+viewer.shadowMap.enabled = true;
+$("viewer-stage").append(viewer.domElement);
+let viewerModel: Object3D | null = null;
+let mixer: AnimationMixer | null = null;
+let clips: AnimationClip[] = [];
+const clock = new Clock();
+
+async function openViewer(item: Item): Promise<void> {
+  const gltf = await loader.loadAsync(item.url);
+  if (viewerModel) scene.remove(viewerModel);
+  viewerModel = gltf.scene;
+  const box = new Box3().setFromObject(viewerModel);
+  const size = box.getSize(new Vector3());
+  viewerModel.scale.setScalar(Math.min(0.82 / Math.max(size.x, size.z), 1.1 / size.y));
+  const fitted = new Box3().setFromObject(viewerModel);
+  viewerModel.position.set(-(fitted.min.x + fitted.max.x) / 2, 0.1 - fitted.min.y, -(fitted.min.z + fitted.max.z) / 2);
+  applyPalette(viewerModel, ($("soft") as HTMLInputElement).checked);
+  mixer = new AnimationMixer(viewerModel);
+  clips = gltf.animations;
+  const select = $("clip") as HTMLSelectElement;
+  select.replaceChildren(...clips.map((c) => new Option(c.name, c.name)));
+  select.value = clips.find((c) => c.name === "walk")?.name ?? clips[0]?.name ?? "";
+  playClip(select.value);
+  $("viewer-name").textContent = item.name;
+  $("viewer").classList.add("open");
+}
+
+function playClip(name: string): void {
+  if (!mixer) return;
+  mixer.stopAllAction();
+  const clip = clips.find((c) => c.name === name);
+  if (clip) mixer.clipAction(clip).play();
+}
+
+$("clip").addEventListener("change", (e) => playClip((e.target as HTMLSelectElement).value));
+$("viewer-close").addEventListener("click", () => $("viewer").classList.remove("open"));
+
+function animate(): void {
+  requestAnimationFrame(animate);
+  if (!viewerModel || !$("viewer").classList.contains("open")) return;
+  mixer?.update(clock.getDelta());
+  viewerModel.rotation.y += 0.004;
+  scene.add(viewerModel);
+  viewer.render(scene, camera);
+  scene.remove(viewerModel);
+}
+animate();
 
 buildCards();
 renderPicked();

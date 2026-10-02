@@ -166,3 +166,67 @@ h2 small {
 .card.broken {
   opacity: 0.4;
 }
+
+.card {
+  position: relative;
+}
+
+.play {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fffcf7;
+  border: 1px solid var(--line);
+  font-size: 11px;
+  color: var(--text);
+}
+
+.viewer {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 3;
+  display: none;
+  padding: 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: 0 6px 24px rgba(94, 83, 75, 0.18);
+}
+
+.viewer.open {
+  display: block;
+}
+
+.viewer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+  font-size: 13px;
+}
+
+.viewer-head button {
+  border: 0;
+  background: transparent;
+  color: var(--soft);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+#viewer-stage canvas {
+  display: block;
+  border-radius: 12px;
+}
+
+#clip {
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--text);
+}
