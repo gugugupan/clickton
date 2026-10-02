@@ -22,6 +22,12 @@ export function tutorialSeen(): boolean {
   }
 }
 
+let rerender: (() => void) | null = null;
+
+export function refreshTutorial(): void {
+  rerender?.();
+}
+
 export function startTutorial(): void {
   const root = document.getElementById("tutorial")!;
   const text = document.getElementById("tut-text")!;
@@ -34,6 +40,7 @@ export function startTutorial(): void {
   const finish = () => {
     clearFocus();
     root.classList.remove("open");
+    rerender = null;
     try {
       localStorage.setItem(DONE_KEY, "done");
     } catch {}
@@ -56,7 +63,10 @@ export function startTutorial(): void {
     }
   };
   skip.onclick = finish;
-  skip.textContent = t("tutSkip");
+  rerender = () => {
+    skip.textContent = t("tutSkip");
+    show();
+  };
   root.classList.add("open");
-  show();
+  rerender();
 }

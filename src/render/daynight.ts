@@ -1,5 +1,3 @@
-export type TimeMode = "auto" | "day" | "night";
-
 export const CYCLE_SECONDS = 240;
 
 export interface SkyState {
@@ -30,17 +28,9 @@ export function skyAt(phase: number): SkyState {
 
 export class DayNight {
   phase = 0.12;
-  mode: TimeMode = "auto";
-  private shown: SkyState = { daylight: 1, dusk: 0 };
 
   update(dt: number): SkyState {
-    if (this.mode === "auto") this.phase = (this.phase + dt / CYCLE_SECONDS) % 1;
-    const target = this.mode === "day" ? { daylight: 1, dusk: 0 } : this.mode === "night" ? { daylight: 0, dusk: 0 } : skyAt(this.phase);
-    const k = this.mode === "auto" ? 1 : Math.min(1, dt * 2.5);
-    this.shown = {
-      daylight: this.shown.daylight + (target.daylight - this.shown.daylight) * k,
-      dusk: this.shown.dusk + (target.dusk - this.shown.dusk) * k,
-    };
-    return this.shown;
+    this.phase = (this.phase + dt / CYCLE_SECONDS) % 1;
+    return skyAt(this.phase);
   }
 }

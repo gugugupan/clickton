@@ -2,7 +2,7 @@ import "./style.css";
 import { playChime, playPlace, playPop } from "./audio";
 import { decodeCity, encodeCity } from "./core/codec";
 import { DISCARD_EVERY, Game } from "./core/game";
-import { dayLabel, todayNumber } from "./core/daily";
+import { CHALLENGE_TILES, dayLabel, todayNumber } from "./core/daily";
 import { completedRailLines, completedRoadNetworks } from "./core/networks";
 import { moodFor } from "./core/themes";
 import { mulberry32, randomSeed } from "./core/rng";
@@ -11,12 +11,12 @@ import { DIRS, DX, DY, TILES, opposite, tileByKey, type Rot } from "./core/tiles
 import { Board } from "./core/board";
 import { LANGS, getLang, hasKey, setLang, t, type Lang } from "./i18n";
 import { ModelLibrary } from "./render/models";
-import { DayNight, type TimeMode } from "./render/daynight";
+import { DayNight } from "./render/daynight";
 import { lookFor } from "./render/looks";
 import { World } from "./render/scene";
 import { Agents } from "./render/agents";
 import { loadLocal, recordScore, saveLocal } from "./save";
-import { startTutorial, tutorialSeen } from "./ui/tutorial";
+import { refreshTutorial, startTutorial, tutorialSeen } from "./ui/tutorial";
 import { download, framePhoto, toBlob } from "./ui/photo";
 import { drawTilePreview } from "./ui/tilePreview";
 
@@ -143,23 +143,25 @@ function applyI18n(): void {
   });
   $("help").textContent = t(viewing ? (coarse ? "helpViewTouch" : "helpView") : coarse ? "helpTouch" : "help");
   document.title = getLang() === "en" ? "Clickton" : `${t("gameName")} · Clickton`;
-  const langs = $("langs");
-  langs.replaceChildren(
-    ...LANGS.map((l) => {
-      const b = document.createElement("button");
-      b.textContent = { en: "EN", zh: "中文", ja: "日本語" }[l];
-      b.classList.toggle("active", l === getLang());
-      b.addEventListener("click", () => switchLang(l));
-      return b;
-    }),
-  );
+  $("ng-daily").querySelector(".label")!.textContent = t("dailyOptionHint", CHALLENGE_TILES);
+  for (const id of ["langs", "tut-langs"]) {
+    $(id).replaceChildren(
+      ...LANGS.map((l) => {
+        const b = document.createElement("button");
+        b.textContent = { en: "EN", zh: "中文", ja: "日本語" }[l];
+        b.classList.toggle("active", l === getLang());
+        b.addEventListener("click", () => switchLang(l));
+        return b;
+      }),
+    );
+  }
   refreshTray();
 }
 
 function switchLang(l: Lang): void {
   setLang(l);
   applyI18n();
-  refreshTimeButton();
+  refreshTutorial();
   refreshStats();
 }
 
@@ -464,7 +466,11 @@ function buildOwn(): void {
 }
 
 function newTown(): void {
-  if (game.board.size > 1 && !window.confirm(t("confirmNewTown"))) return;
+  const town = game.challenge ? loadLocal("town") : game;
+  if (town && town.moves.length > 0 && !window.confirm(t("confirmNewTown"))) return;
+  closeNewGame();
+  closeResult();
+  if (game.challenge) saveLocal(game);
   game = new Game(randomSeed());
   rot = 0;
   hover = null;
@@ -475,6 +481,19 @@ function newTown(): void {
   refreshTray();
   updateGhost();
   announceTheme();
+}
+
+function setMenu(open: boolean): void {
+  document.body.classList.toggle("menu-open", open);
+}
+
+function openNewGame(): void {
+  setMenu(false);
+  $("newgame").classList.add("open");
+}
+
+function closeNewGame(): void {
+  $("newgame").classList.remove("open");
 }
 
 let snapTargets: Cell[] = [];
@@ -528,6 +547,7 @@ function trackGesture(e: PointerEvent): Gesture | null {
 canvas.addEventListener(
   "pointerdown",
   (e) => {
+    setMenu(false);
     if (viewing || document.body.classList.contains("photo")) return;
     if (gesture) {
       gesture.moved = true;
@@ -616,6 +636,14 @@ window.addEventListener("keydown", (e) => {
     setPhoto(false);
     return;
   }
+  if (e.key === "Escape" && $("newgame").classList.contains("open")) {
+    closeNewGame();
+    return;
+  }
+  if (e.key === "Escape" && document.body.classList.contains("menu-open")) {
+    setMenu(false);
+    return;
+  }
   if (viewing || document.body.classList.contains("photo")) return;
   if (e.key === "r" || e.key === "R" || e.key === "e" || e.key === "E") rotate(1);
   if (e.key === "q" || e.key === "Q") rotate(-1);
@@ -632,7 +660,22 @@ $("discard").addEventListener("click", discardTile);
 $("rot-right").addEventListener("click", () => rotate(1));
 $("confirm").addEventListener("click", confirmPending);
 $("cancel").addEventListener("click", cancelPending);
-$("new-town").addEventListener("click", newTown);
+$("menu-toggle").addEventListener("click", () => setMenu(!document.body.classList.contains("menu-open")));
+$("menu").addEventListener("click", (e) => {
+  if ((e.target as HTMLElement).closest(".menu-item")) setMenu(false);
+});
+$("tray").addEventListener("pointerdown", () => setMenu(false));
+$("new-game").addEventListener("click", openNewGame);
+$("ng-town").addEventListener("click", newTown);
+$("ng-daily").addEventListener("click", () => {
+  closeNewGame();
+  closeResult();
+  switchGame(game.challenge ? Game.daily(todayNumber()) : loadDaily());
+});
+$("ng-cancel").addEventListener("click", closeNewGame);
+$("newgame").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeNewGame();
+});
 $("share").addEventListener("click", () => void shareTown());
 $("replay").addEventListener("click", replay);
 $("skip").addEventListener("click", skipReplay);
@@ -683,24 +726,7 @@ function updateStats(now: number): void {
 
 const dayNight = new DayNight();
 if (import.meta.env.DEV) Object.assign((window as unknown as { __clickton: object }).__clickton, { dayNight });
-const TIME_KEY = "clickton.time";
-const TIME_ICON: Record<TimeMode, string> = { auto: "🌗", day: "☀️", night: "🌙" };
-try {
-  const saved = localStorage.getItem(TIME_KEY);
-  if (saved === "auto" || saved === "day" || saved === "night") dayNight.mode = saved;
-} catch {}
-
-function refreshTimeButton(): void {
-  const b = $("time");
-  b.textContent = TIME_ICON[dayNight.mode];
-  $("photo-time").textContent = TIME_ICON[dayNight.mode];
-  const label = t(dayNight.mode === "auto" ? "timeAuto" : dayNight.mode === "day" ? "timeDay" : "timeNight");
-  b.title = label;
-  b.setAttribute("aria-label", label);
-}
-
 $("photo").addEventListener("click", () => setPhoto(true));
-$("daily").addEventListener("click", () => switchGame(loadDaily()));
 $("back-town").addEventListener("click", () => {
   closeResult();
   const saved = loadLocal("town");
@@ -718,17 +744,6 @@ $("try-daily").addEventListener("click", () => {
 $("help-btn").addEventListener("click", startTutorial);
 $("photo-exit").addEventListener("click", () => setPhoto(false));
 $("photo-save").addEventListener("click", () => void savePhoto());
-$("photo-time").addEventListener("click", () => $("time").click());
-
-$("time").addEventListener("click", () => {
-  dayNight.mode = dayNight.mode === "auto" ? "day" : dayNight.mode === "day" ? "night" : "auto";
-  try {
-    localStorage.setItem(TIME_KEY, dayNight.mode);
-  } catch {}
-  playPop();
-  refreshTimeButton();
-});
-refreshTimeButton();
 
 let lastFrame = performance.now();
 

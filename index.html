@@ -37,16 +37,15 @@
           <div><span class="label" data-i18n="tiles"></span><span id="tiles" class="value small">0</span></div>
         </div>
       </header>
-      <nav class="card menu">
+      <button id="menu-toggle" class="card menu-toggle" data-i18n-label="menu">☰</button>
+      <nav id="menu" class="card menu">
         <div class="langs" id="langs"></div>
-        <button id="time" class="round small-round"></button>
-        <button id="photo" class="round small-round" data-i18n-label="photoMode">📷</button>
-        <button id="help-btn" class="round small-round" data-i18n-label="helpBtn">?</button>
-        <button id="share" class="soft share" data-i18n="share"></button>
-        <button id="daily" class="soft ghost" data-i18n="dailyChallenge"></button>
-        <button id="back-town" class="soft ghost" data-i18n="backToTown"></button>
-        <button id="new-town" class="soft ghost" data-i18n="newTown"></button>
-        <button id="build-own" class="soft" data-i18n="buildOwn"></button>
+        <button id="share" class="menu-item" data-i18n="share"></button>
+        <button id="photo" class="menu-item" data-i18n="photoMode"></button>
+        <button id="help-btn" class="menu-item" data-i18n="helpBtn"></button>
+        <button id="new-game" class="menu-item" data-i18n="newGame"></button>
+        <button id="back-town" class="menu-item" data-i18n="backToTown"></button>
+        <button id="build-own" class="menu-item" data-i18n="buildOwn"></button>
       </nav>
       <section id="tray" class="card tray">
         <div class="tray-row">
@@ -95,8 +94,25 @@
           </div>
         </div>
       </section>
+      <section id="newgame" class="result-backdrop">
+        <div class="card result-card">
+          <h2 data-i18n="newGame"></h2>
+          <button id="ng-town" class="choice">
+            <strong data-i18n="townOption"></strong>
+            <span class="label" data-i18n="townOptionHint"></span>
+          </button>
+          <button id="ng-daily" class="choice">
+            <strong data-i18n="dailyOption"></strong>
+            <span class="label" data-i18n="dailyOptionHint"></span>
+          </button>
+          <div class="result-actions">
+            <button id="ng-cancel" class="pill cancel" data-i18n="cancel"></button>
+          </div>
+        </div>
+      </section>
       <section id="tutorial" class="tutorial">
         <div class="card tut-card">
+          <div class="langs tut-langs" id="tut-langs"></div>
           <p id="tut-text"></p>
           <div class="tut-actions">
             <span id="tut-step" class="label"></span>
@@ -107,7 +123,6 @@
       </section>
       <section id="photo-bar" class="card photo-bar">
         <button id="photo-save" class="pill confirm">💾 <span data-i18n="savePhoto"></span></button>
-        <button id="photo-time" class="round small-round"></button>
         <button id="photo-exit" class="pill cancel">✕ <span data-i18n="exitPhoto"></span></button>
       </section>
       <p id="help" class="help"></p>
