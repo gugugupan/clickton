@@ -364,7 +364,7 @@ function townPhoto(scale: number): HTMLCanvasElement {
   world.hideGhost();
   const mood = game.mood;
   return framePhoto(world.capture(scale), {
-    title: t("gameName"),
+    title: game.challenge ? t("photoDaily", dayLabel(game.day)) : t("gameName"),
     subtitle: mood ? themeLabel() : t("tagline"),
     stats: t("photoStats", game.score, game.board.size),
   });
@@ -388,11 +388,10 @@ async function savePhoto(): Promise<void> {
 async function shareTown(): Promise<void> {
   const code = await encodeCity({ version: game.linkVersion, seed: game.seed, moves: game.moves, day: game.day });
   const url = `${location.origin}${location.pathname}#c=${code}`;
-  const text = game.challenge ? t("shareDaily", dayLabel(game.day), game.score) : t("shareText", game.score);
   if (coarse && navigator.share) {
     try {
       const file = new File([await toBlob(townPhoto(1.5))], "clickton.png", { type: "image/png" });
-      const data: ShareData = { title: t("gameName"), text, url };
+      const data: ShareData = { url };
       if (navigator.canShare?.({ ...data, files: [file] })) data.files = [file];
       await navigator.share(data);
       return;

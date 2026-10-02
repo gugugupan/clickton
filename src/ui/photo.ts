@@ -30,14 +30,26 @@ export function framePhoto(shot: HTMLCanvasElement, caption: PhotoCaption): HTML
   g.fillStyle = "#5e534b";
   g.fillText("ton", pad + clickW + dot * 2.8, y);
   const logoW = clickW + dot * 2.8 + g.measureText("ton").width;
-  g.font = `500 ${small}px Nunito, "M PLUS Rounded 1c", "Noto Sans SC", sans-serif`;
-  g.fillStyle = "#8f837a";
-  g.fillText(`${caption.title} · ${caption.subtitle}`, pad * 2 + logoW, y);
+  g.font = `600 ${small * 1.15}px Fredoka, Nunito, sans-serif`;
+  const statsW = g.measureText(caption.stats).width;
   g.textAlign = "right";
   g.fillStyle = "#5e534b";
-  g.font = `600 ${small * 1.15}px Fredoka, Nunito, sans-serif`;
   g.fillText(caption.stats, out.width - pad, y);
+  g.textAlign = "left";
+  g.fillStyle = "#8f837a";
+  const room = out.width - pad * 4 - logoW - statsW;
+  fitText(g, `${caption.title} · ${caption.subtitle}`, room, small, pad * 2 + logoW, y);
   return out;
+}
+
+function fitText(g: CanvasRenderingContext2D, text: string, room: number, size: number, x: number, y: number): void {
+  const font = (px: number) => `500 ${px}px Nunito, "M PLUS Rounded 1c", "Noto Sans SC", sans-serif`;
+  g.font = font(size);
+  const w = g.measureText(text).width;
+  if (w > room) g.font = font(Math.max(size * 0.7, (size * room) / w));
+  let s = text;
+  while (s.length > 1 && g.measureText(s).width > room) s = s.slice(0, -2) + "…";
+  g.fillText(s, x, y);
 }
 
 export function toBlob(canvas: HTMLCanvasElement): Promise<Blob> {
