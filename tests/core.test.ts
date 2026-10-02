@@ -158,3 +158,13 @@ function playRandom(seed: number, n: number): Game {
   }
   return g;
 }
+
+describe("share link compatibility", () => {
+  it("the tile set matches what this codec version was released with", async () => {
+    const { tilesetFingerprint, TILESET_FINGERPRINTS } = await import("../src/core/codec");
+    expect(
+      tilesetFingerprint(),
+      "Tiles changed: bump CODEC_VERSION and record the new fingerprint so old share links keep their meaning",
+    ).toBe(TILESET_FINGERPRINTS[CODEC_VERSION]);
+  });
+});

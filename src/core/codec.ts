@@ -1,7 +1,18 @@
 import type { Move } from "./game";
-import type { Rot } from "./tiles";
+import { TILES, type Rot } from "./tiles";
 
 export const CODEC_VERSION = 1;
+
+export const TILESET_FINGERPRINTS: Record<number, string> = {
+  1: "e1ff7eb5",
+};
+
+export function tilesetFingerprint(): string {
+  const text = TILES.map((t) => `${t.key}:${t.weight}:${t.edges.join(",")}`).join("|");
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193) >>> 0;
+  return h.toString(16).padStart(8, "0");
+}
 
 export interface SavedCity {
   version: number;

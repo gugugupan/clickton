@@ -1,5 +1,6 @@
 import "./style.css";
 import { playChime, playPlace, playPop } from "./audio";
+import { CODEC_VERSION, decodeCity, encodeCity } from "./core/codec";
 import { Game } from "./core/game";
 import { mulberry32, randomSeed } from "./core/rng";
 import { POINTS, countHoleCells, type PlacementScore } from "./core/scoring";
@@ -18,8 +19,11 @@ const canvas = $<HTMLCanvasElement>("stage");
 const preview = $<HTMLCanvasElement>("preview");
 const bubble = $("bubble");
 const coarse = window.matchMedia("(pointer: coarse)").matches;
+window.addEventListener("hashchange", () => location.reload());
 
-let game = restore();
+let viewing = false;
+let badLink = false;
+let game = await restore();
 const library = new ModelLibrary();
 setLang(getLang());
 $("loading-text").textContent = t("loading");
@@ -42,7 +46,19 @@ let hover: { x: number; y: number } | null = null;
 let pending: { x: number; y: number } | null = null;
 let holes = countHoleCells(game.board);
 
-function restore(): Game {
+async function restore(): Promise<Game> {
+  const code = new URLSearchParams(location.hash.slice(1)).get("c");
+  if (code) {
+    try {
+      const city = await decodeCity(code);
+      viewing = true;
+      return Game.replay(city.seed, city.moves);
+    } catch (e) {
+      console.warn("could not open shared town", e);
+      badLink = true;
+      history.replaceState(null, "", location.pathname + location.search);
+    }
+  }
   const demo = import.meta.env.DEV ? Number(new URLSearchParams(location.search).get("demo")) : 0;
   if (demo > 0) return demoTown(demo);
   const saved = loadLocal();
@@ -75,7 +91,7 @@ function rebuildWorld(): void {
   world.seed = game.seed;
   world.clearTiles();
   for (const p of game.board.all()) world.addTile(p, false);
-  world.setFrontier(game.board.frontier());
+  world.setFrontier(viewing ? [] : game.board.frontier());
   agents.clear();
   agents.sync(game.board, game.seed);
   const b = game.board.getBounds();
@@ -95,7 +111,7 @@ function applyI18n(): void {
       el.title = t(key);
     }
   });
-  $("help").textContent = t(coarse ? "helpTouch" : "help");
+  $("help").textContent = t(viewing ? (coarse ? "helpViewTouch" : "helpView") : coarse ? "helpTouch" : "help");
   document.title = getLang() === "en" ? "Clickton" : `${t("gameName")} · Clickton`;
   const langs = $("langs");
   langs.replaceChildren(
@@ -237,6 +253,89 @@ function floatText(x: number, y: number, text: string, color: string): void {
   setTimeout(() => el.remove(), 950);
 }
 
+function toast(text: string): void {
+  const el = $("toast");
+  el.textContent = text;
+  el.classList.add("show");
+  clearTimeout(Number(el.dataset.timer));
+  el.dataset.timer = String(setTimeout(() => el.classList.remove("show"), 2400));
+}
+
+async function shareTown(): Promise<void> {
+  const code = await encodeCity({ version: CODEC_VERSION, seed: game.seed, moves: game.moves });
+  const url = `${location.origin}${location.pathname}#c=${code}`;
+  if (coarse && navigator.share) {
+    try {
+      await navigator.share({ title: t("gameName"), text: t("shareText", game.score), url });
+      return;
+    } catch (e) {
+      if ((e as Error).name === "AbortError") return;
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast(t("linkCopied"));
+  } catch {
+    window.prompt(t("copyThisLink"), url);
+  }
+}
+
+let replayToken = 0;
+let replayTarget: Game | null = null;
+
+function finishReplay(): void {
+  document.body.classList.remove("replaying");
+  $("replay-progress").textContent = "";
+  replayTarget = null;
+}
+
+function replay(): void {
+  if (replayTarget) return;
+  const token = ++replayToken;
+  replayTarget = game;
+  const moves = [...game.moves];
+  game = new Game(replayTarget.seed);
+  holes = 0;
+  rebuildWorld();
+  refreshStats();
+  document.body.classList.add("replaying");
+  const interval = Math.max(40, Math.min(220, 18000 / Math.max(1, moves.length)));
+  let i = 0;
+  const step = () => {
+    if (token !== replayToken) return;
+    if (i >= moves.length) {
+      finishReplay();
+      return;
+    }
+    const m = moves[i++];
+    const { placed, score } = game.place(m.x, m.y, m.rot);
+    holes = score.holeCellsAfter;
+    world.addTile(placed, true);
+    fitTown();
+    if (agents.sync(game.board, game.seed).length) playChime();
+    if (i % 3 === 1) playPop();
+    refreshStats();
+    $("replay-progress").textContent = `${i} / ${moves.length}`;
+    setTimeout(step, interval);
+  };
+  step();
+}
+
+function skipReplay(): void {
+  if (!replayTarget) return;
+  replayToken++;
+  game = replayTarget;
+  holes = countHoleCells(game.board);
+  finishReplay();
+  rebuildWorld();
+  refreshStats();
+}
+
+function buildOwn(): void {
+  history.replaceState(null, "", location.pathname + location.search);
+  location.reload();
+}
+
 function newTown(): void {
   if (game.board.size > 1 && !window.confirm(t("confirmNewTown"))) return;
   game = new Game(randomSeed());
@@ -302,6 +401,7 @@ function trackGesture(e: PointerEvent): Gesture | null {
 canvas.addEventListener(
   "pointerdown",
   (e) => {
+    if (viewing) return;
     if (gesture) {
       gesture.moved = true;
       return;
@@ -322,7 +422,7 @@ canvas.addEventListener("pointermove", (e) => {
     if (g.dragTile && g.moved) dragTileTo(e.clientX, e.clientY);
     return;
   }
-  if (e.pointerType !== "mouse" || pending) return;
+  if (viewing || e.pointerType !== "mouse" || pending) return;
   const c = world.pickCell(e.clientX, e.clientY);
   if (sameCell(c, hover)) return;
   hover = c;
@@ -385,6 +485,7 @@ trayTile.addEventListener("pointerup", endTrayGesture);
 trayTile.addEventListener("pointercancel", endTrayGesture);
 
 window.addEventListener("keydown", (e) => {
+  if (viewing) return;
   if (e.key === "r" || e.key === "R" || e.key === "e" || e.key === "E") rotate(1);
   if (e.key === "q" || e.key === "Q") rotate(-1);
   if (e.key === "Enter" || e.key === " ") {
@@ -399,11 +500,17 @@ $("rot-right").addEventListener("click", () => rotate(1));
 $("confirm").addEventListener("click", confirmPending);
 $("cancel").addEventListener("click", cancelPending);
 $("new-town").addEventListener("click", newTown);
+$("share").addEventListener("click", () => void shareTown());
+$("replay").addEventListener("click", replay);
+$("skip").addEventListener("click", skipReplay);
+$("build-own").addEventListener("click", buildOwn);
+document.body.classList.toggle("viewing", viewing);
 
 setLang(getLang());
 applyI18n();
 rebuildWorld();
 refreshStats();
+if (badLink) toast(t("badLink"));
 
 let previewTransform = "";
 

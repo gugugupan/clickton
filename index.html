@@ -31,7 +31,9 @@
       </header>
       <nav class="card menu">
         <div class="langs" id="langs"></div>
-        <button id="new-town" class="soft" data-i18n="newTown"></button>
+        <button id="share" class="soft share" data-i18n="share"></button>
+        <button id="new-town" class="soft ghost" data-i18n="newTown"></button>
+        <button id="build-own" class="soft" data-i18n="buildOwn"></button>
       </nav>
       <section id="tray" class="card tray">
         <div class="tray-row">
@@ -50,7 +52,14 @@
           <button id="confirm" class="pill confirm">✓ <span data-i18n="place"></span></button>
         </div>
       </section>
+      <section id="viewer-bar" class="card viewer-bar">
+        <span data-i18n="viewing"></span>
+        <span id="replay-progress" class="progress"></span>
+        <button id="replay" class="pill confirm">▶ <span data-i18n="replay"></span></button>
+        <button id="skip" class="pill cancel" data-i18n="skip"></button>
+      </section>
       <p id="help" class="help"></p>
+      <div id="toast" class="toast" role="status"></div>
       <div id="bubble" class="bubble"></div>
     </div>
     <script type="module" src="/src/main.ts"></script>
