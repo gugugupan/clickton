@@ -1,4 +1,5 @@
 import type { Move } from "./game";
+import { BALANCE } from "./balance";
 import { moodFor, THEMES } from "./themes";
 import { RULES_VERSION, TILES, baseWeights, isKnownVersion, type Rot } from "./tiles";
 
@@ -9,6 +10,7 @@ export const TILESET_FINGERPRINTS: Record<number, string> = {
   2: "550aafc3",
   3: "7eafaf96",
   4: "8e9a79d6",
+  5: "8358a2ff",
 };
 
 export function tilesetFingerprint(version = CODEC_VERSION): string {
@@ -16,7 +18,8 @@ export function tilesetFingerprint(version = CODEC_VERSION): string {
   const tiles = TILES.filter((_, i) => weights[i] > 0)
     .map((t) => `${t.key}:${weights[t.id]}:${t.edges.join(",")}`)
     .join("|");
-  const text = version >= 3 ? `${tiles}#${JSON.stringify(THEMES)}#${moodFor(1).jitter.city.toFixed(6)}` : tiles;
+  const themes = `${tiles}#${JSON.stringify(THEMES)}#${moodFor(1).jitter.city.toFixed(6)}`;
+  const text = version >= 5 ? `${themes}#${JSON.stringify(BALANCE)}` : version >= 3 ? themes : tiles;
   let h = 0x811c9dc5;
   for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193) >>> 0;
   return h.toString(16).padStart(8, "0");
@@ -70,8 +73,14 @@ export function packCity(city: SavedCity): Uint8Array {
   out.push(s & 0xff, (s >>> 8) & 0xff, (s >>> 16) & 0xff, (s >>> 24) & 0xff);
   writeVarint(out, city.moves.length);
   let px = 0, py = 0;
+  const flags = city.version >= 5;
   for (const m of city.moves) {
-    writeVarint(out, (zigzag(m.x - px) << 2) | m.rot);
+    if (m.skip && !flags) throw new Error("discards need rules v5");
+    if (m.skip) {
+      writeVarint(out, 1 << 2);
+      continue;
+    }
+    writeVarint(out, flags ? (zigzag(m.x - px) << 3) | m.rot : (zigzag(m.x - px) << 2) | m.rot);
     writeVarint(out, zigzag(m.y - py));
     px = m.x;
     py = m.y;
@@ -87,9 +96,14 @@ export function unpackCity(bytes: Uint8Array): SavedCity {
   const count = r.varint();
   const moves: Move[] = [];
   let px = 0, py = 0;
+  const flags = version >= 5;
   for (let i = 0; i < count; i++) {
     const a = r.varint();
-    const x = px + unzigzag(a >>> 2);
+    if (flags && a & 4) {
+      moves.push({ x: 0, y: 0, rot: 0, skip: true });
+      continue;
+    }
+    const x = px + unzigzag(a >>> (flags ? 3 : 2));
     const y = py + unzigzag(r.varint());
     moves.push({ x, y, rot: (a & 3) as Rot });
     px = x;

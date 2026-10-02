@@ -236,6 +236,11 @@ export function buildTile(
     occupy(-1, 0);
     occupy(0, 1);
   }
+  if (tile.deadEnd) {
+    b.cylinder(0.2, 0.02, 0, PLATE_TOP, 0, PALETTE.road, 20);
+    b.cylinder(0.075, 0.035, 0, PLATE_TOP, 0, look.grass, 14);
+    b.studGrid(0, 0, 0.08, 1, PLATE_TOP + 0.035, look.grassStud);
+  }
   if (tile.pool) {
     const orth = (c: number) => lakes[(c + rot) % 4] ?? false;
     const diag = (c: number) => lakes[4 + ((c + rot) % 4)] ?? false;

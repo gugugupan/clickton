@@ -1,7 +1,7 @@
 import "./style.css";
 import { playChime, playPlace, playPop } from "./audio";
 import { decodeCity, encodeCity } from "./core/codec";
-import { Game } from "./core/game";
+import { DISCARD_EVERY, Game } from "./core/game";
 import { moodFor } from "./core/themes";
 import { mulberry32, randomSeed } from "./core/rng";
 import { POINTS, type PlacementScore } from "./core/scoring";
@@ -19,6 +19,7 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 
 const canvas = $<HTMLCanvasElement>("stage");
 const preview = $<HTMLCanvasElement>("preview");
+const nextPreview = $<HTMLCanvasElement>("next-preview");
 const bubble = $("bubble");
 const coarse = window.matchMedia("(pointer: coarse)").matches;
 window.addEventListener("hashchange", () => location.reload());
@@ -143,7 +144,24 @@ function switchLang(l: Lang): void {
 function refreshTray(): void {
   const tile = TILES[game.currentTile];
   drawTilePreview(preview, tile, rot, world.look);
+  drawTilePreview(nextPreview, TILES[game.nextTile], 0, world.look);
   $("tile-name").textContent = t(`tile_${tile.key}` as Parameters<typeof t>[0]);
+  const canDiscard = game.discardsAvailable > 0;
+  $("discard").style.display = canDiscard ? "" : "none";
+  const progress = $("discard-progress");
+  progress.style.display = canDiscard || game.version < 5 ? "none" : "";
+  progress.textContent = t("discardProgress", DISCARD_EVERY - game.discardProgress);
+}
+
+function discardTile(): void {
+  if (viewing || game.discardsAvailable <= 0) return;
+  pending = null;
+  game.discard();
+  rot = 0;
+  playPop();
+  saveLocal(game);
+  refreshTray();
+  updateGhost();
 }
 
 function themeLabel(): string {
@@ -326,6 +344,11 @@ function replay(): void {
       return;
     }
     const m = moves[i++];
+    if (m.skip) {
+      game.discard();
+      setTimeout(step, interval);
+      return;
+    }
     const { placed } = game.place(m.x, m.y, m.rot);
     world.addTile(placed, true);
     fitTown();
@@ -509,9 +532,11 @@ window.addEventListener("keydown", (e) => {
     confirmPending();
   }
   if (e.key === "Escape") cancelPending();
+  if (e.key === "x" || e.key === "X") discardTile();
 });
 
 $("rot-left").addEventListener("click", () => rotate(-1));
+$("discard").addEventListener("click", discardTile);
 $("rot-right").addEventListener("click", () => rotate(1));
 $("confirm").addEventListener("click", confirmPending);
 $("cancel").addEventListener("click", cancelPending);
@@ -538,6 +563,7 @@ function alignPreview(): void {
   if (tf === previewTransform) return;
   previewTransform = tf;
   preview.style.transform = tf;
+  nextPreview.style.transform = tf;
 }
 
 let lastFrame = performance.now();
