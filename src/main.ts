@@ -9,6 +9,7 @@ import { DIRS, DX, DY, TILES, opposite, tileByKey, type Rot } from "./core/tiles
 import { Board } from "./core/board";
 import { LANGS, getLang, hasKey, setLang, t, type Lang } from "./i18n";
 import { ModelLibrary } from "./render/models";
+import { lookFor } from "./render/looks";
 import { World } from "./render/scene";
 import { Agents } from "./render/agents";
 import { loadLocal, saveLocal } from "./save";
@@ -92,6 +93,7 @@ function demoTown(n: number, theme: string | null): Game {
 
 function rebuildWorld(): void {
   world.seed = game.seed;
+  world.setLook(lookFor(game.mood?.theme.key));
   world.clearTiles();
   for (const p of game.board.all()) world.addTile(p, false);
   world.setFrontier(viewing ? [] : game.board.frontier());
@@ -137,7 +139,7 @@ function switchLang(l: Lang): void {
 
 function refreshTray(): void {
   const tile = TILES[game.currentTile];
-  drawTilePreview(preview, tile, rot);
+  drawTilePreview(preview, tile, rot, world.look);
   $("tile-name").textContent = t(`tile_${tile.key}` as Parameters<typeof t>[0]);
 }
 

@@ -1,4 +1,5 @@
 import { DX, DY, type Rot, type TileDef } from "../core/tiles";
+import { DEFAULT_LOOK, type Look } from "../render/looks";
 import { PALETTE } from "../render/palette";
 
 const css = (hex: number) => `#${hex.toString(16).padStart(6, "0")}`;
@@ -9,7 +10,7 @@ const STRIP: Record<string, { color: number; width: number }> = {
   water: { color: PALETTE.water, width: 0.38 },
 };
 
-export function drawTilePreview(canvas: HTMLCanvasElement, tile: TileDef, rot: Rot): void {
+export function drawTilePreview(canvas: HTMLCanvasElement, tile: TileDef, rot: Rot, look: Look = DEFAULT_LOOK): void {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   const size = canvas.clientWidth || 72;
   canvas.width = size * dpr;
@@ -19,7 +20,7 @@ export function drawTilePreview(canvas: HTMLCanvasElement, tile: TileDef, rot: R
   g.rotate((rot * Math.PI) / 2);
   g.clearRect(-0.5, -0.5, 1, 1);
 
-  g.fillStyle = css(PALETTE.grass);
+  g.fillStyle = css(look.grass);
   g.beginPath();
   g.roundRect(-0.46, -0.46, 0.92, 0.92, 0.08);
   g.fill();
@@ -36,7 +37,7 @@ export function drawTilePreview(canvas: HTMLCanvasElement, tile: TileDef, rot: R
       continue;
     }
     const s = STRIP[grp.type];
-    g.strokeStyle = css(s.color);
+    g.strokeStyle = css(grp.type === "water" ? look.water : s.color);
     g.lineWidth = s.width;
     g.lineCap = "butt";
     const [a, b] = grp.dirs;
@@ -55,7 +56,7 @@ export function drawTilePreview(canvas: HTMLCanvasElement, tile: TileDef, rot: R
     }
     g.stroke();
     if (grp.type === "water" && grp.dirs.length === 1) {
-      g.fillStyle = css(PALETTE.water);
+      g.fillStyle = css(look.water);
       g.beginPath();
       g.arc(0, 0, 0.22, 0, Math.PI * 2);
       g.fill();
@@ -80,7 +81,7 @@ export function drawTilePreview(canvas: HTMLCanvasElement, tile: TileDef, rot: R
     g.beginPath();
     g.arc(0, 0, 0.28, 0, Math.PI * 2);
     g.fill();
-    g.fillStyle = css(PALETTE.water);
+    g.fillStyle = css(look.water);
     g.beginPath();
     g.arc(0, 0, 0.23, 0, Math.PI * 2);
     g.fill();

@@ -2,6 +2,7 @@ import type { BufferGeometry } from "three";
 import type { Rng } from "../core/rng";
 import { DIRS, DX, DY, type Dir, type Edge, type Group, type Rot, type TileDef } from "../core/tiles";
 import { PartBuilder } from "./bricks";
+import { DEFAULT_LOOK, type Look } from "./looks";
 import type { ModelKey, Prop } from "./models";
 import { PALETTE } from "./palette";
 
@@ -98,12 +99,12 @@ function drawRail(b: PartBuilder, paths: Path[], y: number): void {
   }
 }
 
-function drawWater(b: PartBuilder, paths: Path[], hub: boolean): void {
+function drawWater(b: PartBuilder, paths: Path[], hub: boolean, look: Look): void {
   for (const p of paths) {
-    strip(b, p, 0.38, 0.014, PLATE_TOP, PALETTE.water);
-    strip(b, p, 0.06, 0.004, PLATE_TOP + 0.014, PALETTE.waterLight, 0.07);
+    strip(b, p, 0.38, 0.014, PLATE_TOP, look.water);
+    strip(b, p, 0.06, 0.004, PLATE_TOP + 0.014, look.waterLight, 0.07);
   }
-  if (hub) b.cylinder(0.21, 0.016, 0, PLATE_TOP, 0, PALETTE.water, 20);
+  if (hub) b.cylinder(0.21, 0.016, 0, PLATE_TOP, 0, look.water, 20);
 }
 
 function drawBridgeRails(b: PartBuilder, dirs: Dir[], y: number): void {
@@ -128,7 +129,7 @@ const TUFTS: ModelKey[] = ["grass_1", "grass_2"];
 const LILIES: ModelKey[] = ["lily_a", "lily_b"];
 const QUARTERS = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
 
-function drawCap(b: PartBuilder, d: Dir, type: Edge): void {
+function drawCap(b: PartBuilder, d: Dir, type: Edge, look: Look): void {
   const along = d % 2 === 0;
   const box = (w: number, h: number, depth: number, r: number, y: number, hex: number, lateral = 0) => {
     const x = DX[d] * r + (along ? lateral : 0), z = DY[d] * r + (along ? 0 : lateral);
@@ -143,7 +144,7 @@ function drawCap(b: PartBuilder, d: Dir, type: Edge): void {
     box(0.3, 0.03, 0.025, 0.43, PLATE_TOP + 0.06, PALETTE.barrier);
     box(0.08, 0.032, 0.027, 0.43, PLATE_TOP + 0.06, PALETTE.white);
   } else if (type === "water") {
-    box(0.44, 0.03, 0.09, 0.445, PLATE_TOP, PALETTE.grass);
+    box(0.44, 0.03, 0.09, 0.445, PLATE_TOP, look.grass);
   } else if (type === "city") {
     box(0.94, 0.06, 0.03, 0.475, PLATE_TOP, PALETTE.paving);
   }
@@ -154,7 +155,13 @@ export interface TileBuild {
   props: Prop[];
 }
 
-export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (Edge | undefined)[]): TileBuild {
+export function buildTile(
+  tile: TileDef,
+  rot: Rot,
+  rng: Rng,
+  around?: readonly (Edge | undefined)[],
+  look: Look = DEFAULT_LOOK,
+): TileBuild {
   const b = new PartBuilder();
   const props: Prop[] = [];
   const prop = (
@@ -163,7 +170,7 @@ export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (
     z: number,
     o: Pick<Prop, "fit" | "height" | "maxHeight" | "size"> & { lift?: number; rotY?: number },
   ) => props.push({ model, x, z, y: PLATE_TOP + (o.lift ?? 0), rotY: o.rotY ?? 0, fit: o.fit, height: o.height, maxHeight: o.maxHeight, size: o.size });
-  b.box(PLATE_SIZE, PLATE_TOP, PLATE_SIZE, 0, 0, 0, PALETTE.grass);
+  b.box(PLATE_SIZE, PLATE_TOP, PLATE_SIZE, 0, 0, 0, look.grass);
 
   const occupied = new Set<string>();
   const occupy = (sx: number, sz: number) => occupied.add(`${sx},${sz}`);
@@ -183,10 +190,10 @@ export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (
 
   for (const g of tile.groups.filter((g) => g.type === "water")) {
     const paths = pathsFor(g);
-    drawWater(b, paths, g.dirs.length === 1);
+    drawWater(b, paths, g.dirs.length === 1, look);
     if (hasBridge) continue;
     for (const p of paths) {
-      if (rng() > 0.6) continue;
+      if (rng() > look.lilyChance) continue;
       const q = p.at(0.25 + rng() * 0.5, (rng() - 0.5) * 0.18);
       prop(pick(rng, LILIES), q.x, q.z, { fit: 0.08, lift: 0.016, rotY: rng() * Math.PI * 2 });
     }
@@ -218,8 +225,8 @@ export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (
   }
   if (tile.pool) {
     b.cylinder(0.27, 0.02, 0, PLATE_TOP, 0, PALETTE.platform, 24);
-    b.cylinder(0.23, 0.026, 0, PLATE_TOP, 0, PALETTE.water, 24);
-    b.cylinder(0.08, 0.004, 0.06, PLATE_TOP + 0.026, -0.05, PALETTE.waterLight, 12);
+    b.cylinder(0.23, 0.026, 0, PLATE_TOP, 0, look.water, 24);
+    b.cylinder(0.08, 0.004, 0.06, PLATE_TOP + 0.026, -0.05, look.waterLight, 12);
     for (let i = 0; i < 2; i++) {
       const a = rng() * Math.PI * 2, r = 0.08 + rng() * 0.1;
       prop(pick(rng, LILIES), Math.cos(a) * r, Math.sin(a) * r, { fit: 0.07, lift: 0.026, rotY: rng() * Math.PI * 2 });
@@ -254,7 +261,13 @@ export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (
       b.box(SLOT, 0.01, SLOT, sx * SLOT, PLATE_TOP, sz * SLOT, PALETTE.paving);
       const centre = sx === 0 && sz === 0;
       const downtown = g.dirs.length === 4;
-      const pool = downtown ? (centre && rng() < 0.75 ? TOWERS : SHOPS) : centre ? SHOPS : HOUSES;
+      const pool = downtown
+        ? centre && rng() < look.towerChance
+          ? TOWERS
+          : SHOPS
+        : centre || rng() < look.shopChance
+          ? SHOPS
+          : HOUSES;
       const tall = pool === TOWERS;
       prop(pick(rng, pool), sx * SLOT, sz * SLOT, {
         fit: tall ? 0.26 : 0.29,
@@ -269,7 +282,7 @@ export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (
     for (const c of DIRS) {
       const mine = tile.edges[c];
       const theirs = around[(c + rot) % 4];
-      if (mine !== "grass" && theirs !== undefined && theirs !== mine) drawCap(b, c, mine);
+      if (mine !== "grass" && theirs !== undefined && theirs !== mine) drawCap(b, c, mine, look);
     }
   }
 
@@ -278,21 +291,23 @@ export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (
     for (let sz = -1; sz <= 1; sz++) {
       if (occupied.has(`${sx},${sz}`)) continue;
       const x = sx * SLOT, z = sz * SLOT;
-      b.studGrid(x, z, 0.2, 2, PLATE_TOP, PALETTE.grassStud);
+      b.studGrid(x, z, 0.2, 2, PLATE_TOP, look.grassStud);
       const roll = rng();
       const jx = x + (rng() - 0.5) * 0.08, jz = z + (rng() - 0.5) * 0.08;
       const spin = rng() * Math.PI * 2;
-      if (tile.groups.length === 0 && sx === 0 && sz === 0 && roll < 0.06) {
+      const fur = look.streetFurniture;
+      const treeT = look.trees, bushT = treeT + look.bushes, rockT = bushT + 0.06, tuftT = rockT + 0.1;
+      if (tile.groups.length === 0 && sx === 0 && sz === 0 && roll < look.landmark) {
         prop("watertower", x, z, { height: 0.5, rotY: pick(rng, QUARTERS) });
-      } else if (hasRoad && roll < 0.2) {
-        if (roll < 0.11) prop("streetlight", jx, jz, { height: 0.24 });
-        else if (roll < 0.17) prop("bench", jx, jz, { fit: 0.12, rotY: pick(rng, QUARTERS) });
+      } else if (hasRoad && roll < fur) {
+        if (roll < fur * 0.55) prop("streetlight", jx, jz, { height: 0.24 });
+        else if (roll < fur * 0.85) prop("bench", jx, jz, { fit: 0.12, rotY: pick(rng, QUARTERS) });
         else prop("hydrant", jx, jz, { height: 0.06 });
-      } else if (roll < 0.28) prop(pick(rng, TREES), jx, jz, { fit: 0.24 + rng() * 0.06, maxHeight: 0.3 + rng() * 0.1, rotY: spin });
-      else if (roll < 0.4) prop(pick(rng, BUSHES), jx, jz, { fit: 0.15, rotY: spin });
-      else if (roll < 0.46) prop(pick(rng, ROCKS), jx, jz, { fit: 0.11, rotY: spin });
-      else if (roll < 0.56) prop(pick(rng, TUFTS), jx, jz, { fit: 0.13, rotY: spin });
-      else if (roll < 0.66) {
+      } else if (roll < treeT) prop(pick(rng, TREES), jx, jz, { fit: 0.24 + rng() * 0.06, maxHeight: 0.3 + rng() * 0.1, rotY: spin });
+      else if (roll < bushT) prop(pick(rng, BUSHES), jx, jz, { fit: 0.15, rotY: spin });
+      else if (roll < rockT) prop(pick(rng, ROCKS), jx, jz, { fit: 0.11, rotY: spin });
+      else if (roll < tuftT) prop(pick(rng, TUFTS), jx, jz, { fit: 0.13, rotY: spin });
+      else if (roll < tuftT + look.flowers) {
         for (let i = 0; i < 3; i++) {
           b.cylinder(0.03, 0.03, x + (rng() - 0.5) * 0.2, PLATE_TOP + 0.035, z + (rng() - 0.5) * 0.2, pick(rng, PALETTE.flowers), 6);
         }

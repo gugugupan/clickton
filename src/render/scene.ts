@@ -29,6 +29,7 @@ import type { Placed } from "../core/board";
 import { hash, mulberry32 } from "../core/rng";
 import { DIRS, DX, DY, edgeOf, type Edge, type Rot, type TileDef } from "../core/tiles";
 import { PALETTE } from "./palette";
+import { DEFAULT_LOOK, type Look } from "./looks";
 import type { MaterialMode, ModelLibrary } from "./models";
 import { PLATE_SIZE, PLATE_TOP, buildTile } from "./tileMeshes";
 
@@ -69,6 +70,9 @@ export class World {
   private readonly drops: Drop[] = [];
   private ghost: Mesh | null = null;
   private readonly edgeMarks = new Group();
+  private readonly hemi: HemisphereLight;
+  private readonly tableMaterial = new MeshLambertMaterial({ color: PALETTE.table });
+  look: Look = DEFAULT_LOOK;
   private readonly matchMaterial = new MeshBasicMaterial({ color: PALETTE.edgeMatch, transparent: true, opacity: 0.9 });
   private readonly mismatchMaterial = new MeshBasicMaterial({ color: PALETTE.edgeMismatch, transparent: true, opacity: 0.9 });
   private readonly markGeometry = new BoxGeometry(0.82, 0.02, 0.07);
@@ -102,7 +106,8 @@ export class World {
     this.controls.maxPolarAngle = 1.15;
     this.controls.zoomToCursor = true;
 
-    this.scene.add(new HemisphereLight(0xfffaf2, 0xd9cfc3, 2.1));
+    this.hemi = new HemisphereLight(0xfffaf2, 0xd9cfc3, 2.1);
+    this.scene.add(this.hemi);
     this.sun = new DirectionalLight(0xfff4e6, 1.1);
     this.sun.castShadow = true;
     this.sun.shadow.mapSize.set(2048, 2048);
@@ -117,7 +122,7 @@ export class World {
     sc.far = 60;
     this.scene.add(this.sun, this.sun.target);
 
-    const table = new Mesh(new PlaneGeometry(400, 400), new MeshLambertMaterial({ color: PALETTE.table }));
+    const table = new Mesh(new PlaneGeometry(400, 400), this.tableMaterial);
     table.rotation.x = -Math.PI / 2;
     table.position.y = -0.001;
     table.receiveShadow = true;
@@ -132,6 +137,14 @@ export class World {
 
     this.resize();
     window.addEventListener("resize", () => this.resize());
+  }
+
+  setLook(look: Look): void {
+    this.look = look;
+    (this.scene.background as Color).setHex(look.background);
+    this.tableMaterial.color.setHex(look.table);
+    this.hemi.color.setHex(look.sky);
+    this.hemi.groundColor.setHex(look.ground);
   }
 
   add(object: Object3D): void {
@@ -164,7 +177,7 @@ export class World {
   }
 
   private build(tile: TileDef, rot: Rot, x: number, y: number) {
-    return buildTile(tile, rot, mulberry32(hash(this.seed, x, y)), this.edgesAround(x, y));
+    return buildTile(tile, rot, mulberry32(hash(this.seed, x, y)), this.edgesAround(x, y), this.look);
   }
 
   private makeMesh(tile: TileDef, rot: Rot, x: number, y: number, mode: MaterialMode): Mesh {
