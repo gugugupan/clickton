@@ -7,7 +7,6 @@ import { DIRS, DX, DY, groupsOf, type Dir } from "../core/tiles";
 import catalog from "./assets.json";
 import type { ModelKey, ModelLibrary } from "./models";
 import { PLATE_TOP } from "./tileMeshes";
-import { playPop } from "../audio";
 
 interface Rig {
   scene: Object3D;
@@ -32,6 +31,7 @@ const MEADOW_PETS = ["bunny", "chick", "cow", "pig", "deer", "fox", "dog", "cat"
 const PERSON_HEIGHT = 0.15;
 const CAR_SPACING = 0.27;
 const TRAIN_SPEED = 0.7;
+const TURN_RADIUS = 0.13;
 
 class Puppet {
   readonly root = new Group();
@@ -277,6 +277,22 @@ interface Pose {
   yaw: number;
 }
 
+interface Turn {
+  p: number;
+  speed: number;
+  trackLen: number;
+  radius: number;
+  tailS: number;
+  headS: number;
+  dir: number;
+  hx: number;
+  hz: number;
+  fx: number;
+  fz: number;
+  nx: number;
+  nz: number;
+}
+
 interface TrackPoint {
   x: number;
   z: number;
@@ -338,7 +354,8 @@ class Train {
   private readonly stops: number[] = [];
   private nextStop = 0;
   private turnPending = false;
-  private hop: { t: number; from: Pose[]; to: Pose[]; centre: { x: number; z: number }; head: number } | null = null;
+  private turn: Turn | null = null;
+  private slide: { t: number; ox: number; oz: number } | null = null;
 
   constructor(private readonly line: RailLine, library: ModelLibrary, halts: boolean[] = []) {
     const marks: number[] = [];
@@ -350,7 +367,9 @@ class Train {
       const end = i + 1 < marks.length ? this.points[Math.min(marks[i + 1], this.points.length - 1)].s : this.length;
       this.stops.push((start + end) / 2);
     });
-    const maxCars = Math.max(1, Math.floor((this.length - (line.loop ? 0.3 : 0.1)) / CAR_SPACING));
+    const maxCars = line.loop
+      ? Math.max(1, Math.floor((this.length - 0.3) / CAR_SPACING))
+      : Math.max(1, Math.floor((this.length - 0.1) / (2 * CAR_SPACING)) + 1);
     const kinds: ModelKey[] = ["locomotive", "tender", "wagon", "wagon"].slice(0, Math.min(4, maxCars)) as ModelKey[];
     for (const kind of kinds) {
       const size = library.size(kind);
@@ -391,43 +410,82 @@ class Train {
   }
 
   private place(): void {
+    const k = this.slide ? this.slide.t * this.slide.t * (3 - 2 * this.slide.t) : 1;
+    const ox = this.slide ? this.slide.ox * (1 - k) : 0, oz = this.slide ? this.slide.oz * (1 - k) : 0;
+    const lift = this.slide ? Math.sin(Math.PI * this.slide.t) * 0.08 : 0;
     this.poses(this.head, this.dir).forEach((p, i) => {
-      this.cars[i].position.set(p.x, PLATE_TOP + 0.05, p.z);
+      this.cars[i].position.set(p.x + ox, PLATE_TOP + 0.05 + lift, p.z + oz);
       this.cars[i].rotation.y = p.yaw;
     });
   }
 
-  private startHop(): void {
-    const tail = this.head - this.dir * (this.cars.length - 1) * CAR_SPACING;
-    const from = this.poses(this.head, this.dir);
-    const to = this.poses(tail, -this.dir);
-    const a = from[0], b = from[from.length - 1];
-    this.hop = { t: 0, from, to, centre: { x: (a.x + b.x) / 2, z: (a.z + b.z) / 2 }, head: tail };
-    playPop();
+  private startTurn(): void {
+    const n = this.cars.length;
+    const h = this.sample(this.head);
+    const len = Math.hypot(h.tx, h.tz) || 1;
+    const fx = (h.tx / len) * this.dir, fz = (h.tz / len) * this.dir;
+    this.turn = {
+      p: (n - 1) * CAR_SPACING,
+      speed: TRAIN_SPEED * 0.25,
+      trackLen: (n - 1) * CAR_SPACING,
+      radius: TURN_RADIUS,
+      tailS: this.head - this.dir * (n - 1) * CAR_SPACING,
+      headS: this.head,
+      dir: this.dir,
+      hx: h.x,
+      hz: h.z,
+      fx,
+      fz,
+      nx: fz,
+      nz: -fx,
+    };
   }
 
-  private updateHop(dt: number): void {
-    const hop = this.hop!;
-    hop.t = Math.min(1, hop.t + dt / 0.7);
-    const t = hop.t;
-    const spin = Math.PI * (t * t * (3 - 2 * t));
-    const snap = t ** 4;
-    const lift = Math.sin(Math.PI * t) * 0.16;
-    this.cars.forEach((car, i) => {
-      const f = hop.from[i], to = hop.to[i];
-      const dx = f.x - hop.centre.x, dz = f.z - hop.centre.z;
-      const rx = hop.centre.x + dx * Math.cos(spin) + dz * Math.sin(spin);
-      const rz = hop.centre.z - dx * Math.sin(spin) + dz * Math.cos(spin);
-      car.position.set(rx * (1 - snap) + to.x * snap, PLATE_TOP + 0.05 + lift, rz * (1 - snap) + to.z * snap);
-      car.rotation.y = f.yaw + spin;
-    });
-    if (t >= 1) {
-      this.head = hop.head;
-      this.dir = -this.dir;
-      this.hop = null;
-      this.dwell = 0.6;
-      this.place();
+  private turnPose(turn: Turn, p: number): Pose & { lift: number } {
+    if (p <= turn.trackLen) {
+      const q = this.sample(turn.tailS + turn.dir * p);
+      return { x: q.x, z: q.z, yaw: Math.atan2(q.tx * turn.dir, q.tz * turn.dir), lift: 0 };
     }
+    const r = turn.radius;
+    const u = p - turn.trackLen;
+    const bend = Math.PI * r;
+    if (u <= bend) {
+      const a = u / r;
+      const cx = turn.hx + turn.nx * r, cz = turn.hz + turn.nz * r;
+      const x = cx - turn.nx * r * Math.cos(a) + turn.fx * r * Math.sin(a);
+      const z = cz - turn.nz * r * Math.cos(a) + turn.fz * r * Math.sin(a);
+      const tx = turn.nx * Math.sin(a) + turn.fx * Math.cos(a);
+      const tz = turn.nz * Math.sin(a) + turn.fz * Math.cos(a);
+      return { x, z, yaw: Math.atan2(tx, tz), lift: Math.sin(Math.PI * (u / bend)) * 0.06 };
+    }
+    const c = u - bend;
+    return {
+      x: turn.hx + 2 * r * turn.nx - turn.fx * c,
+      z: turn.hz + 2 * r * turn.nz - turn.fz * c,
+      yaw: Math.atan2(-turn.fx, -turn.fz),
+      lift: 0,
+    };
+  }
+
+  private updateTurn(dt: number): void {
+    const turn = this.turn!;
+    turn.speed = Math.min(TRAIN_SPEED * 0.6, turn.speed + dt * 0.8);
+    turn.p += turn.speed * dt;
+    const bend = Math.PI * turn.radius;
+    const last = turn.p - (this.cars.length - 1) * CAR_SPACING;
+    if (last >= turn.trackLen + bend) {
+      this.dir = -turn.dir;
+      this.head = turn.headS - turn.dir * (turn.p - turn.trackLen - bend);
+      this.slide = { t: 0, ox: 2 * turn.radius * turn.nx, oz: 2 * turn.radius * turn.nz };
+      this.turn = null;
+      this.place();
+      return;
+    }
+    this.cars.forEach((car, i) => {
+      const pose = this.turnPose(turn, turn.p - i * CAR_SPACING);
+      car.position.set(pose.x, PLATE_TOP + 0.05 + pose.lift, pose.z);
+      car.rotation.y = pose.yaw;
+    });
   }
 
   get start(): { x: number; y: number } {
@@ -440,15 +498,19 @@ class Train {
       this.root.scale.setScalar(1);
       for (const car of this.cars) car.scale.setScalar(easeOutBack(this.grow));
     }
-    if (this.hop) {
-      this.updateHop(dt);
+    if (this.turn) {
+      this.updateTurn(dt);
       return;
+    }
+    if (this.slide) {
+      this.slide.t = Math.min(1, this.slide.t + dt / 0.45);
+      if (this.slide.t >= 1) this.slide = null;
     }
     if (this.dwell > 0) {
       this.dwell -= dt;
       if (this.dwell <= 0 && this.turnPending) {
         this.turnPending = false;
-        this.startHop();
+        this.startTurn();
       }
       return;
     }
