@@ -1,6 +1,6 @@
 import type { BufferGeometry } from "three";
 import type { Rng } from "../core/rng";
-import { DX, DY, type Dir, type Group, type Rot, type TileDef } from "../core/tiles";
+import { DIRS, DX, DY, type Dir, type Edge, type Group, type Rot, type TileDef } from "../core/tiles";
 import { PartBuilder } from "./bricks";
 import { PALETTE } from "./palette";
 
@@ -138,7 +138,33 @@ function tree(b: PartBuilder, rng: Rng, x: number, z: number): void {
   }
 }
 
-export function buildTileGeometry(tile: TileDef, rot: Rot, rng: Rng): BufferGeometry {
+function drawCap(b: PartBuilder, d: Dir, type: Edge): void {
+  const along = d % 2 === 0;
+  const box = (w: number, h: number, depth: number, r: number, y: number, hex: number, lateral = 0) => {
+    const x = DX[d] * r + (along ? lateral : 0), z = DY[d] * r + (along ? 0 : lateral);
+    if (along) b.box(w, h, depth, x, y, z, hex);
+    else b.box(depth, h, w, x, y, z, hex);
+  };
+  if (type === "rail") {
+    box(0.22, 0.05, 0.05, 0.42, PLATE_TOP + 0.02, PALETTE.bufferStop);
+    box(0.08, 0.012, 0.052, 0.42, PLATE_TOP + 0.06, PALETTE.white);
+  } else if (type === "road") {
+    for (const side of [-0.12, 0.12]) box(0.025, 0.07, 0.025, 0.43, PLATE_TOP + 0.02, PALETTE.trunk, side);
+    box(0.3, 0.03, 0.025, 0.43, PLATE_TOP + 0.06, PALETTE.barrier);
+    box(0.08, 0.032, 0.027, 0.43, PLATE_TOP + 0.06, PALETTE.white);
+  } else if (type === "water") {
+    box(0.44, 0.03, 0.09, 0.445, PLATE_TOP, PALETTE.grass);
+  } else if (type === "city") {
+    box(0.94, 0.06, 0.03, 0.475, PLATE_TOP, PALETTE.paving);
+  }
+}
+
+export function buildTileGeometry(
+  tile: TileDef,
+  rot: Rot,
+  rng: Rng,
+  around?: readonly (Edge | undefined)[],
+): BufferGeometry {
   const b = new PartBuilder();
   b.box(PLATE_SIZE, PLATE_TOP, PLATE_SIZE, 0, 0, 0, PALETTE.grass);
 
@@ -163,19 +189,26 @@ export function buildTileGeometry(tile: TileDef, rot: Rot, rng: Rng): BufferGeom
   }
   for (const g of tile.groups) {
     const y = PLATE_TOP;
-    const paths = g.type === "road" || g.type === "rail" ? pathsFor(g) : [];
-    if (g.type === "road") drawRoad(b, paths, g.dirs.length !== 2, y);
+    let paths = g.type === "road" || g.type === "rail" ? pathsFor(g) : [];
+    if (tile.station && g.type === "rail") paths = [linePath(edgeMid(g.dirs[0]), { x: 0, z: -0.02 })];
+    if (tile.station && g.type === "road") paths = [linePath(edgeMid(g.dirs[0]), { x: 0, z: 0.3 })];
+    if (g.type === "road") drawRoad(b, paths, g.dirs.length !== 2 && !tile.station, y);
     if (g.type === "rail") drawRail(b, paths, y + (tile.groups.some((o) => o.type === "road") ? 0.004 : 0));
     if (hasBridge && g.type !== "water") drawBridgeRails(b, g.dirs, y + 0.02);
   }
 
   if (tile.station) {
-    b.box(0.03, 0.03, 0.08, 0, PLATE_TOP + 0.02, 0.1, PALETTE.bufferStop, Math.PI / 2);
-    b.box(0.14, 0.05, 0.56, -0.24, PLATE_TOP, -0.2, PALETTE.platform);
-    for (const z of [-0.4, 0]) b.box(0.02, 0.14, 0.02, -0.28, PLATE_TOP + 0.05, z, PALETTE.trunk);
-    b.box(0.2, 0.02, 0.5, -0.25, PLATE_TOP + 0.19, -0.2, PALETTE.roofs[0]);
+    b.box(0.2, 0.05, 0.05, 0, PLATE_TOP + 0.02, 0.01, PALETTE.bufferStop);
+    b.box(0.08, 0.012, 0.052, 0, PLATE_TOP + 0.06, 0.01, PALETTE.white);
+    b.box(0.14, 0.05, 0.48, -0.24, PLATE_TOP, -0.24, PALETTE.platform);
+    for (const z of [-0.42, -0.08]) b.box(0.02, 0.14, 0.02, -0.28, PLATE_TOP + 0.05, z, PALETTE.trunk);
+    b.box(0.2, 0.02, 0.44, -0.25, PLATE_TOP + 0.19, -0.24, PALETTE.roofs[0]);
+    b.box(0.38, 0.16, 0.18, 0, PLATE_TOP, 0.19, PALETTE.walls[3]);
+    b.box(0.03, 0.08, 0.005, 0, PLATE_TOP, 0.282, PALETTE.trunk);
+    b.box(0.44, 0.04, 0.24, 0, PLATE_TOP + 0.16, 0.19, PALETTE.roofs[1]);
     occupy(-1, -1);
     occupy(-1, 0);
+    occupy(0, 1);
   }
   if (tile.house) {
     building(b, rng, 0, -SLOT, false);
@@ -192,6 +225,14 @@ export function buildTileGeometry(tile: TileDef, rot: Rot, rng: Rng): BufferGeom
       const [sx, sz] = key.split(",").map(Number);
       b.box(SLOT, 0.01, SLOT, sx * SLOT, PLATE_TOP, sz * SLOT, PALETTE.paving);
       building(b, rng, sx * SLOT, sz * SLOT, sx === 0 && sz === 0);
+    }
+  }
+
+  if (around) {
+    for (const c of DIRS) {
+      const mine = tile.edges[c];
+      const theirs = around[(c + rot) % 4];
+      if (mine !== "grass" && theirs !== undefined && theirs !== mine) drawCap(b, c, mine);
     }
   }
 

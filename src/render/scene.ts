@@ -24,7 +24,7 @@ import {
 import { MapControls } from "three/addons/controls/MapControls.js";
 import type { Placed } from "../core/board";
 import { hash, mulberry32 } from "../core/rng";
-import type { Rot, TileDef } from "../core/tiles";
+import { DIRS, DX, DY, type Edge, type Rot, type TileDef } from "../core/tiles";
 import { PALETTE } from "./palette";
 import { PLATE_SIZE, PLATE_TOP, buildTileGeometry } from "./tileMeshes";
 
@@ -60,7 +60,8 @@ export class World {
   private ghostPending = false;
   private viewHeight = MIN_VIEW;
   private targetViewHeight = MIN_VIEW;
-  private readonly tiles = new Map<string, Mesh>();
+  private readonly tiles = new Map<string, { mesh: Mesh; placed: Placed }>();
+  edgesAround: (x: number, y: number) => (Edge | undefined)[] = () => [];
   private readonly drops: Drop[] = [];
   private ghost: Mesh | null = null;
   private ghostKey = "";
@@ -146,19 +147,28 @@ export class World {
     }
   }
 
+  private tileGeometry(tile: TileDef, rot: Rot, x: number, y: number) {
+    return buildTileGeometry(tile, rot, mulberry32(hash(this.seed, x, y)), this.edgesAround(x, y));
+  }
+
   private makeMesh(tile: TileDef, rot: Rot, x: number, y: number, material: MeshStandardMaterial): Mesh {
-    const geo = buildTileGeometry(tile, rot, mulberry32(hash(this.seed, x, y)));
-    const mesh = new Mesh(geo, material);
+    const mesh = new Mesh(this.tileGeometry(tile, rot, x, y), material);
     mesh.position.set(x, 0, y);
     return mesh;
   }
 
-  addTile(p: Placed, animate: boolean): void {
+  addTile(p: Placed, animate: boolean, refreshNeighbours = animate): void {
     const mesh = this.makeMesh(p.tile, p.rot, p.x, p.y, this.tileMaterial);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     this.scene.add(mesh);
-    this.tiles.set(`${p.x},${p.y}`, mesh);
+    this.tiles.set(`${p.x},${p.y}`, { mesh, placed: p });
+    for (const d of refreshNeighbours ? DIRS : []) {
+      const n = this.tiles.get(`${p.x + DX[d]},${p.y + DY[d]}`);
+      if (!n) continue;
+      n.mesh.geometry.dispose();
+      n.mesh.geometry = this.tileGeometry(n.placed.tile, n.placed.rot, n.placed.x, n.placed.y);
+    }
     if (animate) {
       mesh.position.y = 0.8;
       this.drops.push({ mesh, start: performance.now() });
@@ -166,9 +176,9 @@ export class World {
   }
 
   clearTiles(): void {
-    for (const m of this.tiles.values()) {
-      this.scene.remove(m);
-      m.geometry.dispose();
+    for (const { mesh } of this.tiles.values()) {
+      this.scene.remove(mesh);
+      mesh.geometry.dispose();
     }
     this.tiles.clear();
     this.hideGhost();

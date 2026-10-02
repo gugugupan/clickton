@@ -3,7 +3,7 @@ import { playPlace, playPop } from "./audio";
 import { Game } from "./core/game";
 import { randomSeed } from "./core/rng";
 import { POINTS, countHoleCells, type PlacementScore } from "./core/scoring";
-import { TILES, type Rot } from "./core/tiles";
+import { DIRS, DX, DY, TILES, opposite, type Rot } from "./core/tiles";
 import { LANGS, getLang, hasKey, setLang, t, type Lang } from "./i18n";
 import { World } from "./render/scene";
 import { loadLocal, saveLocal } from "./save";
@@ -18,6 +18,7 @@ const coarse = window.matchMedia("(pointer: coarse)").matches;
 
 let game = restore();
 const world = new World(canvas, game.seed);
+world.edgesAround = (x, y) => DIRS.map((d) => game.board.edgeAt(x + DX[d], y + DY[d], opposite(d)));
 let rot: Rot = 0;
 let hover: { x: number; y: number } | null = null;
 let pending: { x: number; y: number } | null = null;
