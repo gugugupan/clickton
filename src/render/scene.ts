@@ -10,7 +10,7 @@ import {
   Mesh,
   MeshStandardMaterial,
   OrthographicCamera,
-  PCFSoftShadowMap,
+  PCFShadowMap,
   Plane,
   PlaneGeometry,
   Raycaster,
@@ -73,7 +73,7 @@ export class World {
     this.renderer = new WebGLRenderer({ canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = PCFSoftShadowMap;
+    this.renderer.shadowMap.type = PCFShadowMap;
     this.scene.background = new Color(PALETTE.background);
 
     this.camera = new OrthographicCamera(-1, 1, 1, -1, 0.1, 200);

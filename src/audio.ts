@@ -12,35 +12,34 @@ function audio(): AudioContext | null {
   return ctx;
 }
 
-export function playClick(pitch = 1): void {
+function bubble(ac: AudioContext, at: number, from: number, to: number, volume: number, length: number): void {
+  const osc = ac.createOscillator();
+  osc.type = "sine";
+  osc.frequency.setValueAtTime(from, at);
+  osc.frequency.exponentialRampToValueAtTime(to, at + length * 0.6);
+  const soft = ac.createBiquadFilter();
+  soft.type = "lowpass";
+  soft.frequency.value = 1800;
+  const gain = ac.createGain();
+  gain.gain.setValueAtTime(0.0001, at);
+  gain.gain.exponentialRampToValueAtTime(volume, at + 0.008);
+  gain.gain.exponentialRampToValueAtTime(0.0001, at + length);
+  osc.connect(soft).connect(gain).connect(ac.destination);
+  osc.start(at);
+  osc.stop(at + length + 0.02);
+}
+
+export function playPlace(scored: boolean): void {
   const ac = audio();
   if (!ac) return;
   const now = ac.currentTime;
-  const len = Math.floor(ac.sampleRate * 0.03);
-  const buf = ac.createBuffer(1, len, ac.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 6);
-  const noise = ac.createBufferSource();
-  noise.buffer = buf;
-  const band = ac.createBiquadFilter();
-  band.type = "bandpass";
-  band.frequency.value = 2400 * pitch;
-  band.Q.value = 1.4;
-  const gain = ac.createGain();
-  gain.gain.value = 0.5;
-  noise.connect(band).connect(gain).connect(ac.destination);
-  noise.start(now);
-
-  const tone = ac.createOscillator();
-  tone.frequency.value = 1300 * pitch;
-  const tg = ac.createGain();
-  tg.gain.setValueAtTime(0.12, now);
-  tg.gain.exponentialRampToValueAtTime(0.001, now + 0.06);
-  tone.connect(tg).connect(ac.destination);
-  tone.start(now);
-  tone.stop(now + 0.07);
+  const base = scored ? 1 : 0.75;
+  bubble(ac, now, 260 * base, 620 * base, 0.32, 0.13);
+  bubble(ac, now + 0.07, 380 * base, 880 * base, 0.18, 0.1);
 }
 
-export function playTick(): void {
-  playClick(1.6);
+export function playPop(): void {
+  const ac = audio();
+  if (!ac) return;
+  bubble(ac, ac.currentTime, 520, 1100, 0.12, 0.07);
 }

@@ -1,5 +1,5 @@
 import "./style.css";
-import { playClick, playTick } from "./audio";
+import { playPlace, playPop } from "./audio";
 import { Game } from "./core/game";
 import { randomSeed } from "./core/rng";
 import { POINTS, countHoleCells, type PlacementScore } from "./core/scoring";
@@ -135,7 +135,7 @@ function fitTown(instant = false): void {
 
 function rotate(delta: 1 | -1): void {
   rot = ((rot + delta + 4) % 4) as Rot;
-  playTick();
+  playPop();
   refreshTray();
   updateGhost();
 }
@@ -166,7 +166,7 @@ function place(x: number, y: number): void {
   world.addTile(placed, true);
   world.setFrontier(game.board.frontier());
   fitTown();
-  playClick(score.total > 0 ? 1 : 0.8);
+  playPlace(score.total > 0);
   floatScore(x, y, score.total);
   rot = 0;
   saveLocal(game);
@@ -223,7 +223,7 @@ function dragTileTo(clientX: number, clientY: number): void {
   const c = snapCell(clientX, clientY);
   if (c && !sameCell(c, pending)) {
     setPending(c);
-    playTick();
+    playPop();
   }
 }
 
