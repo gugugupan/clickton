@@ -28,13 +28,15 @@
       "source": "city-suburban/Models/GLB format",
       "license": "city-suburban/License.txt",
       "texture": "Textures/colormap.png",
-      "soft": true
+      "soft": true,
+      "variants": true
     },
     "commercial": {
       "source": "city-commercial/Models/GLB format",
       "license": "city-commercial/License.txt",
       "texture": "Textures/colormap.png",
-      "soft": true
+      "soft": true,
+      "variants": true
     }
   },
   "models": {

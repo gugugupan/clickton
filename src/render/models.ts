@@ -2,7 +2,7 @@ import { Box3, BufferGeometry, Matrix4, Mesh, MeshStandardMaterial, Texture, Vec
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import catalog from "./assets.json";
-import { soften, tintDark } from "./soften";
+import { soften, tintDark, variantAtlas } from "./soften";
 
 export type ModelKey = keyof typeof catalog.models;
 export type PackKey = keyof typeof catalog.packs;
@@ -18,7 +18,11 @@ export interface Prop {
   height?: number;
   maxHeight?: number;
   size?: { x: number; y: number; z: number };
+  variant?: number;
 }
+
+export const BUILDING_TINTS = ["#e0a193", "#edd39b", "#9dbbd1", "#a9c89b", "#c9b8d6", "#b9aea4"] as const;
+export const BUILDING_VARIANTS = BUILDING_TINTS.length + 1;
 
 interface Model {
   pack: string;
@@ -36,6 +40,7 @@ export class ModelLibrary {
   private readonly models = new Map<ModelKey, Model>();
   private readonly materials = new Map<string, MeshStandardMaterial>();
   private readonly textures = new Map<string, Texture>();
+  private readonly atlasRows = new Map<string, number>();
 
   async load(onProgress: (done: number, total: number) => void): Promise<void> {
     const loader = new GLTFLoader();
@@ -53,8 +58,13 @@ export class ModelLibrary {
           if (!m.isMesh) return;
           const mat = (Array.isArray(m.material) ? m.material[0] : m.material) as MeshStandardMaterial;
           if (mat.map && !this.textures.has(group)) {
-            const base = catalog.packs[def.pack].soft ? soften(mat.map) : mat.map;
-            this.textures.set(group, def.tint ? tintDark(base, def.tint) : base);
+            const pack = catalog.packs[def.pack];
+            const base = pack.soft ? soften(mat.map) : mat.map;
+            if (def.tint) this.textures.set(group, tintDark(base, def.tint));
+            else if ("variants" in pack && pack.variants) {
+              this.textures.set(group, variantAtlas(base, BUILDING_TINTS));
+              this.atlasRows.set(group, BUILDING_VARIANTS);
+            } else this.textures.set(group, base);
           }
           const g = new BufferGeometry();
           for (const name of ["position", "normal", "uv"]) {
@@ -109,6 +119,12 @@ export class ModelLibrary {
       let scale = p.height ? p.height / model.size.y : (p.fit ?? 0.3) / Math.max(model.size.x, model.size.z);
       if (p.maxHeight) scale = Math.min(scale, p.maxHeight / model.size.y);
       const g = model.geometry.clone();
+      const rows = this.atlasRows.get(model.pack);
+      if (rows) {
+        const uv = g.getAttribute("uv");
+        const row = Math.min(rows - 1, Math.max(0, p.variant ?? 0));
+        for (let i = 0; i < uv.count; i++) uv.setY(i, (uv.getY(i) + row) / rows);
+      }
       if (p.size) g.scale(p.size.x / model.size.x, p.size.y / model.size.y, p.size.z / model.size.z);
       g.applyMatrix4(m.makeRotationY(p.rotY));
       if (!p.size) g.scale(scale, scale, scale);

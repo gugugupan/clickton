@@ -3,7 +3,7 @@ import type { Rng } from "../core/rng";
 import { DIRS, DX, DY, type Dir, type Edge, type Group, type Rot, type TileDef } from "../core/tiles";
 import { PartBuilder } from "./bricks";
 import { DEFAULT_LOOK, type Look } from "./looks";
-import type { ModelKey, Prop } from "./models";
+import { BUILDING_VARIANTS, type ModelKey, type Prop } from "./models";
 import { PALETTE } from "./palette";
 
 export const PLATE_SIZE = 0.98;
@@ -168,8 +168,20 @@ export function buildTile(
     model: ModelKey,
     x: number,
     z: number,
-    o: Pick<Prop, "fit" | "height" | "maxHeight" | "size"> & { lift?: number; rotY?: number },
-  ) => props.push({ model, x, z, y: PLATE_TOP + (o.lift ?? 0), rotY: o.rotY ?? 0, fit: o.fit, height: o.height, maxHeight: o.maxHeight, size: o.size });
+    o: Pick<Prop, "fit" | "height" | "maxHeight" | "size" | "variant"> & { lift?: number; rotY?: number },
+  ) =>
+    props.push({
+      model,
+      x,
+      z,
+      y: PLATE_TOP + (o.lift ?? 0),
+      rotY: o.rotY ?? 0,
+      fit: o.fit,
+      height: o.height,
+      maxHeight: o.maxHeight,
+      size: o.size,
+      variant: o.variant,
+    });
   b.box(PLATE_SIZE, PLATE_TOP, PLATE_SIZE, 0, 0, 0, look.grass);
 
   const occupied = new Set<string>();
@@ -246,7 +258,7 @@ export function buildTile(
     occupy(1, 0);
   }
   if (tile.house) {
-    prop(pick(rng, HOUSES), 0, -SLOT, { fit: 0.34, maxHeight: 0.38 });
+    prop(pick(rng, HOUSES), 0, -SLOT, { fit: 0.34, maxHeight: 0.38, variant: Math.floor(rng() * BUILDING_VARIANTS) });
     occupy(0, -1);
   }
 
@@ -270,6 +282,7 @@ export function buildTile(
           : HOUSES;
       const tall = pool === TOWERS;
       prop(pick(rng, pool), sx * SLOT, sz * SLOT, {
+        variant: Math.floor(rng() * BUILDING_VARIANTS),
         fit: tall ? 0.26 : 0.29,
         maxHeight: tall ? 0.8 : pool === SHOPS ? 0.5 : 0.36,
         lift: 0.01,

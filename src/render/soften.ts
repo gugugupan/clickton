@@ -1,4 +1,4 @@
-import { CanvasTexture, SRGBColorSpace, type Texture } from "three";
+import { CanvasTexture, LinearFilter, SRGBColorSpace, type Texture } from "three";
 
 const cache = new Map<Texture, Texture>();
 
@@ -30,8 +30,7 @@ export function soften(tex: Texture): Texture {
   return soft;
 }
 
-export function tintDark(tex: Texture, hex: string): Texture {
-  const img = tex.image as HTMLImageElement | ImageBitmap | HTMLCanvasElement;
+function tintCanvas(img: CanvasImageSource & { width: number; height: number }, hex: string): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
   canvas.width = img.width;
   canvas.height = img.height;
@@ -49,10 +48,30 @@ export function tintDark(tex: Texture, hex: string): Texture {
     px[i + 2] = px[i + 2] * (1 - w) + tb * shade * w;
   }
   g.putImageData(data, 0, 0);
+  return canvas;
+}
+
+function asTexture(canvas: HTMLCanvasElement, like: Texture, mipmaps = true): Texture {
   const out = new CanvasTexture(canvas);
-  out.flipY = tex.flipY;
+  out.flipY = like.flipY;
   out.colorSpace = SRGBColorSpace;
-  out.magFilter = tex.magFilter;
-  out.minFilter = tex.minFilter;
+  out.magFilter = like.magFilter;
+  out.minFilter = mipmaps ? like.minFilter : LinearFilter;
+  out.generateMipmaps = mipmaps;
   return out;
+}
+
+export function tintDark(tex: Texture, hex: string): Texture {
+  return asTexture(tintCanvas(tex.image as HTMLCanvasElement, hex), tex);
+}
+
+export function variantAtlas(tex: Texture, tints: readonly string[]): Texture {
+  const img = tex.image as HTMLCanvasElement;
+  const rows = [img as CanvasImageSource, ...tints.map((t) => tintCanvas(img, t))];
+  const canvas = document.createElement("canvas");
+  canvas.width = img.width;
+  canvas.height = img.height * rows.length;
+  const g = canvas.getContext("2d")!;
+  rows.forEach((row, i) => g.drawImage(row, 0, img.height * i));
+  return asTexture(canvas, tex, false);
 }
