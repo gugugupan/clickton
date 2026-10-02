@@ -1,0 +1,101 @@
+export type Lang = "en" | "zh" | "ja";
+export const LANGS: readonly Lang[] = ["en", "zh", "ja"];
+
+type Entry = Record<Lang, string>;
+
+const STRINGS = {
+  gameName: { en: "Clickton", zh: "咔哒镇", ja: "カチッとタウン" },
+  tagline: {
+    en: "A town that never stops clicking together",
+    zh: "一座永远在咔哒声中生长的小镇",
+    ja: "カチッとつながり続ける、終わらない町",
+  },
+  langName: { en: "EN", zh: "中文", ja: "日本語" },
+  score: { en: "Score", zh: "分数", ja: "スコア" },
+  tiles: { en: "Tiles", zh: "地块", ja: "タイル" },
+  holes: { en: "Gaps", zh: "空洞", ja: "すきま" },
+  nextTile: { en: "Your tile", zh: "当前地块", ja: "いまのタイル" },
+  rotateLeft: { en: "Rotate left", zh: "向左转", ja: "左に回す" },
+  rotateRight: { en: "Rotate right", zh: "向右转", ja: "右に回す" },
+  newTown: { en: "New town", zh: "新城镇", ja: "新しい町" },
+  confirmNewTown: {
+    en: "Start a new town? Your current town will be replaced.",
+    zh: "要开始新城镇吗？当前城镇会被替换。",
+    ja: "新しい町を始めますか？いまの町は置き換えられます。",
+  },
+  help: {
+    en: "Click to place · R or right-click to rotate · Drag to pan · Scroll to zoom",
+    zh: "点击放置 · R 键或右键旋转 · 拖动平移 · 滚轮缩放",
+    ja: "クリックで置く · R キーか右クリックで回転 · ドラッグで移動 · ホイールでズーム",
+  },
+  helpTouch: {
+    en: "Tap a spot, tap again to place · Drag to pan · Pinch to zoom",
+    zh: "点一下选位置，再点一下放置 · 拖动平移 · 双指缩放",
+    ja: "タップで選び、もう一度タップで置く · ドラッグで移動 · ピンチでズーム",
+  },
+  perfect: { en: "Perfect!", zh: "完美！", ja: "パーフェクト！" },
+  holeMade: { en: "Gap %d", zh: "空洞 %d", ja: "すきま %d" },
+  holeFilled: { en: "Gap filled +%d", zh: "填补空洞 +%d", ja: "すきま解消 +%d" },
+  tile_grass: { en: "Meadow", zh: "草地", ja: "草原" },
+  tile_road_straight: { en: "Straight road", zh: "直路", ja: "まっすぐな道" },
+  tile_road_curve: { en: "Road bend", zh: "弯路", ja: "曲がり道" },
+  tile_road_t: { en: "T-junction", zh: "丁字路口", ja: "T字路" },
+  tile_road_cross: { en: "Crossroads", zh: "十字路口", ja: "十字路" },
+  tile_rail_straight: { en: "Straight track", zh: "直轨", ja: "まっすぐな線路" },
+  tile_rail_curve: { en: "Track bend", zh: "弯轨", ja: "カーブ線路" },
+  tile_station: { en: "Station", zh: "车站", ja: "駅" },
+  tile_station_road: { en: "Station with road", zh: "临街车站", ja: "道のある駅" },
+  tile_city_edge: { en: "Town edge", zh: "城市边缘", ja: "町のはし" },
+  tile_city_corner: { en: "Town corner", zh: "城市转角", ja: "町のかど" },
+  tile_city_full: { en: "Town centre", zh: "市中心", ja: "町の中心" },
+  tile_city_road: { en: "Town gate", zh: "城门大道", ja: "町の入口" },
+  tile_house_road: { en: "Cottage", zh: "小房子", ja: "小さな家" },
+  tile_river_straight: { en: "River", zh: "河流", ja: "川" },
+  tile_river_curve: { en: "River bend", zh: "河湾", ja: "川の曲がり" },
+  tile_lake: { en: "Pond", zh: "池塘", ja: "池" },
+  tile_level_crossing: { en: "Level crossing", zh: "平交道口", ja: "踏切" },
+  tile_road_bridge: { en: "Road bridge", zh: "公路桥", ja: "道路橋" },
+  tile_rail_bridge: { en: "Rail bridge", zh: "铁路桥", ja: "鉄橋" },
+} satisfies Record<string, Entry>;
+
+export type StringKey = keyof typeof STRINGS;
+
+const STORAGE_KEY = "clickton.lang";
+const HTML_LANG: Record<Lang, string> = { en: "en", zh: "zh-CN", ja: "ja" };
+
+let current: Lang = detect();
+
+function detect(): Lang {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved && (LANGS as string[]).includes(saved)) return saved as Lang;
+  } catch {}
+  const nav = typeof navigator === "undefined" ? "en" : navigator.language.toLowerCase();
+  if (nav.startsWith("zh")) return "zh";
+  if (nav.startsWith("ja")) return "ja";
+  return "en";
+}
+
+export function getLang(): Lang {
+  return current;
+}
+
+export function setLang(lang: Lang): void {
+  current = lang;
+  try {
+    localStorage.setItem(STORAGE_KEY, lang);
+  } catch {}
+  if (typeof document !== "undefined") document.documentElement.lang = HTML_LANG[lang];
+}
+
+export function t(key: StringKey, ...args: (string | number)[]): string {
+  let s = STRINGS[key][current];
+  for (const a of args) s = s.replace("%d", String(a));
+  return s;
+}
+
+export function hasKey(key: string): key is StringKey {
+  return key in STRINGS;
+}
+
+export const ALL_STRINGS: Readonly<Record<string, Entry>> = STRINGS;
