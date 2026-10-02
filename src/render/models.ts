@@ -3,7 +3,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import catalog from "./assets.json";
-import { soften, tintDark, variantAtlas } from "./soften";
+import { soften, tintDark, variantAtlas, windowMask } from "./soften";
 
 export type ModelKey = keyof typeof catalog.models;
 export type PackKey = keyof typeof catalog.packs;
@@ -54,6 +54,8 @@ export class ModelLibrary {
   private readonly materials = new Map<string, MeshStandardMaterial>();
   private readonly textures = new Map<string, Texture>();
   private readonly atlasRows = new Map<string, number>();
+  private readonly glow = new Map<string, Texture>();
+  private night = 0;
 
   async load(onProgress: (done: number, total: number) => void): Promise<void> {
     const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
@@ -77,6 +79,7 @@ export class ModelLibrary {
             else if ("variants" in pack && pack.variants) {
               this.textures.set(group, variantAtlas(base, BUILDING_TINTS));
               this.atlasRows.set(group, BUILDING_VARIANTS);
+              this.glow.set(group, windowMask(mat.map, BUILDING_VARIANTS));
             } else this.textures.set(group, base);
           }
           const g = new BufferGeometry();
@@ -101,6 +104,13 @@ export class ModelLibrary {
     );
   }
 
+  setNight(night: number): void {
+    this.night = night;
+    for (const [id, mat] of this.materials) {
+      if (mat.emissiveMap && id.endsWith(":solid")) mat.emissiveIntensity = night * 1.15;
+    }
+  }
+
   size(key: ModelKey): Vector3 | undefined {
     return this.models.get(key)?.size;
   }
@@ -118,6 +128,12 @@ export class ModelLibrary {
         opacity,
         depthWrite: mode !== "ghost",
       });
+      const glow = this.glow.get(pack);
+      if (glow && mode === "solid") {
+        mat.emissive.setRGB(1, 1, 1);
+        mat.emissiveMap = glow;
+        mat.emissiveIntensity = this.night * 1.15;
+      }
       this.materials.set(id, mat);
     }
     return mat;

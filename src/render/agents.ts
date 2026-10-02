@@ -1,4 +1,18 @@
-import { AnimationClip, AnimationMixer, Box3, Camera, Frustum, Group, Matrix4, Mesh, Object3D, Vector3 } from "three";
+import {
+  AdditiveBlending,
+  AnimationClip,
+  AnimationMixer,
+  Box3,
+  Camera,
+  Frustum,
+  Group,
+  Matrix4,
+  Mesh,
+  Object3D,
+  Sprite,
+  SpriteMaterial,
+  Vector3,
+} from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import type { Board, Placed } from "../core/board";
@@ -8,6 +22,7 @@ import { hash } from "../core/rng";
 import { DIRS, DX, DY, groupsOf, type Dir, type Special } from "../core/tiles";
 import catalog from "./assets.json";
 import { modelUrl, type ModelKey, type ModelLibrary } from "./models";
+import { glowTexture } from "./scene";
 import { PLATE_TOP } from "./tileMeshes";
 
 interface Rig {
@@ -120,6 +135,7 @@ class Person {
   private heading: Dir | null = null;
   private wait = Math.random() * 2;
   private readonly side = (Math.random() < 0.5 ? -1 : 1) * (0.05 + Math.random() * 0.04);
+  readonly bedtime = 0.25 + Math.random() * 0.65;
 
   constructor(
     rig: Rig,
@@ -224,8 +240,14 @@ class Car {
   private grow = 0;
   private readonly speed = 0.38 + Math.random() * 0.14;
 
-  constructor(library: ModelLibrary, start: { x: number; y: number }, model: ModelKey) {
+  constructor(library: ModelLibrary, start: { x: number; y: number }, model: ModelKey, light?: SpriteMaterial) {
     const size = library.size(model);
+    if (light) {
+      const lamp = new Sprite(light);
+      lamp.position.set(0, 0.05, 0.11);
+      lamp.scale.setScalar(0.14);
+      this.root.add(lamp);
+    }
     const alongX = size ? size.x > size.z : false;
     for (const mesh of library.buildProps([{ model, x: 0, z: 0, y: 0, rotY: alongX ? -Math.PI / 2 : 0, fit: 0.17 }], "solid")) {
       mesh.castShadow = false;
@@ -287,6 +309,12 @@ class Animal {
     this.target.copy(this.pos);
     this.puppet.root.position.copy(this.pos);
     this.puppet.root.rotation.y = Math.random() * Math.PI * 2;
+  }
+
+  rest(dt: number): void {
+    this.puppet.update(dt);
+    this.puppet.play("idle");
+    this.wait = Math.max(this.wait, 1 + Math.random() * 2);
   }
 
   update(dt: number, board: Board): void {
@@ -407,7 +435,7 @@ class Train {
   private turnPending = false;
   private runaround: Runaround | null = null;
 
-  constructor(private readonly line: RailLine, library: ModelLibrary, halts: boolean[] = []) {
+  constructor(private readonly line: RailLine, library: ModelLibrary, halts: boolean[] = [], light?: SpriteMaterial) {
     const marks: number[] = [];
     this.points = trackPoints(line, marks);
     this.length = this.points[this.points.length - 1].s;
@@ -428,6 +456,12 @@ class Train {
       for (const mesh of library.buildProps([{ model: kind, x: 0, z: 0, y: 0, rotY: alongX ? -Math.PI / 2 : 0, fit: 0.24 }], "solid")) {
         mesh.castShadow = false;
         car.add(mesh);
+      }
+      if (light && kind === "locomotive") {
+        const lamp = new Sprite(light);
+        lamp.position.set(0, 0.1, 0.14);
+        lamp.scale.setScalar(0.18);
+        car.add(lamp);
       }
       this.cars.push(car);
       this.root.add(car);
@@ -633,6 +667,14 @@ export class Agents {
   private readonly cars: Car[] = [];
   private readonly roads = new Set<string>();
   private readonly specials = new Map<string, number>();
+  private readonly headlight = new SpriteMaterial({
+    map: glowTexture(),
+    color: 0xfff1cf,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: AdditiveBlending,
+  });
   private readonly frustum = new Frustum();
   private readonly projScreen = new Matrix4();
   private readonly cap: number;
@@ -696,7 +738,7 @@ export class Agents {
       const count = Math.max(1, Math.floor(net.cells.length / 4));
       for (let i = 0; i < count && this.cars.length < this.cap / 4; i++) {
         const h = hash(seed, net.cells[0].x, net.cells[0].y, 3 + i);
-        const car = new Car(this.library, net.cells[h % net.cells.length], CAR_MODELS[(h >>> 8) % CAR_MODELS.length]);
+        const car = new Car(this.library, net.cells[h % net.cells.length], CAR_MODELS[(h >>> 8) % CAR_MODELS.length], this.headlight);
         this.cars.push(car);
         this.root.add(car.root);
       }
@@ -704,7 +746,7 @@ export class Agents {
     for (const line of completedRailLines(board)) {
       if (this.trains.has(line.key)) continue;
       const halts = line.steps.map((st) => !!board.get(st.x, st.y)?.tile.halt);
-      const train = new Train(line, this.library, halts);
+      const train = new Train(line, this.library, halts, this.headlight);
       this.trains.set(line.key, train);
       this.root.add(train.root);
       newTrains.push(train.start);
@@ -757,7 +799,7 @@ export class Agents {
       for (let i = from; i < to; i++) this.addAnimal(FARM_PETS[h(i) % FARM_PETS.length], p, pen);
     } else if (p.tile.special === "police" && from === 0) {
       this.addPerson(OFFICER, p, board, tileArea(p, -0.08, 0.06, 0.05), "idle");
-      const car = new Car(this.library, { x: p.x, y: p.y }, "car_police");
+      const car = new Car(this.library, { x: p.x, y: p.y }, "car_police", this.headlight);
       this.cars.push(car);
       this.root.add(car.root);
     } else if (p.tile.special === "beach") {
@@ -767,7 +809,8 @@ export class Agents {
     }
   }
 
-  update(dt: number, board: Board, view?: { camera: Camera; pixelsPerUnit: number }): void {
+  update(dt: number, board: Board, view?: { camera: Camera; pixelsPerUnit: number }, night = 0): void {
+    this.headlight.opacity = night;
     if (view) {
       view.camera.updateMatrixWorld();
       this.frustum.setFromProjectionMatrix(
@@ -777,13 +820,17 @@ export class Agents {
       for (const list of [this.persons.values(), this.animals.values()]) {
         for (const a of list) {
           const root = a.puppet.root;
-          root.visible = !tiny && this.frustum.containsPoint(root.position);
+          const home = a instanceof Person && night > a.bedtime;
+          root.visible = !tiny && !home && this.frustum.containsPoint(root.position);
         }
       }
     }
     for (const t of this.trains.values()) t.update(dt);
-    for (const p of this.persons.values()) p.update(dt, board);
-    for (const a of this.animals.values()) a.update(dt, board);
+    for (const p of this.persons.values()) if (night <= p.bedtime) p.update(dt, board);
+    for (const a of this.animals.values()) {
+      if (night > 0.6) a.rest(dt);
+      else a.update(dt, board);
+    }
     for (const c of this.cars) c.update(dt, board);
   }
 }

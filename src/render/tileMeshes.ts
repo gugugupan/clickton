@@ -224,6 +224,7 @@ function drawSpecial(b: PartBuilder, kind: Special, rng: Rng, prop: PropFn, look
 export interface TileBuild {
   base: BufferGeometry;
   props: Prop[];
+  lights: { x: number; y: number; z: number }[];
 }
 
 export function buildTile(
@@ -441,5 +442,8 @@ export function buildTile(
     p.z = -x * sin + z * cos;
     p.rotY += angle;
   }
-  return { base, props };
+  const lights = props
+    .filter((p) => p.model === "streetlight")
+    .map((p) => ({ x: p.x, y: (p.y ?? PLATE_TOP) + (p.height ?? 0.22) * 0.92, z: p.z }));
+  return { base, props, lights };
 }

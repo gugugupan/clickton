@@ -9,6 +9,7 @@ import { DIRS, DX, DY, TILES, opposite, tileByKey, type Rot } from "./core/tiles
 import { Board } from "./core/board";
 import { LANGS, getLang, hasKey, setLang, t, type Lang } from "./i18n";
 import { ModelLibrary } from "./render/models";
+import { DayNight, type TimeMode } from "./render/daynight";
 import { lookFor } from "./render/looks";
 import { World } from "./render/scene";
 import { Agents } from "./render/agents";
@@ -139,6 +140,7 @@ function applyI18n(): void {
 function switchLang(l: Lang): void {
   setLang(l);
   applyI18n();
+  refreshTimeButton();
   refreshStats();
 }
 
@@ -587,12 +589,41 @@ function updateStats(now: number): void {
   statSince = now;
 }
 
+const dayNight = new DayNight();
+if (import.meta.env.DEV) Object.assign((window as unknown as { __clickton: object }).__clickton, { dayNight });
+const TIME_KEY = "clickton.time";
+const TIME_ICON: Record<TimeMode, string> = { auto: "🌗", day: "☀️", night: "🌙" };
+try {
+  const saved = localStorage.getItem(TIME_KEY);
+  if (saved === "auto" || saved === "day" || saved === "night") dayNight.mode = saved;
+} catch {}
+
+function refreshTimeButton(): void {
+  const b = $("time");
+  b.textContent = TIME_ICON[dayNight.mode];
+  const label = t(dayNight.mode === "auto" ? "timeAuto" : dayNight.mode === "day" ? "timeDay" : "timeNight");
+  b.title = label;
+  b.setAttribute("aria-label", label);
+}
+
+$("time").addEventListener("click", () => {
+  dayNight.mode = dayNight.mode === "auto" ? "day" : dayNight.mode === "day" ? "night" : "auto";
+  try {
+    localStorage.setItem(TIME_KEY, dayNight.mode);
+  } catch {}
+  playPop();
+  refreshTimeButton();
+});
+refreshTimeButton();
+
 let lastFrame = performance.now();
 
 function frame(now: number): void {
   const dt = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
-  agents.update(dt, game.board, { camera: world.camera, pixelsPerUnit: world.pixelsPerUnit() });
+  const sky = dayNight.update(dt);
+  world.setSky(sky);
+  agents.update(dt, game.board, { camera: world.camera, pixelsPerUnit: world.pixelsPerUnit() }, 1 - sky.daylight);
   world.render(now);
   updateStats(now);
   positionBubble();

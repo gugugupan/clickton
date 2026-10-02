@@ -274,6 +274,13 @@ button.round:active {
   opacity: 0.55;
 }
 
+button.small-round {
+  width: 36px;
+  height: 36px;
+  font-size: 17px;
+  box-shadow: 0 2px 0 #d6bb80;
+}
+
 .side-stack {
   display: flex;
   flex-direction: column;

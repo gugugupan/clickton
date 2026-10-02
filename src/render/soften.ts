@@ -75,3 +75,25 @@ export function variantAtlas(tex: Texture, tints: readonly string[]): Texture {
   rows.forEach((row, i) => g.drawImage(row, 0, img.height * i));
   return asTexture(canvas, tex, false);
 }
+
+export function windowMask(tex: Texture, rows = 1): Texture {
+  const img = tex.image as HTMLCanvasElement;
+  const canvas = document.createElement("canvas");
+  canvas.width = img.width;
+  canvas.height = img.height * rows;
+  const g = canvas.getContext("2d")!;
+  g.drawImage(img, 0, 0);
+  const data = g.getImageData(0, 0, img.width, img.height);
+  const px = data.data;
+  for (let i = 0; i < px.length; i += 4) {
+    const r = px[i], gg = px[i + 1], b = px[i + 2];
+    const lum = (0.3 * r + 0.59 * gg + 0.11 * b) / 255;
+    const glass = b > r + 18 && b >= gg && lum > 0.55;
+    px[i] = glass ? 255 : 0;
+    px[i + 1] = glass ? 205 : 0;
+    px[i + 2] = glass ? 130 : 0;
+  }
+  g.putImageData(data, 0, 0);
+  for (let row = 1; row < rows; row++) g.drawImage(canvas, 0, 0, img.width, img.height, 0, img.height * row, img.width, img.height);
+  return asTexture(canvas, tex, rows === 1);
+}

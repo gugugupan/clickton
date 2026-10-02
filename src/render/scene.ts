@@ -22,6 +22,10 @@ import {
   MeshLambertMaterial,
   MeshBasicMaterial,
   Group,
+  Points,
+  PointsMaterial,
+  AdditiveBlending,
+  CanvasTexture,
   Object3D,
 } from "three";
 import { MapControls } from "three/addons/controls/MapControls.js";
@@ -30,6 +34,7 @@ import type { Placed } from "../core/board";
 import { hash, mulberry32 } from "../core/rng";
 import { DIRS, DX, DY, edgeOf, type Edge, type Rot, type TileDef } from "../core/tiles";
 import { PALETTE } from "./palette";
+import type { SkyState } from "./daynight";
 import { DEFAULT_LOOK, type Look } from "./looks";
 import type { MaterialMode, ModelLibrary } from "./models";
 import { PLATE_SIZE, PLATE_TOP, buildTile } from "./tileMeshes";
@@ -41,6 +46,7 @@ const DROP_MS = 260;
 interface TileEntry {
   placed: Placed;
   parts: Map<string, BufferGeometry>;
+  lights: number[];
   dropping: Mesh | null;
 }
 
@@ -55,6 +61,7 @@ interface Drop {
 }
 
 const CHUNK = 8;
+const GLOW_SIZE = 0.3;
 const BASE_PART = "@base";
 
 export class World {
@@ -90,6 +97,19 @@ export class World {
   private readonly drops: Drop[] = [];
   private ghost: Mesh | null = null;
   private readonly edgeMarks = new Group();
+  private readonly tmpA = new Color();
+  private readonly tmpB = new Color();
+  private readonly glowMaterial = new PointsMaterial({
+    size: 1,
+    sizeAttenuation: false,
+    map: glowTexture(),
+    color: 0xffcf86,
+    transparent: true,
+    opacity: 0,
+    depthWrite: false,
+    blending: AdditiveBlending,
+  });
+  private readonly glowPoints = new Points(new BufferGeometry(), this.glowMaterial);
   private readonly hemi: HemisphereLight;
   private readonly tableMaterial = new MeshLambertMaterial({ color: PALETTE.table });
   look: Look = DEFAULT_LOOK;
@@ -154,7 +174,7 @@ export class World {
       new LineBasicMaterial({ color: PALETTE.frontier, transparent: true, opacity: 0.9 }),
     );
     this.cursor.visible = false;
-    this.scene.add(this.cursor, this.edgeMarks);
+    this.scene.add(this.cursor, this.edgeMarks, this.glowPoints);
 
     this.resize();
     window.addEventListener("resize", () => this.resize());
@@ -215,8 +235,11 @@ export class World {
     for (const child of mesh.children) (child as Mesh).geometry.dispose();
   }
 
+  private lastLights: number[] = [];
+
   private tileParts(p: Placed, baseOnly?: Map<string, BufferGeometry>): Map<string, BufferGeometry> {
-    const { base, props } = this.build(p.tile, p.rot, p.x, p.y);
+    const { base, props, lights } = this.build(p.tile, p.rot, p.x, p.y);
+    this.lastLights = lights.flatMap((l) => [l.x + p.x, l.y, l.z + p.y]);
     base.translate(p.x, 0, p.y);
     const parts = new Map<string, BufferGeometry>([[BASE_PART, base]]);
     if (baseOnly) {
@@ -278,10 +301,32 @@ export class World {
     }
     this.dirty.clear();
     this.shadowsStale = true;
+    const positions: number[] = [];
+    for (const entry of this.tiles.values()) positions.push(...entry.lights);
+    this.glowPoints.geometry.dispose();
+    const geo = new BufferGeometry();
+    geo.setAttribute("position", new Float32BufferAttribute(positions, 3));
+    this.glowPoints.geometry = geo;
+  }
+
+  setSky(sky: SkyState): void {
+    const night = 1 - sky.daylight;
+    const mix = (a: number, b: number, t: number) => this.tmpA.setHex(a).lerp(this.tmpB.setHex(b), t);
+    (this.scene.background as Color).copy(mix(this.look.background, NIGHT.background, night)).lerp(this.tmpB.setHex(NIGHT.duskSky), sky.dusk * 0.3);
+    this.tableMaterial.color.copy(mix(this.look.table, NIGHT.table, night));
+    this.hemi.color.copy(mix(this.look.sky, NIGHT.sky, night));
+    this.hemi.groundColor.copy(mix(this.look.ground, NIGHT.ground, night));
+    this.hemi.intensity = 2.1 - night * 0.85;
+    this.sun.color.copy(mix(0xfff4e6, NIGHT.moon, night)).lerp(this.tmpB.setHex(NIGHT.duskSun), sky.dusk * 0.6);
+    this.sun.intensity = 1.1 - night * 0.7;
+    this.glowMaterial.opacity = night;
+    this.glowPoints.visible = night > 0.02;
+    this.library.setNight(night);
   }
 
   addTile(p: Placed, animate: boolean, refreshNeighbours = animate): void {
-    const entry: TileEntry = { placed: p, parts: this.tileParts(p), dropping: null };
+    const parts = this.tileParts(p);
+    const entry: TileEntry = { placed: p, parts, lights: this.lastLights, dropping: null };
     this.tiles.set(`${p.x},${p.y}`, entry);
     const ring = [
       [0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, 1], [-1, -1],
@@ -442,6 +487,7 @@ export class World {
       this.viewHeight += (this.targetViewHeight - this.viewHeight) * 0.06;
       this.updateFrustum();
     }
+    this.glowMaterial.size = GLOW_SIZE * this.pixelsPerUnit() * this.renderer.getPixelRatio();
     const pulse = 0.65 + Math.sin(now / 220) * 0.25;
     this.matchMaterial.opacity = pulse;
     this.mismatchMaterial.opacity = pulse;
@@ -457,6 +503,29 @@ export class World {
     }
     this.renderer.render(this.scene, this.camera);
   }
+}
+
+const NIGHT = {
+  background: 0x454c72,
+  table: 0x40466a,
+  sky: 0x9aa3dc,
+  ground: 0x4a4e72,
+  moon: 0xaab8ea,
+  duskSun: 0xffb27f,
+  duskSky: 0xf2b99a,
+};
+
+export function glowTexture(): CanvasTexture {
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 64;
+  const g = canvas.getContext("2d")!;
+  const grad = g.createRadialGradient(32, 32, 0, 32, 32, 32);
+  grad.addColorStop(0, "rgba(255,255,255,1)");
+  grad.addColorStop(0.25, "rgba(255,255,255,0.55)");
+  grad.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = grad;
+  g.fillRect(0, 0, 64, 64);
+  return new CanvasTexture(canvas);
 }
 
 function easeOutBounce(t: number): number {
