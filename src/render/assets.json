@@ -278,8 +278,7 @@
     },
     "station_house": {
       "pack": "suburban",
-      "file": "building-type-p.glb",
-      "tint": "#e0a193"
+      "file": "building-type-p.glb"
     },
     "canopy": {
       "pack": "commercial",
