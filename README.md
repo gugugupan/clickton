@@ -23,6 +23,6 @@ Code layout: `src/core/` is pure game logic (no three.js) and is fully unit-test
 
 ## Assets
 
-3D models are CC0 packs by Kay Lousberg ([KayKit](https://kaylousberg.com/game-assets)): City Builder Bits, Medieval Hexagon and Forest Nature Pack. Only the models listed in `src/render/assets.json` are committed under `public/models/` (each pack keeps its license file). To refresh them, put the original packs in `assets-raw/` (gitignored) and run `npm run assets`. Base plates, roads, rails, water and end caps are generated in code.
+3D models are CC0 packs: [KayKit](https://kaylousberg.com/game-assets) by Kay Lousberg (City Builder Bits street props, Medieval Hexagon props and water plants, Forest Nature Pack, Holiday Bits train) and [Kenney](https://kenney.nl) (City Kit Suburban houses, City Kit Commercial shops and towers, Blocky Characters, Cube Pets). Only the models listed in `src/render/assets.json` are committed under `public/models/` (each pack keeps its license file). To refresh them, put the original packs in `assets-raw/` (gitignored) and run `npm run assets`. Base plates, roads, rails, water and end caps are generated in code.
 
 Dev helpers: `/?demo=300` builds a random 300-tile town (dev server only); `/gallery.html` is the local asset picker.

@@ -118,18 +118,9 @@ function pick<T>(rng: Rng, list: readonly T[]): T {
   return list[Math.floor(rng() * list.length)];
 }
 
-const HOMES: ModelKey[] = ["home_a", "home_b", "tavern", "blacksmith", "market", "tower"];
-const TALL: ModelKey[] = [
-  "apartment_a",
-  "apartment_b",
-  "apartment_c",
-  "apartment_d",
-  "apartment_e",
-  "apartment_f",
-  "apartment_g",
-  "apartment_h",
-  "church",
-];
+const HOUSES = [..."abcdefghijklmnorstu"].map((c) => `house_${c}`) as ModelKey[];
+const SHOPS = [..."abcdefghi"].map((c) => `shop_${c}`) as ModelKey[];
+const TOWERS = [..."abcde"].map((c) => `skyscraper_${c}`) as ModelKey[];
 const TREES: ModelKey[] = ["tree_1", "tree_2", "tree_3", "tree_4", "tree_5"];
 const BUSHES: ModelKey[] = ["bush_1", "bush_2", "bush_3"];
 const ROCKS: ModelKey[] = ["rock_1", "rock_2"];
@@ -244,7 +235,7 @@ export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (
     occupy(1, 0);
   }
   if (tile.house) {
-    prop(rng() < 0.5 ? "home_a" : "home_b", 0, -SLOT, { fit: 0.34, maxHeight: 0.42 });
+    prop(pick(rng, HOUSES), 0, -SLOT, { fit: 0.34, maxHeight: 0.38 });
     occupy(0, -1);
   }
 
@@ -258,7 +249,15 @@ export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (
       const [sx, sz] = key.split(",").map(Number);
       b.box(SLOT, 0.01, SLOT, sx * SLOT, PLATE_TOP, sz * SLOT, PALETTE.paving);
       const centre = sx === 0 && sz === 0;
-      prop(pick(rng, centre ? TALL : HOMES), sx * SLOT, sz * SLOT, { fit: centre ? 0.3 : 0.29, maxHeight: centre ? 0.75 : 0.42, lift: 0.01, rotY: pick(rng, QUARTERS) });
+      const downtown = g.dirs.length === 4;
+      const pool = downtown ? (centre && rng() < 0.75 ? TOWERS : SHOPS) : centre ? SHOPS : HOUSES;
+      const tall = pool === TOWERS;
+      prop(pick(rng, pool), sx * SLOT, sz * SLOT, {
+        fit: tall ? 0.26 : 0.29,
+        maxHeight: tall ? 0.8 : pool === SHOPS ? 0.5 : 0.36,
+        lift: 0.01,
+        rotY: pick(rng, QUARTERS),
+      });
     }
   }
 
@@ -271,8 +270,6 @@ export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (
   }
 
   const hasRoad = tile.groups.some((g) => g.type === "road");
-  const river = !hasBridge && tile.groups.some((g) => g.type === "water" && g.dirs.length === 2);
-  let millPlaced = false;
   for (let sx = -1; sx <= 1; sx++) {
     for (let sz = -1; sz <= 1; sz++) {
       if (occupied.has(`${sx},${sz}`)) continue;
@@ -281,11 +278,8 @@ export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (
       const roll = rng();
       const jx = x + (rng() - 0.5) * 0.08, jz = z + (rng() - 0.5) * 0.08;
       const spin = rng() * Math.PI * 2;
-      if (tile.groups.length === 0 && sx === 0 && sz === 0 && roll < 0.13) {
-        prop(roll < 0.08 ? "windmill" : "well", x, z, { fit: roll < 0.08 ? 0.36 : 0.2, rotY: pick(rng, QUARTERS) });
-      } else if (river && !millPlaced && Math.abs(sx) + Math.abs(sz) === 1 && roll < 0.2) {
-        prop("watermill", x, z, { fit: 0.3, rotY: pick(rng, QUARTERS) });
-        millPlaced = true;
+      if (tile.groups.length === 0 && sx === 0 && sz === 0 && roll < 0.06) {
+        prop("watertower", x, z, { height: 0.5, rotY: pick(rng, QUARTERS) });
       } else if (hasRoad && roll < 0.2) {
         if (roll < 0.11) prop("streetlight", jx, jz, { height: 0.24 });
         else if (roll < 0.17) prop("bench", jx, jz, { fit: 0.12, rotY: pick(rng, QUARTERS) });

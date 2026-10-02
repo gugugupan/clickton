@@ -14,24 +14,34 @@ for (const [key, pack] of Object.entries(catalog.packs)) {
   else writeFileSync(join(out, key, "LICENSE.txt"), `${pack.licenseNote}\n`);
 }
 
-let count = 0;
-for (const model of Object.values(catalog.models)) {
-  const pack = catalog.packs[model.pack];
-  const src = join(raw, pack.source, model.file);
-  const gltf = JSON.parse(readFileSync(src, "utf8"));
-  const dest = join(out, model.pack);
-  copyFileSync(src, join(dest, basename(model.file)));
-  for (const b of gltf.buffers ?? []) copyFileSync(join(dirname(src), b.uri), join(dest, b.uri));
-  for (const img of gltf.images ?? []) copyFileSync(join(dirname(src), img.uri), join(dest, img.uri));
-  count++;
-}
-
 function glbImages(file) {
   const buf = readFileSync(file);
   const len = buf.readUInt32LE(12);
   const json = JSON.parse(buf.subarray(20, 20 + len).toString("utf8"));
   return (json.images ?? []).map((i) => i.uri).filter(Boolean);
 }
+
+function copyRelative(src, dest, uri) {
+  mkdirSync(dirname(join(dest, uri)), { recursive: true });
+  copyFileSync(join(dirname(src), uri), join(dest, uri));
+}
+
+let count = 0;
+for (const model of Object.values(catalog.models)) {
+  const pack = catalog.packs[model.pack];
+  const src = join(raw, pack.source, model.file);
+  const dest = join(out, model.pack);
+  copyFileSync(src, join(dest, basename(model.file)));
+  if (src.endsWith(".glb")) {
+    for (const uri of glbImages(src)) copyRelative(src, dest, uri);
+  } else {
+    const gltf = JSON.parse(readFileSync(src, "utf8"));
+    for (const b of gltf.buffers ?? []) copyRelative(src, dest, b.uri);
+    for (const img of gltf.images ?? []) copyRelative(src, dest, img.uri);
+  }
+  count++;
+}
+
 
 for (const [key, group] of Object.entries(catalog.agents)) {
   const dest = join(out, key);
@@ -40,10 +50,7 @@ for (const [key, group] of Object.entries(catalog.agents)) {
   for (const file of group.files) {
     const src = join(raw, group.source, file);
     copyFileSync(src, join(dest, file));
-    for (const uri of glbImages(src)) {
-      mkdirSync(dirname(join(dest, uri)), { recursive: true });
-      copyFileSync(join(dirname(src), uri), join(dest, uri));
-    }
+    for (const uri of glbImages(src)) copyRelative(src, dest, uri);
     count++;
   }
 }

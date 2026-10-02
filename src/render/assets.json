@@ -23,49 +23,21 @@
       "texture": "holiday_bits_texture.png",
       "soft": true,
       "licenseNote": "KayKit : Holiday Bits (1.0) by Kay Lousberg (www.kaylousberg.com). Released under CC0 1.0 Universal (public domain), as stated on https://kaylousberg.itch.io/holiday-bits. The free download does not include a license file."
+    },
+    "suburban": {
+      "source": "city-suburban/Models/GLB format",
+      "license": "city-suburban/License.txt",
+      "texture": "Textures/colormap.png",
+      "soft": true
+    },
+    "commercial": {
+      "source": "city-commercial/Models/GLB format",
+      "license": "city-commercial/License.txt",
+      "texture": "Textures/colormap.png",
+      "soft": true
     }
   },
   "models": {
-    "home_a": {
-      "pack": "medieval",
-      "file": "buildings/blue/building_home_A_blue.gltf"
-    },
-    "home_b": {
-      "pack": "medieval",
-      "file": "buildings/blue/building_home_B_blue.gltf"
-    },
-    "tavern": {
-      "pack": "medieval",
-      "file": "buildings/blue/building_tavern_blue.gltf"
-    },
-    "blacksmith": {
-      "pack": "medieval",
-      "file": "buildings/blue/building_blacksmith_blue.gltf"
-    },
-    "market": {
-      "pack": "medieval",
-      "file": "buildings/blue/building_market_blue.gltf"
-    },
-    "tower": {
-      "pack": "medieval",
-      "file": "buildings/blue/building_tower_A_blue.gltf"
-    },
-    "church": {
-      "pack": "medieval",
-      "file": "buildings/blue/building_church_blue.gltf"
-    },
-    "windmill": {
-      "pack": "medieval",
-      "file": "buildings/blue/building_windmill_blue.gltf"
-    },
-    "well": {
-      "pack": "medieval",
-      "file": "buildings/blue/building_well_blue.gltf"
-    },
-    "watermill": {
-      "pack": "medieval",
-      "file": "buildings/blue/building_watermill_blue.gltf"
-    },
     "crate": {
       "pack": "medieval",
       "file": "decoration/props/crate_A_big.gltf"
@@ -93,38 +65,6 @@
     "waterplant": {
       "pack": "medieval",
       "file": "decoration/nature/waterplant_A.gltf"
-    },
-    "apartment_a": {
-      "pack": "city",
-      "file": "building_A.gltf"
-    },
-    "apartment_b": {
-      "pack": "city",
-      "file": "building_B.gltf"
-    },
-    "apartment_c": {
-      "pack": "city",
-      "file": "building_C.gltf"
-    },
-    "apartment_d": {
-      "pack": "city",
-      "file": "building_D.gltf"
-    },
-    "apartment_e": {
-      "pack": "city",
-      "file": "building_E.gltf"
-    },
-    "apartment_f": {
-      "pack": "city",
-      "file": "building_F.gltf"
-    },
-    "apartment_g": {
-      "pack": "city",
-      "file": "building_G.gltf"
-    },
-    "apartment_h": {
-      "pack": "city",
-      "file": "building_H.gltf"
     },
     "bench": {
       "pack": "city",
@@ -197,6 +137,142 @@
     "wagon": {
       "pack": "holiday",
       "file": "train_wagon.gltf"
+    },
+    "watertower": {
+      "pack": "city",
+      "file": "watertower.gltf"
+    },
+    "house_a": {
+      "pack": "suburban",
+      "file": "building-type-a.glb"
+    },
+    "house_b": {
+      "pack": "suburban",
+      "file": "building-type-b.glb"
+    },
+    "house_c": {
+      "pack": "suburban",
+      "file": "building-type-c.glb"
+    },
+    "house_d": {
+      "pack": "suburban",
+      "file": "building-type-d.glb"
+    },
+    "house_e": {
+      "pack": "suburban",
+      "file": "building-type-e.glb"
+    },
+    "house_f": {
+      "pack": "suburban",
+      "file": "building-type-f.glb"
+    },
+    "house_g": {
+      "pack": "suburban",
+      "file": "building-type-g.glb"
+    },
+    "house_h": {
+      "pack": "suburban",
+      "file": "building-type-h.glb"
+    },
+    "house_i": {
+      "pack": "suburban",
+      "file": "building-type-i.glb"
+    },
+    "house_j": {
+      "pack": "suburban",
+      "file": "building-type-j.glb"
+    },
+    "house_k": {
+      "pack": "suburban",
+      "file": "building-type-k.glb"
+    },
+    "house_l": {
+      "pack": "suburban",
+      "file": "building-type-l.glb"
+    },
+    "house_m": {
+      "pack": "suburban",
+      "file": "building-type-m.glb"
+    },
+    "house_n": {
+      "pack": "suburban",
+      "file": "building-type-n.glb"
+    },
+    "house_o": {
+      "pack": "suburban",
+      "file": "building-type-o.glb"
+    },
+    "house_r": {
+      "pack": "suburban",
+      "file": "building-type-r.glb"
+    },
+    "house_s": {
+      "pack": "suburban",
+      "file": "building-type-s.glb"
+    },
+    "house_t": {
+      "pack": "suburban",
+      "file": "building-type-t.glb"
+    },
+    "house_u": {
+      "pack": "suburban",
+      "file": "building-type-u.glb"
+    },
+    "shop_a": {
+      "pack": "commercial",
+      "file": "building-a.glb"
+    },
+    "shop_b": {
+      "pack": "commercial",
+      "file": "building-b.glb"
+    },
+    "shop_c": {
+      "pack": "commercial",
+      "file": "building-c.glb"
+    },
+    "shop_d": {
+      "pack": "commercial",
+      "file": "building-d.glb"
+    },
+    "shop_e": {
+      "pack": "commercial",
+      "file": "building-e.glb"
+    },
+    "shop_f": {
+      "pack": "commercial",
+      "file": "building-f.glb"
+    },
+    "shop_g": {
+      "pack": "commercial",
+      "file": "building-g.glb"
+    },
+    "shop_h": {
+      "pack": "commercial",
+      "file": "building-h.glb"
+    },
+    "shop_i": {
+      "pack": "commercial",
+      "file": "building-i.glb"
+    },
+    "skyscraper_a": {
+      "pack": "commercial",
+      "file": "building-skyscraper-a.glb"
+    },
+    "skyscraper_b": {
+      "pack": "commercial",
+      "file": "building-skyscraper-b.glb"
+    },
+    "skyscraper_c": {
+      "pack": "commercial",
+      "file": "building-skyscraper-c.glb"
+    },
+    "skyscraper_d": {
+      "pack": "commercial",
+      "file": "building-skyscraper-d.glb"
+    },
+    "skyscraper_e": {
+      "pack": "commercial",
+      "file": "building-skyscraper-e.glb"
     }
   },
   "agents": {

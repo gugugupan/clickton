@@ -32,6 +32,8 @@ const PACKS: { key: string; title: string; match: string }[] = [
   { key: "medieval", title: "Medieval Hexagon（建筑与装饰）", match: "/medieval-hexagon/" },
   { key: "forest", title: "Forest Nature Pack", match: "/forest-nature/" },
   { key: "holiday", title: "Holiday Bits", match: "/holiday-bits/" },
+  { key: "suburban", title: "Kenney City Kit (Suburban)", match: "/city-suburban/" },
+  { key: "commercial", title: "Kenney City Kit (Commercial)", match: "/city-commercial/" },
   { key: "people", title: "Blocky Characters（小人，有动画）", match: "/blocky-characters/" },
   { key: "pets", title: "Cube Pets（动物，有动画）", match: "/cube-pets/" },
 ];
