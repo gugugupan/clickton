@@ -585,3 +585,17 @@ body.replaying #skip {
     padding-left: 8px;
   }
 }
+
+.stats-panel {
+  position: fixed;
+  left: 16px;
+  bottom: 120px;
+  margin: 0;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: rgba(43, 36, 32, 0.75);
+  color: #f6f1e9;
+  font: 12px/1.4 ui-monospace, monospace;
+  pointer-events: none;
+  z-index: 30;
+}

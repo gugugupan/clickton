@@ -100,6 +100,7 @@ function rebuildWorld(): void {
   world.setLook(lookFor(game.mood?.theme.key));
   world.clearTiles();
   for (const p of game.board.all()) world.addTile(p, false);
+  world.commitTiles();
   world.setFrontier(viewing ? [] : game.board.frontier());
   agents.clear();
   agents.sync(game.board, game.seed);
@@ -568,13 +569,32 @@ function alignPreview(): void {
   nextPreview.style.transform = tf;
 }
 
+const statsEl = new URLSearchParams(location.search).has("stats") ? document.createElement("pre") : null;
+if (statsEl) {
+  statsEl.className = "stats-panel";
+  document.body.appendChild(statsEl);
+}
+let statFrames = 0;
+let statSince = performance.now();
+
+function updateStats(now: number): void {
+  if (!statsEl) return;
+  statFrames++;
+  if (now - statSince < 500) return;
+  const info = world.renderer.info;
+  statsEl.textContent = `${Math.round((statFrames * 1000) / (now - statSince))} fps\n${info.render.calls} draws\n${Math.round(info.render.triangles / 1000)}k tris\n${game.board.size} tiles · ${agents.root.children.length} agents`;
+  statFrames = 0;
+  statSince = now;
+}
+
 let lastFrame = performance.now();
 
 function frame(now: number): void {
   const dt = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
-  agents.update(dt, game.board);
+  agents.update(dt, game.board, { camera: world.camera, pixelsPerUnit: world.pixelsPerUnit() });
   world.render(now);
+  updateStats(now);
   positionBubble();
   alignPreview();
   requestAnimationFrame(frame);

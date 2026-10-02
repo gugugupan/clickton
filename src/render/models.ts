@@ -1,6 +1,7 @@
-import { Box3, BufferGeometry, Matrix4, Mesh, MeshStandardMaterial, Texture, Vector3 } from "three";
+import { Box3, BufferAttribute, BufferGeometry, InterleavedBufferAttribute, Matrix4, Mesh, MeshStandardMaterial, Texture, Vector3 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import catalog from "./assets.json";
 import { soften, tintDark, variantAtlas } from "./soften";
 
@@ -36,6 +37,18 @@ const MODES: Record<MaterialMode, { opacity: number; transparent: boolean }> = {
   pending: { opacity: 0.92, transparent: true },
 };
 
+export function modelUrl(folder: string, file: string): string {
+  const name = file.split("/").pop()!.replace(/\.(glb|gltf)$/, "");
+  return `${import.meta.env.BASE_URL}models/${folder}/${name}.gltf`;
+}
+
+function toFloat(attr: BufferAttribute | InterleavedBufferAttribute): BufferAttribute {
+  const n = attr.count, size = attr.itemSize;
+  const out = new Float32Array(n * size);
+  for (let i = 0; i < n; i++) for (let c = 0; c < size; c++) out[i * size + c] = attr.getComponent(i, c);
+  return new BufferAttribute(out, size);
+}
+
 export class ModelLibrary {
   private readonly models = new Map<ModelKey, Model>();
   private readonly materials = new Map<string, MeshStandardMaterial>();
@@ -43,12 +56,12 @@ export class ModelLibrary {
   private readonly atlasRows = new Map<string, number>();
 
   async load(onProgress: (done: number, total: number) => void): Promise<void> {
-    const loader = new GLTFLoader();
+    const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
     const entries = Object.entries(catalog.models) as [ModelKey, { pack: PackKey; file: string; tint?: string }][];
     let done = 0;
     await Promise.all(
       entries.map(async ([key, def]) => {
-        const url = `${import.meta.env.BASE_URL}models/${def.pack}/${def.file.split("/").pop()}`;
+        const url = modelUrl(def.pack, def.file);
         const gltf = await loader.loadAsync(url);
         gltf.scene.updateMatrixWorld(true);
         const group = def.tint ? `${def.pack}${def.tint}` : def.pack;
@@ -69,7 +82,7 @@ export class ModelLibrary {
           const g = new BufferGeometry();
           for (const name of ["position", "normal", "uv"]) {
             const attr = m.geometry.getAttribute(name);
-            if (attr) g.setAttribute(name, attr);
+            if (attr) g.setAttribute(name, toFloat(attr));
           }
           const index = m.geometry.getIndex();
           if (index) g.setIndex(index);
@@ -111,6 +124,17 @@ export class ModelLibrary {
   }
 
   buildProps(props: readonly Prop[], mode: MaterialMode): Mesh[] {
+    const meshes: Mesh[] = [];
+    for (const [pack, merged] of this.propGeometries(props)) {
+      const mesh = new Mesh(merged, this.material(pack, mode));
+      mesh.castShadow = mode !== "ghost";
+      mesh.receiveShadow = mode === "solid";
+      meshes.push(mesh);
+    }
+    return meshes;
+  }
+
+  propGeometries(props: readonly Prop[]): Map<string, BufferGeometry> {
     const byPack = new Map<string, BufferGeometry[]>();
     const m = new Matrix4();
     for (const p of props) {
@@ -133,16 +157,12 @@ export class ModelLibrary {
       list.push(g);
       byPack.set(model.pack, list);
     }
-    const meshes: Mesh[] = [];
+    const out = new Map<string, BufferGeometry>();
     for (const [pack, list] of byPack) {
       const merged = mergeGeometries(list, false);
       for (const g of list) g.dispose();
-      if (!merged) continue;
-      const mesh = new Mesh(merged, this.material(pack, mode));
-      mesh.castShadow = mode !== "ghost";
-      mesh.receiveShadow = mode === "solid";
-      meshes.push(mesh);
+      if (merged) out.set(pack, merged);
     }
-    return meshes;
+    return out;
   }
 }

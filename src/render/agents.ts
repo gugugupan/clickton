@@ -1,12 +1,13 @@
-import { AnimationClip, AnimationMixer, Box3, Group, Mesh, Object3D, Vector3 } from "three";
+import { AnimationClip, AnimationMixer, Box3, Camera, Frustum, Group, Matrix4, Mesh, Object3D, Vector3 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import type { Board, Placed } from "../core/board";
 import { completedRoadCells, specialStatus } from "../core/specials";
 import { completedRailLines, completedRoadNetworks, grassExits, hasRoad, isHome, isMeadow, isPond, roadExits, type RailLine } from "../core/networks";
 import { hash } from "../core/rng";
 import { DIRS, DX, DY, groupsOf, type Dir, type Special } from "../core/tiles";
 import catalog from "./assets.json";
-import type { ModelKey, ModelLibrary } from "./models";
+import { modelUrl, type ModelKey, type ModelLibrary } from "./models";
 import { PLATE_TOP } from "./tileMeshes";
 
 interface Rig {
@@ -57,7 +58,7 @@ class Puppet {
     body.scale.setScalar(scale);
     body.position.y = -rig.minY * scale;
     body.traverse((o) => {
-      if ((o as Mesh).isMesh) o.castShadow = true;
+      if ((o as Mesh).isMesh) o.frustumCulled = false;
     });
     this.root.add(body);
     this.root.scale.setScalar(0.001);
@@ -77,7 +78,7 @@ class Puppet {
   }
 
   update(dt: number): void {
-    this.mixer.update(dt);
+    if (this.root.visible) this.mixer.update(dt);
     if (this.grow < 1) {
       this.grow = Math.min(1, this.grow + dt * 3);
       this.root.scale.setScalar(easeOutBack(this.grow));
@@ -227,6 +228,7 @@ class Car {
     const size = library.size(model);
     const alongX = size ? size.x > size.z : false;
     for (const mesh of library.buildProps([{ model, x: 0, z: 0, y: 0, rotY: alongX ? -Math.PI / 2 : 0, fit: 0.17 }], "solid")) {
+      mesh.castShadow = false;
       this.root.add(mesh);
     }
     this.cell = { ...start };
@@ -424,6 +426,7 @@ class Train {
       const car = new Group();
       const alongX = size ? size.x > size.z : false;
       for (const mesh of library.buildProps([{ model: kind, x: 0, z: 0, y: 0, rotY: alongX ? -Math.PI / 2 : 0, fit: 0.24 }], "solid")) {
+        mesh.castShadow = false;
         car.add(mesh);
       }
       this.cars.push(car);
@@ -630,6 +633,8 @@ export class Agents {
   private readonly cars: Car[] = [];
   private readonly roads = new Set<string>();
   private readonly specials = new Map<string, number>();
+  private readonly frustum = new Frustum();
+  private readonly projScreen = new Matrix4();
   private readonly cap: number;
 
   constructor(private readonly library: ModelLibrary, coarse: boolean) {
@@ -637,7 +642,7 @@ export class Agents {
   }
 
   async load(onProgress: (done: number, total: number) => void): Promise<void> {
-    const loader = new GLTFLoader();
+    const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
     const jobs: [string, string][] = [
       ...catalog.agents.people.files.map((f) => ["people", f] as [string, string]),
       ...catalog.agents.pets.files.map((f) => ["pets", f] as [string, string]),
@@ -645,7 +650,7 @@ export class Agents {
     let done = 0;
     await Promise.all(
       jobs.map(async ([group, file], i) => {
-        const gltf = await loader.loadAsync(`${import.meta.env.BASE_URL}models/${group}/${file}`);
+        const gltf = await loader.loadAsync(modelUrl(group, file));
         const box = new Box3().setFromObject(gltf.scene);
         const rig: Rig = { scene: gltf.scene, clips: gltf.animations, height: box.max.y - box.min.y, minY: box.min.y };
         if (group === "people") this.people[i] = rig;
@@ -762,7 +767,20 @@ export class Agents {
     }
   }
 
-  update(dt: number, board: Board): void {
+  update(dt: number, board: Board, view?: { camera: Camera; pixelsPerUnit: number }): void {
+    if (view) {
+      view.camera.updateMatrixWorld();
+      this.frustum.setFromProjectionMatrix(
+        this.projScreen.multiplyMatrices(view.camera.projectionMatrix, view.camera.matrixWorldInverse),
+      );
+      const tiny = view.pixelsPerUnit * PERSON_HEIGHT < 4;
+      for (const list of [this.persons.values(), this.animals.values()]) {
+        for (const a of list) {
+          const root = a.puppet.root;
+          root.visible = !tiny && this.frustum.containsPoint(root.position);
+        }
+      }
+    }
     for (const t of this.trains.values()) t.update(dt);
     for (const p of this.persons.values()) p.update(dt, board);
     for (const a of this.animals.values()) a.update(dt, board);

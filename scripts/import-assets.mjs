@@ -1,11 +1,39 @@
-import { copyFileSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { Logger, NodeIO } from "@gltf-transform/core";
+import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
+import { dedup, meshopt, prune, quantize, reorder, simplify, weld } from "@gltf-transform/functions";
+import { MeshoptEncoder, MeshoptSimplifier } from "meshoptimizer";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const raw = join(root, "assets-raw");
 const out = join(root, "public", "models");
 const catalog = JSON.parse(readFileSync(join(root, "src", "render", "assets.json"), "utf8"));
+
+await MeshoptEncoder.ready;
+await MeshoptSimplifier.ready;
+const io = new NodeIO()
+  .setLogger(new Logger(Logger.Verbosity.WARN))
+  .registerExtensions(ALL_EXTENSIONS)
+  .registerDependencies({ "meshopt.encoder": MeshoptEncoder });
+
+const served = (file) => basename(file).replace(/\.(glb|gltf)$/, "");
+
+async function convert(src, dest, { simplifyMesh }) {
+  const doc = await io.read(src);
+  const name = served(src);
+  const steps = [dedup(), weld()];
+  if (simplifyMesh) steps.push(simplify({ simplifier: MeshoptSimplifier, ratio: 0.5, error: 0.004 }));
+  steps.push(prune(), quantize(), reorder({ encoder: MeshoptEncoder }), meshopt({ encoder: MeshoptEncoder, level: "medium" }));
+  await doc.transform(...steps);
+  for (const buffer of doc.getRoot().listBuffers()) buffer.setURI(`${name}.bin`);
+  for (const tex of doc.getRoot().listTextures()) {
+    const uri = tex.getURI();
+    if (uri) mkdirSync(dirname(join(dest, uri)), { recursive: true });
+  }
+  await io.write(join(dest, `${name}.gltf`), doc);
+}
 
 rmSync(out, { recursive: true, force: true });
 for (const [key, pack] of Object.entries(catalog.packs)) {
@@ -14,44 +42,30 @@ for (const [key, pack] of Object.entries(catalog.packs)) {
   else writeFileSync(join(out, key, "LICENSE.txt"), `${pack.licenseNote}\n`);
 }
 
-function glbImages(file) {
-  const buf = readFileSync(file);
-  const len = buf.readUInt32LE(12);
-  const json = JSON.parse(buf.subarray(20, 20 + len).toString("utf8"));
-  return (json.images ?? []).map((i) => i.uri).filter(Boolean);
-}
-
-function copyRelative(src, dest, uri) {
-  mkdirSync(dirname(join(dest, uri)), { recursive: true });
-  copyFileSync(join(dirname(src), uri), join(dest, uri));
-}
-
 let count = 0;
 for (const model of Object.values(catalog.models)) {
   const pack = catalog.packs[model.pack];
-  const src = join(raw, pack.source, model.file);
-  const dest = join(out, model.pack);
-  copyFileSync(src, join(dest, basename(model.file)));
-  if (src.endsWith(".glb")) {
-    for (const uri of glbImages(src)) copyRelative(src, dest, uri);
-  } else {
-    const gltf = JSON.parse(readFileSync(src, "utf8"));
-    for (const b of gltf.buffers ?? []) copyRelative(src, dest, b.uri);
-    for (const img of gltf.images ?? []) copyRelative(src, dest, img.uri);
-  }
+  await convert(join(raw, pack.source, model.file), join(out, model.pack), { simplifyMesh: true });
   count++;
 }
-
 
 for (const [key, group] of Object.entries(catalog.agents)) {
   const dest = join(out, key);
   mkdirSync(dest, { recursive: true });
   copyFileSync(join(raw, group.license), join(dest, "LICENSE.txt"));
   for (const file of group.files) {
-    const src = join(raw, group.source, file);
-    copyFileSync(src, join(dest, file));
-    for (const uri of glbImages(src)) copyRelative(src, dest, uri);
+    await convert(join(raw, group.source, file), dest, { simplifyMesh: false });
     count++;
   }
 }
-console.log(`copied ${count} models into public/models`);
+
+let bytes = 0;
+const walk = (dir) => {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const p = join(dir, entry.name);
+    if (entry.isDirectory()) walk(p);
+    else bytes += statSync(p).size;
+  }
+};
+walk(out);
+console.log(`converted ${count} models into public/models (${(bytes / 1024 / 1024).toFixed(1)} MB)`);

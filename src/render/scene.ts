@@ -25,6 +25,7 @@ import {
   Object3D,
 } from "three";
 import { MapControls } from "three/addons/controls/MapControls.js";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import type { Placed } from "../core/board";
 import { hash, mulberry32 } from "../core/rng";
 import { DIRS, DX, DY, edgeOf, type Edge, type Rot, type TileDef } from "../core/tiles";
@@ -37,10 +38,24 @@ const MIN_VIEW = 5.5;
 const MAX_VIEW = 16;
 const DROP_MS = 260;
 
+interface TileEntry {
+  placed: Placed;
+  parts: Map<string, BufferGeometry>;
+  dropping: Mesh | null;
+}
+
+interface Chunk {
+  meshes: Map<string, Mesh>;
+}
+
 interface Drop {
   mesh: Mesh;
   start: number;
+  entry: TileEntry;
 }
+
+const CHUNK = 8;
+const BASE_PART = "@base";
 
 export class World {
   readonly renderer: WebGLRenderer;
@@ -65,7 +80,11 @@ export class World {
   private ghostPending = false;
   private viewHeight = MIN_VIEW;
   private targetViewHeight = MIN_VIEW;
-  private readonly tiles = new Map<string, { mesh: Mesh; placed: Placed }>();
+  private readonly tiles = new Map<string, TileEntry>();
+  private readonly chunks = new Map<string, Chunk>();
+  private readonly dirty = new Set<string>();
+  private shadowsStale = true;
+  private readonly lastTarget = new Vector3(Infinity, 0, 0);
   edgesAround: (x: number, y: number) => (Edge | undefined)[] = () => [];
   lakesAround: (x: number, y: number) => boolean[] = () => [];
   private readonly drops: Drop[] = [];
@@ -91,6 +110,7 @@ export class World {
     this.renderer = new WebGLRenderer({ canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.shadowMap.enabled = true;
+    this.renderer.shadowMap.autoUpdate = false;
     this.renderer.shadowMap.type = PCFShadowMap;
     this.scene.background = new Color(PALETTE.background);
 
@@ -195,34 +215,121 @@ export class World {
     for (const child of mesh.children) (child as Mesh).geometry.dispose();
   }
 
+  private tileParts(p: Placed, baseOnly?: Map<string, BufferGeometry>): Map<string, BufferGeometry> {
+    const { base, props } = this.build(p.tile, p.rot, p.x, p.y);
+    base.translate(p.x, 0, p.y);
+    const parts = new Map<string, BufferGeometry>([[BASE_PART, base]]);
+    if (baseOnly) {
+      for (const [k, g] of baseOnly) if (k !== BASE_PART) parts.set(k, g);
+      return parts;
+    }
+    for (const [pack, g] of this.library.propGeometries(props)) {
+      g.translate(p.x, 0, p.y);
+      parts.set(pack, g);
+    }
+    return parts;
+  }
+
+  private chunkKey(x: number, y: number): string {
+    return `${Math.floor(x / CHUNK)},${Math.floor(y / CHUNK)}`;
+  }
+
+  private markDirty(x: number, y: number): void {
+    this.dirty.add(this.chunkKey(x, y));
+  }
+
+  private flushChunks(): void {
+    for (const key of this.dirty) {
+      let chunk = this.chunks.get(key);
+      if (!chunk) {
+        chunk = { meshes: new Map() };
+        this.chunks.set(key, chunk);
+      }
+      const byMaterial = new Map<string, BufferGeometry[]>();
+      for (const entry of this.tiles.values()) {
+        if (entry.dropping || this.chunkKey(entry.placed.x, entry.placed.y) !== key) continue;
+        for (const [k, g] of entry.parts) {
+          const list = byMaterial.get(k) ?? [];
+          list.push(g);
+          byMaterial.set(k, list);
+        }
+      }
+      for (const [k, mesh] of chunk.meshes) {
+        if (byMaterial.has(k)) continue;
+        this.scene.remove(mesh);
+        mesh.geometry.dispose();
+        chunk.meshes.delete(k);
+      }
+      for (const [k, list] of byMaterial) {
+        const merged = mergeGeometries(list, false);
+        if (!merged) continue;
+        let mesh = chunk.meshes.get(k);
+        if (mesh) {
+          mesh.geometry.dispose();
+          mesh.geometry = merged;
+        } else {
+          mesh = new Mesh(merged, k === BASE_PART ? this.tileMaterial : this.library.material(k, "solid"));
+          mesh.castShadow = k !== BASE_PART;
+          mesh.receiveShadow = true;
+          chunk.meshes.set(k, mesh);
+          this.scene.add(mesh);
+        }
+      }
+    }
+    this.dirty.clear();
+    this.shadowsStale = true;
+  }
+
   addTile(p: Placed, animate: boolean, refreshNeighbours = animate): void {
-    const mesh = this.makeMesh(p.tile, p.rot, p.x, p.y, "solid");
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
-    this.scene.add(mesh);
-    this.tiles.set(`${p.x},${p.y}`, { mesh, placed: p });
+    const entry: TileEntry = { placed: p, parts: this.tileParts(p), dropping: null };
+    this.tiles.set(`${p.x},${p.y}`, entry);
     const ring = [
       [0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, 1], [-1, -1],
     ];
     for (const [dx, dy] of refreshNeighbours ? ring : []) {
       const n = this.tiles.get(`${p.x + dx},${p.y + dy}`);
       if (!n) continue;
-      const { base } = this.build(n.placed.tile, n.placed.rot, n.placed.x, n.placed.y);
-      n.mesh.geometry.dispose();
-      n.mesh.geometry = base;
+      n.parts.get(BASE_PART)?.dispose();
+      n.parts = this.tileParts(n.placed, n.parts);
+      if (n.dropping) {
+        n.dropping.geometry.dispose();
+        n.dropping.geometry = n.parts.get(BASE_PART)!.clone().translate(-n.placed.x, 0, -n.placed.y);
+      } else this.markDirty(n.placed.x, n.placed.y);
     }
     if (animate) {
+      const mesh = this.makeMesh(p.tile, p.rot, p.x, p.y, "solid");
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
       mesh.position.y = 0.8;
-      this.drops.push({ mesh, start: performance.now() });
+      this.scene.add(mesh);
+      entry.dropping = mesh;
+      this.drops.push({ mesh, start: performance.now(), entry });
+    } else {
+      this.markDirty(p.x, p.y);
     }
+    if (refreshNeighbours || animate) this.flushChunks();
+  }
+
+  commitTiles(): void {
+    this.flushChunks();
   }
 
   clearTiles(): void {
-    for (const { mesh } of this.tiles.values()) {
-      this.scene.remove(mesh);
-      this.disposeMesh(mesh);
+    for (const d of this.drops) {
+      this.scene.remove(d.mesh);
+      this.disposeMesh(d.mesh);
     }
+    this.drops.length = 0;
+    for (const chunk of this.chunks.values()) {
+      for (const mesh of chunk.meshes.values()) {
+        this.scene.remove(mesh);
+        mesh.geometry.dispose();
+      }
+    }
+    this.chunks.clear();
+    for (const entry of this.tiles.values()) for (const g of entry.parts.values()) g.dispose();
     this.tiles.clear();
+    this.dirty.clear();
     this.hideGhost();
   }
 
@@ -239,6 +346,7 @@ export class World {
     this.ghostPending = pending;
     this.scene.add(this.ghost);
     this.ghostKey = key;
+    this.shadowsStale = true;
     this.showEdgeMarks(tile, rot, x, y);
   }
 
@@ -257,6 +365,7 @@ export class World {
   }
 
   hideGhost(): void {
+    this.shadowsStale = true;
     this.cursor.visible = false;
     this.edgeMarks.clear();
     if (!this.ghost) return;
@@ -305,6 +414,10 @@ export class World {
     return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
   }
 
+  pixelsPerUnit(): number {
+    return (this.canvas.clientHeight * this.camera.zoom) / (this.camera.top - this.camera.bottom);
+  }
+
   focus(x: number, y: number): void {
     const offset = this.camera.position.clone().sub(this.controls.target);
     this.controls.target.set(x, 0, y);
@@ -316,7 +429,14 @@ export class World {
       const d = this.drops[i];
       const t = Math.min(1, (now - d.start) / DROP_MS);
       d.mesh.position.y = 0.8 * (1 - easeOutBounce(t));
-      if (t >= 1) this.drops.splice(i, 1);
+      if (t >= 1) {
+        this.drops.splice(i, 1);
+        this.scene.remove(d.mesh);
+        this.disposeMesh(d.mesh);
+        d.entry.dropping = null;
+        this.markDirty(d.entry.placed.x, d.entry.placed.y);
+        this.flushChunks();
+      }
     }
     if (Math.abs(this.targetViewHeight - this.viewHeight) > 0.005) {
       this.viewHeight += (this.targetViewHeight - this.viewHeight) * 0.06;
@@ -330,6 +450,11 @@ export class World {
     const tgt = this.controls.target;
     this.sun.position.set(tgt.x + 8, 16, tgt.z + 5);
     this.sun.target.position.copy(tgt);
+    if (this.shadowsStale || this.drops.length > 0 || (this.ghost && this.ghostPending) || tgt.distanceToSquared(this.lastTarget) > 1e-6) {
+      this.renderer.shadowMap.needsUpdate = true;
+      this.lastTarget.copy(tgt);
+      this.shadowsStale = false;
+    }
     this.renderer.render(this.scene, this.camera);
   }
 }
