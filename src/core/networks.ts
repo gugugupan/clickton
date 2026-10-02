@@ -11,6 +11,7 @@ export interface RailStep {
 export interface RailLine {
   key: string;
   loop: boolean;
+  halts: number;
   steps: RailStep[];
 }
 
@@ -92,7 +93,8 @@ function orderLine(board: Board, component: RailNode[]): RailLine | null {
     node = next;
   }
   const a = steps[0], b = steps[steps.length - 1];
-  return { key: `${loop ? "loop" : "line"}:${a.x},${a.y}:${b.x},${b.y}:${steps.length}`, loop, steps };
+  const halts = steps.filter((st) => board.get(st.x, st.y)?.tile.halt).length;
+  return { key: `${loop ? "loop" : "line"}:${a.x},${a.y}:${b.x},${b.y}:${steps.length}`, loop, halts, steps };
 }
 
 export function roadExits(board: Board, x: number, y: number): Dir[] {

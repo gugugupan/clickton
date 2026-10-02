@@ -22,6 +22,7 @@ export interface TileDef {
   groups: readonly Group[];
   weight: number;
   station?: boolean;
+  halt?: boolean;
   house?: boolean;
 }
 
@@ -37,14 +38,15 @@ const SPECS: TileSpec[] = [
   { key: "road_cross", edges: [R, R, R, R], groups: [{ type: R, dirs: [0, 1, 2, 3] }], weight: 1 },
   { key: "rail_straight", edges: [L, G, L, G], groups: [{ type: L, dirs: [0, 2] }], weight: 6 },
   { key: "rail_curve", edges: [L, L, G, G], groups: [{ type: L, dirs: [0, 1] }], weight: 5 },
-  { key: "station", edges: [L, G, G, G], groups: [{ type: L, dirs: [0] }], weight: 2, station: true },
+  { key: "station", edges: [L, G, G, G], groups: [{ type: L, dirs: [0] }], weight: 1, station: true },
   {
     key: "station_road",
     edges: [L, G, R, G],
     groups: [{ type: L, dirs: [0] }, { type: R, dirs: [2] }],
-    weight: 2,
+    weight: 1,
     station: true,
   },
+  { key: "station_through", edges: [L, G, L, G], groups: [{ type: L, dirs: [0, 2] }], weight: 3, halt: true },
   { key: "city_edge", edges: [C, G, G, G], groups: [{ type: C, dirs: [0] }], weight: 5 },
   { key: "city_corner", edges: [C, C, G, G], groups: [{ type: C, dirs: [0, 1] }], weight: 4 },
   { key: "city_full", edges: [C, C, C, C], groups: [{ type: C, dirs: [0, 1, 2, 3] }], weight: 2 },

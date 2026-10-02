@@ -26,6 +26,8 @@ const STRINGS = {
   loading: { en: "Unpacking the bricks…", zh: "正在倒出积木…", ja: "ブロックを広げています…" },
   place: { en: "Place", zh: "放置", ja: "置く" },
   trainArrived: { en: "All aboard!", zh: "火车来啦！", ja: "列車が来た！" },
+  loopDone: { en: "🚂 Loop complete +%d", zh: "🚂 环线完成 +%d", ja: "🚂 環状線完成 +%d" },
+  lineDone: { en: "🚂 Line complete +%d", zh: "🚂 线路完成 +%d", ja: "🚂 路線完成 +%d" },
   cancel: { en: "Cancel", zh: "取消", ja: "やめる" },
   help: {
     en: "Click a spot or drag your tile onto the map · Click the tile or R to rotate · Enter to place, Esc to cancel",
@@ -49,6 +51,7 @@ const STRINGS = {
   tile_rail_curve: { en: "Track bend", zh: "弯轨", ja: "カーブ線路" },
   tile_station: { en: "Station", zh: "车站", ja: "駅" },
   tile_station_road: { en: "Station with road", zh: "临街车站", ja: "道のある駅" },
+  tile_station_through: { en: "Through station", zh: "中途站", ja: "途中駅" },
   tile_city_edge: { en: "Town edge", zh: "城市边缘", ja: "町のはし" },
   tile_city_corner: { en: "Town corner", zh: "城市转角", ja: "町のかど" },
   tile_city_full: { en: "Town centre", zh: "市中心", ja: "町の中心" },

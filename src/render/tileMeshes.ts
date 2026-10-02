@@ -228,6 +228,21 @@ export function buildTile(tile: TileDef, rot: Rot, rng: Rng, around?: readonly (
     occupy(-1, 0);
     occupy(0, 1);
   }
+  if (tile.halt) {
+    b.box(0.14, 0.05, 0.92, -0.24, PLATE_TOP, 0, PALETTE.platform);
+    for (const z of [-0.3, 0.3]) b.box(0.02, 0.14, 0.02, -0.28, PLATE_TOP + 0.05, z, PALETTE.trunk);
+    b.box(0.2, 0.02, 0.74, -0.25, PLATE_TOP + 0.19, 0, PALETTE.roofs[0]);
+    b.box(0.2, 0.15, 0.3, 0.27, PLATE_TOP, 0, PALETTE.walls[3]);
+    b.box(0.005, 0.08, 0.03, 0.168, PLATE_TOP, 0, PALETTE.trunk);
+    b.box(0.26, 0.04, 0.36, 0.27, PLATE_TOP + 0.15, 0, PALETTE.roofs[1]);
+    prop("crate", -0.24, 0.38, { fit: 0.07, lift: 0.05 });
+    prop("barrel", -0.24, -0.4, { fit: 0.05, lift: 0.05 });
+    prop("streetlight", 0.27, 0.35, { height: 0.22 });
+    occupy(-1, -1);
+    occupy(-1, 0);
+    occupy(-1, 1);
+    occupy(1, 0);
+  }
   if (tile.house) {
     prop(rng() < 0.5 ? "home_a" : "home_b", 0, -SLOT, { fit: 0.34, maxHeight: 0.42 });
     occupy(0, -1);

@@ -3,7 +3,8 @@ import { playChime, playPlace, playPop } from "./audio";
 import { Game } from "./core/game";
 import { mulberry32, randomSeed } from "./core/rng";
 import { POINTS, countHoleCells, type PlacementScore } from "./core/scoring";
-import { DIRS, DX, DY, TILES, opposite, type Rot } from "./core/tiles";
+import { DIRS, DX, DY, TILES, opposite, tileByKey, type Rot } from "./core/tiles";
+import { Board } from "./core/board";
 import { LANGS, getLang, hasKey, setLang, t, type Lang } from "./i18n";
 import { ModelLibrary } from "./render/models";
 import { World } from "./render/scene";
@@ -34,7 +35,7 @@ try {
 $("loading").classList.add("done");
 const world = new World(canvas, game.seed, library);
 world.add(agents.root);
-if (import.meta.env.DEV) Object.assign(window, { __clickton: { agents, world, getGame: () => game } });
+if (import.meta.env.DEV) Object.assign(window, { __clickton: { agents, world, getGame: () => game, Board, tileByKey } });
 world.edgesAround = (x, y) => DIRS.map((d) => game.board.edgeAt(x + DX[d], y + DY[d], opposite(d)));
 let rot: Rot = 0;
 let hover: { x: number; y: number } | null = null;
@@ -131,6 +132,7 @@ function describe(s: PlacementScore): string {
   if (s.perfect) notes.push(`${t("perfect")} +${POINTS.perfect}`);
   if (s.holePoints < 0) notes.push(t("holeMade", s.holePoints));
   if (s.holePoints > 0) notes.push(t("holeFilled", s.holePoints));
+  if (s.railPoints > 0) notes.push(t(s.loopsClosed ? "loopDone" : "lineDone", s.railPoints));
   return notes.join(" · ");
 }
 

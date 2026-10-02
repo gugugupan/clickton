@@ -75,6 +75,14 @@ export function drawTilePreview(canvas: HTMLCanvasElement, tile: TileDef, rot: R
     g.fillStyle = css(PALETTE.bufferStop);
     g.fillRect(-0.08, 0.06, 0.16, 0.06);
   }
+  if (tile.halt) {
+    g.fillStyle = css(PALETTE.platform);
+    g.fillRect(-0.32, -0.46, 0.14, 0.92);
+    g.fillStyle = css(PALETTE.walls[3]);
+    g.fillRect(0.17, -0.15, 0.2, 0.3);
+    g.fillStyle = css(PALETTE.roofs[1]);
+    g.fillRect(0.17, -0.15, 0.2, 0.08);
+  }
   if (tile.house) {
     g.fillStyle = css(PALETTE.walls[1]);
     g.fillRect(-0.14, -0.46, 0.28, 0.3);

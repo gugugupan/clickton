@@ -223,7 +223,7 @@ interface TrackPoint {
   s: number;
 }
 
-function trackPoints(line: RailLine): TrackPoint[] {
+function trackPoints(line: RailLine, marks: number[] = []): TrackPoint[] {
   const pts: { x: number; z: number }[] = [];
   const push = (x: number, z: number) => {
     const last = pts[pts.length - 1];
@@ -234,6 +234,7 @@ function trackPoints(line: RailLine): TrackPoint[] {
     for (let i = 0; i <= n; i++) push(ax + ((bx - ax) * i) / n, az + ((bz - az) * i) / n);
   };
   for (const st of line.steps) {
+    marks.push(pts.length);
     const edge = (d: Dir) => ({ x: st.x + DX[d] * 0.5, z: st.y + DY[d] * 0.5 });
     const stop = (d: Dir) => ({ x: st.x + DX[d] * 0.02, z: st.y + DY[d] * 0.02 });
     if (st.from === null && st.to !== null) {
@@ -274,10 +275,19 @@ class Train {
   private dir = 1;
   private dwell = 0;
   private grow = 0;
+  private readonly stops: number[] = [];
+  private nextStop = 0;
 
-  constructor(private readonly line: RailLine, library: ModelLibrary) {
-    this.points = trackPoints(line);
+  constructor(private readonly line: RailLine, library: ModelLibrary, halts: boolean[] = []) {
+    const marks: number[] = [];
+    this.points = trackPoints(line, marks);
     this.length = this.points[this.points.length - 1].s;
+    line.steps.forEach((_, i) => {
+      if (!halts[i]) return;
+      const start = this.points[Math.min(marks[i], this.points.length - 1)].s;
+      const end = i + 1 < marks.length ? this.points[Math.min(marks[i + 1], this.points.length - 1)].s : this.length;
+      this.stops.push((start + end) / 2);
+    });
     const maxCars = Math.max(1, Math.floor((this.length - (line.loop ? 0.3 : 0.1)) / CAR_SPACING));
     const kinds: ModelKey[] = ["locomotive", "tender", "wagon", "wagon"].slice(0, Math.min(4, maxCars)) as ModelKey[];
     for (const kind of kinds) {
@@ -334,7 +344,21 @@ class Train {
       return;
     }
     if (this.line.loop) {
-      this.head += TRAIN_SPEED * dt;
+      if (!this.stops.length) {
+        this.head += TRAIN_SPEED * dt;
+      } else {
+        const half = ((this.cars.length - 1) * CAR_SPACING) / 2;
+        const stop = this.stops[this.nextStop % this.stops.length];
+        const ahead = (((stop - (this.head - half)) % this.length) + this.length) % this.length;
+        const step = TRAIN_SPEED * Math.min(1, 0.25 + ahead / 0.45) * dt;
+        if (ahead > 1e-3 && ahead <= step) {
+          this.head += ahead;
+          this.dwell = 2;
+          this.nextStop++;
+        } else {
+          this.head += step;
+        }
+      }
     } else {
       const min = Math.min(this.length - 0.04, (this.cars.length - 1) * CAR_SPACING + 0.04);
       const max = this.length - 0.04;
@@ -395,7 +419,8 @@ export class Agents {
     const newTrains: { x: number; y: number }[] = [];
     for (const line of completedRailLines(board)) {
       if (this.trains.has(line.key)) continue;
-      const train = new Train(line, this.library);
+      const halts = line.steps.map((st) => !!board.get(st.x, st.y)?.tile.halt);
+      const train = new Train(line, this.library, halts);
       this.trains.set(line.key, train);
       this.root.add(train.root);
       newTrains.push(train.start);

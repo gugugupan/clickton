@@ -89,3 +89,40 @@ describe("roads and meadows", () => {
     expect(grassExits(b, 0, 0)).toEqual([1]);
   });
 });
+
+describe("rail completion bonus", () => {
+  it("closing a loop pays per tile, plus each through station", async () => {
+    const { scorePlacement, POINTS } = await import("../src/core/scoring");
+    const b = board([
+      ["rail_curve", 1, 0, 0],
+      ["station_through", 1, 1, 0],
+      ["rail_curve", 2, 2, 0],
+      ["rail_curve", 3, 2, 1],
+      ["rail_straight", 1, 1, 1],
+    ]);
+    const s = scorePlacement(b, tileByKey("rail_curve").id, 0, 0, 1);
+    expect(s.loopsClosed).toBe(1);
+    expect(s.railPoints).toBe(6 * POINTS.loopStep + POINTS.loopHalt);
+  });
+
+  it("short station hops get a train but no bonus; longer lines pay per tile", async () => {
+    const { scorePlacement, POINTS } = await import("../src/core/scoring");
+    const short = board([["station", 2, 0, 0]]);
+    const hop = scorePlacement(short, tileByKey("station").id, 0, 0, 1);
+    expect(hop.linesClosed).toBe(1);
+    expect(hop.railPoints).toBe(0);
+
+    const long = board([
+      ["station", 2, 0, 0],
+      ["rail_straight", 0, 0, 1],
+    ]);
+    const line = scorePlacement(long, tileByKey("station").id, 0, 0, 2);
+    expect(line.railPoints).toBe(3 * POINTS.lineStep);
+  });
+
+  it("non-rail tiles never trigger the rail check", async () => {
+    const { scorePlacement } = await import("../src/core/scoring");
+    const b = board([["station", 2, 0, 0]]);
+    expect(scorePlacement(b, tileByKey("grass").id, 0, 0, 1).railPoints).toBe(0);
+  });
+});

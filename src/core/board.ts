@@ -22,6 +22,13 @@ export class Board {
   private readonly cells = new Map<number, Placed>();
   private bounds: Bounds | null = null;
 
+  clone(): Board {
+    const copy = new Board();
+    for (const [k, v] of this.cells) copy.cells.set(k, v);
+    copy.bounds = this.bounds && { ...this.bounds };
+    return copy;
+  }
+
   get size(): number {
     return this.cells.size;
   }
