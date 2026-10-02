@@ -1,9 +1,10 @@
 import { AnimationClip, AnimationMixer, Box3, Group, Mesh, Object3D, Vector3 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
-import type { Board } from "../core/board";
+import type { Board, Placed } from "../core/board";
+import { completedRoadCells, specialStatus } from "../core/specials";
 import { completedRailLines, completedRoadNetworks, grassExits, hasRoad, isHome, isMeadow, isPond, roadExits, type RailLine } from "../core/networks";
 import { hash } from "../core/rng";
-import { DIRS, DX, DY, groupsOf, type Dir } from "../core/tiles";
+import { DIRS, DX, DY, groupsOf, type Dir, type Special } from "../core/tiles";
 import catalog from "./assets.json";
 import type { ModelKey, ModelLibrary } from "./models";
 import { PLATE_TOP } from "./tileMeshes";
@@ -26,8 +27,19 @@ const PET_HEIGHT: Record<string, number> = {
   cat: 0.08,
   beaver: 0.08,
   fish: 0.06,
+  lion: 0.1,
+  tiger: 0.1,
+  elephant: 0.16,
+  giraffe: 0.2,
+  panda: 0.1,
+  monkey: 0.08,
+  penguin: 0.07,
+  crab: 0.045,
 };
 const MEADOW_PETS = ["bunny", "chick", "cow", "pig", "deer", "fox", "dog", "cat"];
+const ZOO_PETS = ["lion", "tiger", "elephant", "giraffe", "panda", "monkey"];
+const FARM_PETS = ["cow", "pig", "chick"];
+const OFFICER = 9;
 const PERSON_HEIGHT = 0.15;
 const CAR_SPACING = 0.27;
 const TRAIN_SPEED = 0.7;
@@ -108,15 +120,21 @@ class Person {
   private wait = Math.random() * 2;
   private readonly side = (Math.random() < 0.5 ? -1 : 1) * (0.05 + Math.random() * 0.04);
 
-  constructor(rig: Rig, private readonly home: { x: number; y: number }, board: Board) {
+  constructor(
+    rig: Rig,
+    private readonly home: { x: number; y: number },
+    board: Board,
+    private readonly stay?: { area: Area; idle: string },
+  ) {
     this.puppet = new Puppet(rig, PERSON_HEIGHT, rig.clips);
-    this.cell = hasRoad(board, home.x, home.y) ? { ...home } : null;
-    if (!this.cell) {
+    this.cell = !stay && hasRoad(board, home.x, home.y) ? { ...home } : null;
+    if (!this.cell && !stay) {
       const d = DIRS.find((d) => hasRoad(board, home.x + DX[d], home.y + DY[d]));
       if (d !== undefined) this.cell = { x: home.x + DX[d], y: home.y + DY[d] };
     }
     const start = this.cell ?? home;
     this.pos.set(start.x, PLATE_TOP + 0.02, start.y);
+    if (stay) pointIn(stay.area, this.pos);
     this.target.copy(this.pos);
     this.puppet.root.position.copy(this.pos);
     this.puppet.root.rotation.y = Math.random() * Math.PI * 2;
@@ -126,7 +144,7 @@ class Person {
     this.puppet.update(dt);
     if (this.wait > 0) {
       this.wait -= dt;
-      this.puppet.play("idle");
+      this.puppet.play(this.stay?.idle ?? "idle");
       return;
     }
     const dx = this.target.x - this.pos.x, dz = this.target.z - this.pos.z;
@@ -137,6 +155,11 @@ class Person {
       return;
     }
     this.puppet.root.position.copy(this.pos);
+    if (this.stay) {
+      this.wait = 2 + Math.random() * 5;
+      pointIn(this.stay.area, this.target);
+      return;
+    }
     if (Math.random() < 0.25) this.wait = 1 + Math.random() * 2.5;
     this.chooseNext(board);
   }
@@ -160,6 +183,23 @@ class Person {
     const node = nodePosition(board, this.cell.x, this.cell.y);
     this.target.set(node.x - DY[d] * this.side, this.pos.y, node.z + DX[d] * this.side);
   }
+}
+
+interface Area {
+  x: number;
+  z: number;
+  r: number;
+}
+
+function pointIn(area: Area, out: Vector3): void {
+  const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * area.r;
+  out.x = area.x + Math.cos(a) * r;
+  out.z = area.z + Math.sin(a) * r;
+}
+
+function tileArea(p: Placed, cx: number, cz: number, r: number): Area {
+  const angle = (-p.rot * Math.PI) / 2;
+  return { x: p.x + cx * Math.cos(angle) + cz * Math.sin(angle), z: p.y - cx * Math.sin(angle) + cz * Math.cos(angle), r };
 }
 
 function nodePosition(board: Board, x: number, y: number): { x: number; z: number } {
@@ -231,11 +271,17 @@ class Animal {
   private wait = Math.random() * 3;
   private readonly speed: number;
 
-  constructor(rig: Rig, private readonly kind: string, private tile: { x: number; y: number }) {
+  constructor(
+    rig: Rig,
+    private readonly kind: string,
+    private tile: { x: number; y: number },
+    private readonly area?: Area,
+  ) {
     this.puppet = new Puppet(rig, PET_HEIGHT[kind] ?? 0.08, rig.clips);
-    this.speed = kind === "bunny" ? 0.14 : kind === "cow" ? 0.06 : 0.09;
+    this.speed = kind === "bunny" ? 0.14 : kind === "cow" || kind === "elephant" ? 0.06 : 0.09;
     this.pos.set(tile.x + (Math.random() - 0.5) * 0.5, PLATE_TOP + (kind === "fish" ? 0.0 : 0.035), tile.y + (Math.random() - 0.5) * 0.5);
     if (kind === "fish") this.pos.set(tile.x, PLATE_TOP + 0.005, tile.y);
+    if (area) pointIn(area, this.pos);
     this.target.copy(this.pos);
     this.puppet.root.position.copy(this.pos);
     this.puppet.root.rotation.y = Math.random() * Math.PI * 2;
@@ -260,6 +306,10 @@ class Animal {
       const a = Math.random() * Math.PI * 2, r = 0.05 + Math.random() * 0.1;
       this.target.set(this.tile.x + Math.cos(a) * r, this.pos.y, this.tile.y + Math.sin(a) * r);
       this.wait = 0.3 + Math.random();
+      return;
+    }
+    if (this.area) {
+      pointIn(this.area, this.target);
       return;
     }
     const exits = grassExits(board, this.tile.x, this.tile.y);
@@ -579,6 +629,7 @@ export class Agents {
   private readonly animals = new Map<string, Animal>();
   private readonly cars: Car[] = [];
   private readonly roads = new Set<string>();
+  private readonly specials = new Map<string, number>();
   private readonly cap: number;
 
   constructor(private readonly library: ModelLibrary, coarse: boolean) {
@@ -612,9 +663,25 @@ export class Agents {
     this.animals.clear();
     this.cars.length = 0;
     this.roads.clear();
+    this.specials.clear();
   }
 
-  sync(board: Board, seed: number): { trains: { x: number; y: number }[]; roads: { x: number; y: number }[] } {
+  sync(
+    board: Board,
+    seed: number,
+  ): { trains: { x: number; y: number }[]; roads: { x: number; y: number }[]; specials: { kind: Special; x: number; y: number }[] } {
+    const opened: { kind: Special; x: number; y: number }[] = [];
+    const roadCells = completedRoadCells(board);
+    for (const p of board.all()) {
+      if (!p.tile.special) continue;
+      const key = `${p.x},${p.y}`;
+      const status = specialStatus(board, p, roadCells);
+      const had = this.specials.get(key) ?? 0;
+      if (status.count <= had) continue;
+      if (had === 0) opened.push({ kind: p.tile.special, x: p.x, y: p.y });
+      this.spawnSpecial(p, seed, had, status.count, board);
+      this.specials.set(key, status.count);
+    }
     const newTrains: { x: number; y: number }[] = [];
     const newRoads: { x: number; y: number }[] = [];
     for (const net of completedRoadNetworks(board)) {
@@ -655,7 +722,44 @@ export class Agents {
         this.root.add(animal.puppet.root);
       }
     }
-    return { trains: newTrains, roads: newRoads };
+    return { trains: newTrains, roads: newRoads, specials: opened };
+  }
+
+  private addAnimal(kind: string, p: Placed, area: Area): void {
+    const rig = this.pets.get(kind);
+    if (!rig) return;
+    const a = new Animal(rig, kind, { x: p.x, y: p.y }, area);
+    this.animals.set(`${p.x},${p.y}:${kind}:${this.animals.size}`, a);
+    this.root.add(a.puppet.root);
+  }
+
+  private addPerson(index: number, p: Placed, board: Board, area: Area, idle: string): void {
+    const rig = this.people[index % this.people.length];
+    if (!rig) return;
+    const person = new Person(rig, { x: p.x, y: p.y }, board, { area, idle });
+    this.persons.set(`${p.x},${p.y}:visitor:${this.persons.size}`, person);
+    this.root.add(person.puppet.root);
+  }
+
+  private spawnSpecial(p: Placed, seed: number, from: number, to: number, board: Board): void {
+    const h = (i: number) => hash(seed, p.x, p.y, 40 + i);
+    if (p.tile.special === "zoo" && from === 0) {
+      const pen = tileArea(p, 0, -0.1, 0.24);
+      for (let i = 0; i < 3; i++) this.addAnimal(ZOO_PETS[h(i) % ZOO_PETS.length], p, pen);
+      for (let i = 0; i < 2; i++) this.addPerson(h(10 + i), p, board, tileArea(p, 0, 0.36, 0.1), "idle");
+    } else if (p.tile.special === "farm") {
+      const pen = tileArea(p, 0.1, 0.1, 0.24);
+      for (let i = from; i < to; i++) this.addAnimal(FARM_PETS[h(i) % FARM_PETS.length], p, pen);
+    } else if (p.tile.special === "police" && from === 0) {
+      this.addPerson(OFFICER, p, board, tileArea(p, -0.08, 0.06, 0.05), "idle");
+      const car = new Car(this.library, { x: p.x, y: p.y }, "car_police");
+      this.cars.push(car);
+      this.root.add(car.root);
+    } else if (p.tile.special === "beach") {
+      const sand = tileArea(p, 0, 0, 0.32);
+      for (let i = from; i < to; i++) this.addAnimal(i === 0 ? "penguin" : "crab", p, sand);
+      if (from === 0) for (let i = 0; i < 2; i++) this.addPerson(h(20 + i), p, board, sand, "sit");
+    }
   }
 
   update(dt: number, board: Board): void {

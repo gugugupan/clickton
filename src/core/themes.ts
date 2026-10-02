@@ -74,9 +74,24 @@ export function moodFor(seed: number): WorldMood {
   return { theme, jitter };
 }
 
-export function themedWeights(tiles: readonly TileDef[], base: readonly number[], seed: number): number[] {
+export const SPECIAL_BOOST: Record<string, Record<string, number>> = {
+  metropolis: { police: 2, zoo: 1.5 },
+  countryside: { farm: 2 },
+  waterside: { beach: 2.5 },
+  village: { farm: 1.3 },
+  crossroads: { police: 1.5 },
+};
+
+export function themedWeights(
+  tiles: readonly TileDef[],
+  base: readonly number[],
+  seed: number,
+  extra?: Record<string, Record<string, number>>,
+): number[] {
   const { theme, jitter } = moodFor(seed);
+  const boost = extra?.[theme.key] ?? {};
   return tiles.map((t, i) => {
+    if (t.special) return base[i] * (boost[t.key] ?? 1);
     const c = categoryOf(t);
     return base[i] * (theme.categories[c] ?? 1) * (theme.tiles[t.key] ?? 1) * jitter[c];
   });

@@ -146,6 +146,7 @@ function refreshTray(): void {
   drawTilePreview(preview, tile, rot, world.look);
   drawTilePreview(nextPreview, TILES[game.nextTile], 0, world.look);
   $("tile-name").textContent = t(`tile_${tile.key}` as Parameters<typeof t>[0]);
+  $("tile-hint").textContent = tile.special ? t(`hint_${tile.special}` as Parameters<typeof t>[0]) : "";
   const canDiscard = game.discardsAvailable > 0;
   $("discard").style.display = canDiscard ? "" : "none";
   const progress = $("discard-progress");
@@ -265,6 +266,8 @@ function place(x: number, y: number): void {
   else if (opened.roads.length) setTimeout(playPop, 200);
   for (const tr of opened.trains) floatText(tr.x, tr.y, `🚂 ${t("trainArrived")}`, "var(--text)");
   for (const rd of opened.roads) floatText(rd.x, rd.y, `🚗 ${t("roadOpened")}`, "var(--text)");
+  for (const sp of opened.specials) floatText(sp.x, sp.y, t(`open_${sp.kind}` as Parameters<typeof t>[0]), "var(--text)");
+  if (opened.specials.length && !opened.trains.length) setTimeout(playChime, 250);
   rot = 0;
   saveLocal(game);
   refreshStats();

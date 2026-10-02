@@ -349,6 +349,17 @@ button.pill:active {
   font-size: 18px;
 }
 
+.tile-hint {
+  font-size: 11px;
+  color: var(--terracotta-ink);
+  max-width: 170px;
+  line-height: 1.3;
+}
+
+.tile-hint:empty {
+  display: none;
+}
+
 button.round {
   flex: none;
   width: 44px;

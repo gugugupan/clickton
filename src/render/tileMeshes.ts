@@ -1,6 +1,6 @@
 import type { BufferGeometry } from "three";
 import type { Rng } from "../core/rng";
-import { DIRS, DX, DY, type Dir, type Edge, type Group, type Rot, type TileDef } from "../core/tiles";
+import { DIRS, DX, DY, type Dir, type Edge, type Group, type Rot, type Special, type TileDef } from "../core/tiles";
 import { PartBuilder } from "./bricks";
 import { DEFAULT_LOOK, type Look } from "./looks";
 import { BUILDING_VARIANTS, type ModelKey, type Prop } from "./models";
@@ -150,6 +150,77 @@ function drawCap(b: PartBuilder, d: Dir, type: Edge, look: Look): void {
   }
 }
 
+function fence(b: PartBuilder, x0: number, z0: number, x1: number, z1: number, gate: number): void {
+  const post = (x: number, z: number) => b.box(0.025, 0.07, 0.025, x, PLATE_TOP, z, PALETTE.trunk);
+  const railX = (xa: number, xb: number, z: number) => {
+    if (xb - xa < 0.01) return;
+    b.box(xb - xa, 0.015, 0.012, (xa + xb) / 2, PLATE_TOP + 0.045, z, PALETTE.trunk);
+    b.box(xb - xa, 0.015, 0.012, (xa + xb) / 2, PLATE_TOP + 0.02, z, PALETTE.trunk);
+  };
+  const railZ = (za: number, zb: number, x: number) => {
+    b.box(0.012, 0.015, zb - za, x, PLATE_TOP + 0.045, (za + zb) / 2, PALETTE.trunk);
+    b.box(0.012, 0.015, zb - za, x, PLATE_TOP + 0.02, (za + zb) / 2, PALETTE.trunk);
+  };
+  railX(x0, x1, z0);
+  railX(x0, -gate, z1);
+  railX(gate, x1, z1);
+  railZ(z0, z1, x0);
+  railZ(z0, z1, x1);
+  for (const x of [x0, x1, -gate, gate]) post(x, z1);
+  for (const x of [x0, x1]) post(x, z0);
+}
+
+type PropFn = (
+  model: ModelKey,
+  x: number,
+  z: number,
+  o: Pick<Prop, "fit" | "height" | "maxHeight" | "size" | "variant"> & { lift?: number; rotY?: number },
+) => void;
+
+function drawSpecial(b: PartBuilder, kind: Special, rng: Rng, prop: PropFn, look: Look): void {
+  if (kind === "zoo") {
+    b.studGrid(0, -0.08, 0.7, 4, PLATE_TOP, look.grassStud);
+    fence(b, -0.42, -0.43, 0.42, 0.27, 0.11);
+    b.box(0.03, 0.16, 0.03, -0.12, PLATE_TOP, 0.27, PALETTE.trunk);
+    b.box(0.03, 0.16, 0.03, 0.12, PLATE_TOP, 0.27, PALETTE.trunk);
+    b.box(0.28, 0.05, 0.02, 0, PLATE_TOP + 0.15, 0.27, PALETTE.bufferStop);
+    b.cylinder(0.11, 0.016, -0.2, PLATE_TOP, -0.02, look.water, 16);
+    prop(pick(rng, TREES), -0.28, -0.3, { fit: 0.2, maxHeight: 0.3, rotY: rng() * 6 });
+    prop(pick(rng, TREES), 0.29, -0.28, { fit: 0.2, maxHeight: 0.3, rotY: rng() * 6 });
+    prop(pick(rng, ROCKS), 0.27, 0.08, { fit: 0.12, rotY: rng() * 6 });
+    prop(pick(rng, BUSHES), 0.02, -0.33, { fit: 0.14, rotY: rng() * 6 });
+  } else if (kind === "farm") {
+    b.studGrid(0.12, 0.08, 0.5, 3, PLATE_TOP, look.grassStud);
+    fence(b, -0.44, -0.44, 0.44, 0.42, 0.1);
+    b.box(0.26, 0.16, 0.2, -0.22, PLATE_TOP, -0.24, PALETTE.barn);
+    b.cone(0.2, 0.1, -0.22, PLATE_TOP + 0.16, -0.24, PALETTE.roofs[2], 4, Math.PI / 4);
+    b.box(0.08, 0.1, 0.005, -0.22, PLATE_TOP, -0.138, PALETTE.trunk);
+    for (const [x, z, h] of [[0.22, -0.28, 0], [0.31, -0.28, 0], [0.265, -0.28, 0.07]]) {
+      b.box(0.08, 0.07, 0.1, x, PLATE_TOP + h, z, PALETTE.hay);
+    }
+    prop("wheelbarrow", 0.25, 0.22, { fit: 0.12, rotY: 0.7 });
+    prop("sack", -0.3, 0.05, { fit: 0.06 });
+    prop("crate", -0.3, 0.16, { fit: 0.07 });
+  } else if (kind === "police") {
+    b.box(0.62, 0.012, 0.44, 0, PLATE_TOP, -0.15, PALETTE.paving);
+    prop("shop_c", 0, -0.18, { fit: 0.36, maxHeight: 0.38, variant: 3 });
+    prop("car_police", 0.27, 0.2, { fit: 0.17, rotY: Math.PI });
+    prop("streetlight", -0.27, 0.24, { height: 0.22 });
+    b.box(0.015, 0.2, 0.015, -0.3, PLATE_TOP, -0.38, PALETTE.trunk);
+    b.box(0.08, 0.05, 0.005, -0.26, PLATE_TOP + 0.15, -0.38, PALETTE.walls[2]);
+  } else if (kind === "beach") {
+    b.box(0.94, 0.014, 0.94, 0, PLATE_TOP, 0, PALETTE.sand);
+    prop("parasol_a", -0.18, -0.16, { fit: 0.2, lift: 0.014, rotY: rng() * 6 });
+    prop("parasol_b", 0.2, 0.14, { fit: 0.2, lift: 0.014, rotY: rng() * 6 });
+    for (const [x, z, c] of [[-0.05, -0.22, 0], [0.32, 0.02, 2], [-0.3, 0.2, 4]]) {
+      b.box(0.14, 0.006, 0.07, x, PLATE_TOP + 0.014, z, PALETTE.walls[c]);
+    }
+    for (let i = 0; i < 4; i++) {
+      b.cylinder(0.012, 0.01, (rng() - 0.5) * 0.8, PLATE_TOP + 0.014, (rng() - 0.5) * 0.8, PALETTE.white, 6);
+    }
+  }
+}
+
 export interface TileBuild {
   base: BufferGeometry;
   props: Prop[];
@@ -217,7 +288,8 @@ export function buildTile(
     let paths = g.type === "road" || g.type === "rail" ? pathsFor(g) : [];
     if (tile.station && g.type === "rail") paths = [linePath(edgeMid(g.dirs[0]), { x: 0, z: -0.02 })];
     if (tile.station && g.type === "road") paths = [linePath(edgeMid(g.dirs[0]), { x: 0, z: 0.36 })];
-    if (g.type === "road") drawRoad(b, paths, g.dirs.length !== 2 && !tile.station, y);
+    if (tile.special && g.type === "road") paths = [linePath(edgeMid(g.dirs[0]), { x: 0, z: 0.26 })];
+    if (g.type === "road") drawRoad(b, paths, g.dirs.length !== 2 && !tile.station && !tile.special, y);
     if (g.type === "rail") drawRail(b, paths, y + (tile.groups.some((o) => o.type === "road") ? 0.004 : 0));
     if (hasBridge && g.type !== "water") drawBridgeRails(b, g.dirs, y + 0.02);
   }
@@ -235,6 +307,10 @@ export function buildTile(
     occupy(-1, -1);
     occupy(-1, 0);
     occupy(0, 1);
+  }
+  if (tile.special) {
+    for (let sx = -1; sx <= 1; sx++) for (let sz = -1; sz <= 1; sz++) occupy(sx, sz);
+    drawSpecial(b, tile.special, rng, prop, look);
   }
   if (tile.deadEnd) {
     b.cylinder(0.2, 0.02, 0, PLATE_TOP, 0, PALETTE.road, 20);

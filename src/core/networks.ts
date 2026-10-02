@@ -116,11 +116,17 @@ export function hasRoad(board: Board, x: number, y: number): boolean {
 }
 
 export function isHome(p: Placed): boolean {
-  return !!p.tile.house || p.tile.edges.includes("city");
+  return !p.tile.special && (!!p.tile.house || p.tile.edges.includes("city"));
 }
 
 export function isMeadow(p: Placed): boolean {
-  return p.tile.edges.filter((e) => e === "grass").length >= 3 && !p.tile.house && !p.tile.station;
+  return (
+    p.tile.edges.filter((e) => e === "grass").length >= 3 &&
+    !p.tile.house &&
+    !p.tile.station &&
+    !p.tile.special &&
+    p.tile.groups.every((g) => g.type === "water")
+  );
 }
 
 export function isPond(p: Placed): boolean {

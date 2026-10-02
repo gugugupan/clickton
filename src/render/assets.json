@@ -307,6 +307,14 @@
     "car_police": {
       "pack": "city",
       "file": "car_police.gltf"
+    },
+    "parasol_a": {
+      "pack": "commercial",
+      "file": "detail-parasol-a.glb"
+    },
+    "parasol_b": {
+      "pack": "commercial",
+      "file": "detail-parasol-b.glb"
     }
   },
   "agents": {
@@ -347,7 +355,15 @@
         "animal-dog.glb",
         "animal-cat.glb",
         "animal-beaver.glb",
-        "animal-fish.glb"
+        "animal-fish.glb",
+        "animal-lion.glb",
+        "animal-tiger.glb",
+        "animal-elephant.glb",
+        "animal-giraffe.glb",
+        "animal-panda.glb",
+        "animal-monkey.glb",
+        "animal-penguin.glb",
+        "animal-crab.glb"
       ]
     }
   }

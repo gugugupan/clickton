@@ -1,7 +1,8 @@
-import { themedWeights } from "./themes";
+import { SPECIAL_BOOST, themedWeights } from "./themes";
 
 export type Edge = "grass" | "road" | "rail" | "water" | "city";
 export type Dir = 0 | 1 | 2 | 3;
+export type Special = "zoo" | "farm" | "police" | "beach";
 export type Rot = 0 | 1 | 2 | 3;
 
 export const DIRS: readonly Dir[] = [0, 1, 2, 3];
@@ -28,6 +29,7 @@ export interface TileDef {
   house?: boolean;
   pool?: boolean;
   deadEnd?: boolean;
+  special?: Special;
 }
 
 type TileSpec = Omit<TileDef, "id">;
@@ -84,13 +86,18 @@ const SPECS: TileSpec[] = [
   },
   { key: "pool", edges: [G, G, G, G], groups: [], weight: 2, pool: true },
   { key: "road_end", edges: [R, G, G, G], groups: [{ type: R, dirs: [0] }], weight: 4, deadEnd: true },
+  { key: "zoo", edges: [G, G, R, G], groups: [{ type: R, dirs: [2] }], weight: 0.6, special: "zoo" },
+  { key: "farm", edges: [G, G, G, G], groups: [], weight: 0.8, special: "farm" },
+  { key: "police", edges: [G, G, R, G], groups: [{ type: R, dirs: [2] }], weight: 0.6, special: "police" },
+  { key: "beach", edges: [G, G, G, G], groups: [], weight: 0.6, special: "beach" },
 ];
 
 export const TILES: readonly TileDef[] = SPECS.map((s, id) => ({ ...s, id }));
 
-export const RULES_VERSION = 5;
+export const RULES_VERSION = 6;
 
 const LEGACY_WEIGHTS: Record<number, Record<string, number>> = {
+  5: { grass: 6, road_straight: 10, road_curve: 8, road_t: 4, road_cross: 1, rail_straight: 9, rail_curve: 10, station: 1, station_road: 1, station_through: 2, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1, pool: 2, road_end: 4 },
   4: { grass: 6, road_straight: 10, road_curve: 8, road_t: 6, road_cross: 4, rail_straight: 9, rail_curve: 10, station: 1, station_road: 1, station_through: 2, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1, pool: 2 },
   3: { grass: 6, road_straight: 10, road_curve: 8, road_t: 6, road_cross: 4, rail_straight: 7, rail_curve: 8, station: 2, station_road: 2, station_through: 5, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1, pool: 2 },
   2: { grass: 6, road_straight: 10, road_curve: 8, road_t: 6, road_cross: 4, rail_straight: 7, rail_curve: 8, station: 2, station_road: 2, station_through: 5, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1 },
@@ -106,7 +113,7 @@ export function baseWeights(version: number): number[] {
 
 export function weightsFor(version: number, seed: number): number[] {
   const base = baseWeights(version);
-  return version >= 3 ? themedWeights(TILES, base, seed) : base;
+  return version >= 3 ? themedWeights(TILES, base, seed, version >= 6 ? SPECIAL_BOOST : undefined) : base;
 }
 
 export function isKnownVersion(version: number): boolean {

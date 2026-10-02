@@ -76,6 +76,35 @@ export function drawTilePreview(canvas: HTMLCanvasElement, tile: TileDef, rot: R
     g.fillStyle = css(PALETTE.bufferStop);
     g.fillRect(-0.08, 0.06, 0.16, 0.06);
   }
+  if (tile.special === "zoo" || tile.special === "farm") {
+    g.strokeStyle = css(PALETTE.trunk);
+    g.lineWidth = 0.03;
+    g.strokeRect(-0.38, -0.38, 0.76, tile.special === "zoo" ? 0.62 : 0.76);
+    g.fillStyle = css(tile.special === "zoo" ? PALETTE.bufferStop : PALETTE.barn);
+    g.fillRect(tile.special === "zoo" ? -0.14 : -0.32, tile.special === "zoo" ? 0.2 : -0.32, 0.28, tile.special === "zoo" ? 0.06 : 0.2);
+    if (tile.special === "farm") {
+      g.fillStyle = css(PALETTE.hay);
+      g.fillRect(0.12, -0.32, 0.2, 0.1);
+    }
+  }
+  if (tile.special === "police") {
+    g.fillStyle = css(PALETTE.walls[2]);
+    g.fillRect(-0.2, -0.36, 0.4, 0.36);
+    g.fillStyle = css(PALETTE.paving);
+    g.fillRect(0.14, 0.12, 0.18, 0.1);
+  }
+  if (tile.special === "beach") {
+    g.fillStyle = css(PALETTE.sand);
+    g.fillRect(-0.46, -0.46, 0.92, 0.92);
+    g.fillStyle = css(PALETTE.walls[0]);
+    g.beginPath();
+    g.arc(-0.15, -0.12, 0.12, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = css(PALETTE.walls[2]);
+    g.beginPath();
+    g.arc(0.18, 0.15, 0.12, 0, Math.PI * 2);
+    g.fill();
+  }
   if (tile.deadEnd) {
     g.fillStyle = css(PALETTE.road);
     g.beginPath();
