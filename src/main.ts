@@ -12,7 +12,7 @@ import { Board } from "./core/board";
 import { LANGS, getLang, hasKey, setLang, t, type Lang } from "./i18n";
 import { ModelLibrary } from "./render/models";
 import { DayNight, type TimeMode } from "./render/daynight";
-import { duckMusic, initMusic, musicEnabled, setMusicDaylight, setMusicEnabled } from "./music";
+import { duckMusic, initMusic, musicEnabled, setAmbience, setMusicDaylight, setMusicEnabled } from "./music";
 import { lookFor } from "./render/looks";
 import { World } from "./render/scene";
 import { Agents } from "./render/agents";
@@ -869,6 +869,18 @@ function tintHud(night: number): void {
   }
 }
 
+let ambienceFrame = 0;
+
+function landCensus(): { water: number; grass: number } {
+  let water = 0;
+  let grass = 0;
+  for (const t of game.board.all()) {
+    if (t.tile.edges.includes("water") || t.tile.pool) water++;
+    if (t.tile.key === "grass") grass++;
+  }
+  return { water, grass };
+}
+
 let lastFrame = performance.now();
 
 function frame(now: number): void {
@@ -876,6 +888,7 @@ function frame(now: number): void {
   lastFrame = now;
   const sky = dayNight.update(dt);
   setMusicDaylight(sky.daylight);
+  if (++ambienceFrame % 60 === 0) setAmbience({ ...agents.census(), ...landCensus() });
   tintHud(smooth01((0.62 - sky.daylight) / 0.24));
   world.setSky(sky);
   agents.update(dt, game.board, { camera: world.camera, pixelsPerUnit: world.pixelsPerUnit() }, 1 - sky.daylight);

@@ -703,6 +703,10 @@ export class Agents {
     this.people.splice(0, this.people.length, ...this.people.filter(Boolean));
   }
 
+  census(): { cars: number; trains: number; animals: number } {
+    return { cars: this.cars.length, trains: this.trains.size, animals: this.animals.size };
+  }
+
   clear(): void {
     this.root.clear();
     this.trains.clear();
