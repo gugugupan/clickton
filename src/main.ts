@@ -12,6 +12,7 @@ import { Board } from "./core/board";
 import { LANGS, getLang, hasKey, setLang, t, type Lang } from "./i18n";
 import { ModelLibrary } from "./render/models";
 import { DayNight } from "./render/daynight";
+import { duckMusic, initMusic, musicEnabled, setMusicDaylight, setMusicEnabled } from "./music";
 import { lookFor } from "./render/looks";
 import { World } from "./render/scene";
 import { Agents } from "./render/agents";
@@ -143,6 +144,7 @@ function applyI18n(): void {
   });
   $("help").textContent = t(viewing ? (coarse ? "helpViewTouch" : "helpView") : coarse ? "helpTouch" : "help");
   document.title = getLang() === "en" ? "Clickton" : `${t("gameName")} · Clickton`;
+  $("music").textContent = t(musicEnabled() ? "musicOn" : "musicOff");
   $("ng-daily").querySelector(".label")!.textContent = t("dailyOptionHint", CHALLENGE_TILES);
   for (const id of ["langs", "tut-langs"]) {
     $(id).replaceChildren(
@@ -290,6 +292,7 @@ function place(x: number, y: number): void {
   world.setFrontier(game.board.frontier());
   fitTown();
   playPlace(score.total > 0);
+  duckMusic();
   floatScore(x, y, score.total);
   const opened = agents.sync(game.board, game.seed);
   if (opened.trains.length) setTimeout(playChime, 250);
@@ -665,6 +668,11 @@ $("menu").addEventListener("click", (e) => {
 });
 $("tray").addEventListener("pointerdown", () => setMenu(false));
 $("new-game").addEventListener("click", openNewGame);
+$("music").addEventListener("click", () => {
+  setMusicEnabled(!musicEnabled());
+  $("music").textContent = t(musicEnabled() ? "musicOn" : "musicOff");
+});
+initMusic();
 $("ng-town").addEventListener("click", newTown);
 $("ng-daily").addEventListener("click", () => {
   closeNewGame();
@@ -750,6 +758,7 @@ function frame(now: number): void {
   const dt = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
   const sky = dayNight.update(dt);
+  setMusicDaylight(sky.daylight);
   world.setSky(sky);
   agents.update(dt, game.board, { camera: world.camera, pixelsPerUnit: world.pixelsPerUnit() }, 1 - sky.daylight);
   world.render(now);

@@ -1,12 +1,18 @@
 let ctx: AudioContext | null = null;
+let sfx: GainNode | null = null;
 
-function audio(): AudioContext | null {
+const SFX_VOLUME = 0.6;
+
+export function audio(): AudioContext | null {
   if (!ctx) {
     try {
       ctx = new AudioContext();
     } catch {
       return null;
     }
+    sfx = ctx.createGain();
+    sfx.gain.value = SFX_VOLUME;
+    sfx.connect(ctx.destination);
   }
   if (ctx.state === "suspended") void ctx.resume();
   return ctx;
@@ -24,7 +30,7 @@ function bubble(ac: AudioContext, at: number, from: number, to: number, volume: 
   gain.gain.setValueAtTime(0.0001, at);
   gain.gain.exponentialRampToValueAtTime(volume, at + 0.008);
   gain.gain.exponentialRampToValueAtTime(0.0001, at + length);
-  osc.connect(soft).connect(gain).connect(ac.destination);
+  osc.connect(soft).connect(gain).connect(sfx!);
   osc.start(at);
   osc.stop(at + length + 0.02);
 }

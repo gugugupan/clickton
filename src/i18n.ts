@@ -47,6 +47,8 @@ const STRINGS = {
   tutNext: { en: "Next", zh: "下一步", ja: "次へ" },
   tutSkip: { en: "Skip", zh: "跳过", ja: "スキップ" },
   tutDone: { en: "Start building", zh: "开始建造", ja: "はじめる" },
+  musicOn: { en: "Music: on", zh: "音乐：开", ja: "音楽：オン" },
+  musicOff: { en: "Music: off", zh: "音乐：关", ja: "音楽：オフ" },
   photoMode: { en: "Photo mode", zh: "拍照模式", ja: "撮影モード" },
   savePhoto: { en: "Save photo", zh: "保存照片", ja: "写真を保存" },
   exitPhoto: { en: "Done", zh: "退出", ja: "終了" },

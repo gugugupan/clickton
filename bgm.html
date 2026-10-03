@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clickton BGM 试听</title>
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Noto+Sans+SC:wght@500;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --bg: #f6f1e9;
+        --card: #fffdf9;
+        --text: #5e534b;
+        --soft: #8f837a;
+        --sage: #9fbf9a;
+        --peach: #e0a193;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 500 15px "Noto Sans SC", sans-serif;
+      }
+      main {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 24px 16px 60px;
+      }
+      h1 {
+        font: 600 26px Fredoka, "Noto Sans SC", sans-serif;
+        margin: 0 0 4px;
+      }
+      p.lead {
+        color: var(--soft);
+        margin: 0 0 18px;
+        line-height: 1.6;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+      .controls label {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      button {
+        border: 0;
+        border-radius: 12px;
+        padding: 9px 14px;
+        background: #efe7dc;
+        color: var(--text);
+        font: 700 14px "Noto Sans SC", sans-serif;
+        cursor: pointer;
+      }
+      button.on {
+        background: var(--sage);
+        color: #fff;
+      }
+      .track {
+        background: var(--card);
+        border-radius: 18px;
+        padding: 14px 16px;
+        margin-bottom: 12px;
+        display: flex;
+        gap: 14px;
+        align-items: center;
+        box-shadow: 0 2px 0 #e8dfd3;
+      }
+      .track.playing {
+        outline: 3px solid var(--sage);
+      }
+      .track .play {
+        width: 52px;
+        height: 52px;
+        border-radius: 50%;
+        font-size: 18px;
+        flex: none;
+      }
+      .track h2 {
+        margin: 0 0 4px;
+        font-size: 17px;
+      }
+      .track p {
+        margin: 0;
+        color: var(--soft);
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .seg button {
+        padding: 7px 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Clickton BGM 试听</h1>
+      <p class="lead">全部用 Web Audio 实时生成，无音频文件，每次听到的旋律都不一样。可以切换白天 / 夜晚听氛围变化，也可以点「放置音效」听 BGM 和音效混在一起的感觉。</p>
+      <div class="controls">
+        <span class="seg"><button id="day" class="on">☀️ 白天</button> <button id="night">🌙 夜晚</button></span>
+        <button id="sfx">🫧 放置音效</button>
+        <label>音量 <input id="vol" type="range" min="0" max="1" step="0.01" value="0.6" /></label>
+      </div>
+      <div id="tracks"></div>
+    </main>
+    <script type="module">
+      const PENTA = [0, 2, 4, 7, 9];
+      const hz = (midi) => 440 * 2 ** ((midi - 69) / 12);
+      const rand = (a, b) => a + Math.random() * (b - a);
+      const pick = (l) => l[Math.floor(Math.random() * l.length)];
+
+      let ac, master, reverb, dry, night = false, current = null;
+
+      function setup() {
+        if (ac) return;
+        ac = new AudioContext();
+        master = ac.createGain();
+        master.gain.value = Number(document.getElementById("vol").value) * 0.5;
+        const lp = ac.createBiquadFilter();
+        lp.type = "lowpass";
+        lp.frequency.value = 5200;
+        master.connect(lp).connect(ac.destination);
+        reverb = ac.createConvolver();
+        const len = ac.sampleRate * 3.2;
+        const ir = ac.createBuffer(2, len, ac.sampleRate);
+        for (let c = 0; c < 2; c++) {
+          const d = ir.getChannelData(c);
+          for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 2.6;
+        }
+        reverb.buffer = ir;
+        const wet = ac.createGain();
+        wet.gain.value = 0.42;
+        reverb.connect(wet).connect(master);
+        dry = master;
+      }
+
+      function voice(dest, at) {
+        const g = ac.createGain();
+        g.connect(dest);
+        g.connect(reverb);
+        return g;
+      }
+
+      function tone({ at, freq, len, vol, type = "sine", attack = 0.005, partials = [], cutoff = 4000, detune = 0 }) {
+        const out = voice(dry, at);
+        const env = out.gain;
+        env.setValueAtTime(0.0001, at);
+        env.exponentialRampToValueAtTime(vol, at + attack);
+        env.exponentialRampToValueAtTime(0.0001, at + len);
+        const filt = ac.createBiquadFilter();
+        filt.type = "lowpass";
+        filt.frequency.value = cutoff;
+        filt.connect(out);
+        for (const [mult, amp] of [[1, 1], ...partials]) {
+          const o = ac.createOscillator();
+          o.type = type;
+          o.frequency.value = freq * mult;
+          o.detune.value = detune;
+          const pg = ac.createGain();
+          pg.gain.value = amp;
+          o.connect(pg).connect(filt);
+          o.start(at);
+          o.stop(at + len + 0.05);
+        }
+      }
+
+      function pad(at, midis, len, vol, cutoff = 900) {
+        const out = voice(dry, at);
+        out.gain.setValueAtTime(0.0001, at);
+        out.gain.linearRampToValueAtTime(vol, at + len * 0.35);
+        out.gain.linearRampToValueAtTime(0.0001, at + len);
+        const filt = ac.createBiquadFilter();
+        filt.type = "lowpass";
+        filt.frequency.value = cutoff;
+        filt.Q.value = 0.3;
+        filt.connect(out);
+        for (const m of midis) {
+          for (const dt of [-7, 7]) {
+            const o = ac.createOscillator();
+            o.type = "triangle";
+            o.frequency.value = hz(m);
+            o.detune.value = dt;
+            o.connect(filt);
+            o.start(at);
+            o.stop(at + len + 0.1);
+          }
+        }
+      }
+
+      function noiseBurst(at, len, vol, freq, q = 1) {
+        const buf = ac.createBuffer(1, Math.ceil(ac.sampleRate * len), ac.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+        const src = ac.createBufferSource();
+        src.buffer = buf;
+        const bp = ac.createBiquadFilter();
+        bp.type = "bandpass";
+        bp.frequency.value = freq;
+        bp.Q.value = q;
+        const g = ac.createGain();
+        g.gain.setValueAtTime(0.0001, at);
+        g.gain.exponentialRampToValueAtTime(vol, at + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, at + len);
+        src.connect(bp).connect(g).connect(dry);
+        src.start(at);
+      }
+
+      const CHORDS = [
+        [60, 64, 67],
+        [57, 60, 64],
+        [53, 57, 60],
+        [55, 59, 62],
+      ];
+
+      const TRACKS = [
+        {
+          name: "八音盒",
+          desc: "清脆的八音盒随机弹五声音阶，音符稀疏，带一点混响。最安静、最不打扰。",
+          beat: 0.5,
+          step(at, n) {
+            const density = night ? 0.28 : 0.5;
+            if (Math.random() < density) {
+              const base = night ? 72 : 79;
+              const m = base + pick(PENTA) + 12 * Math.floor(rand(0, 2)) - (night ? 12 : 0);
+              tone({ at, freq: hz(m), len: 1.6, vol: 0.12, partials: [[3.01, 0.25], [5.4, 0.08]], cutoff: 6000 });
+            }
+            if (n % 16 === 0) tone({ at, freq: hz(48 + pick([0, 7, 5])), len: 3, vol: 0.05, partials: [[2, 0.3]], cutoff: 900 });
+          },
+        },
+        {
+          name: "木琴午后",
+          desc: "温暖的木琴旋律 + 很轻的和弦铺底，C–Am–F–G 循环。最有“小镇日常”的感觉。",
+          beat: 0.42,
+          step(at, n) {
+            const chord = CHORDS[Math.floor(n / 16) % 4];
+            if (n % 16 === 0) pad(at, chord.map((m) => m - 12), 0.42 * 16, night ? 0.03 : 0.045, night ? 600 : 1000);
+            if (n % 2 === 0 && Math.random() < (night ? 0.35 : 0.65)) {
+              const m = Math.random() < 0.55 ? pick(chord) + 12 : 72 + pick(PENTA);
+              tone({ at, freq: hz(m - (night ? 12 : 0)), len: 0.7, vol: 0.13, partials: [[4, 0.18], [9.8, 0.04]], cutoff: 3200 });
+            }
+          },
+        },
+        {
+          name: "慢火车 Lo-fi",
+          desc: "电钢琴七和弦 + 轻轻的沙锤节奏，像坐在慢悠悠的小火车上。稍微有节奏感一点。",
+          beat: 0.4,
+          step(at, n) {
+            const chords = [
+              [57, 60, 64, 67],
+              [53, 57, 60, 64],
+              [55, 59, 62, 65],
+              [52, 55, 59, 62],
+            ];
+            const chord = chords[Math.floor(n / 16) % 4];
+            if (n % 16 === 0 || n % 16 === 10)
+              for (const m of chord) tone({ at: at + rand(0, 0.03), freq: hz(m), len: 2.6, vol: 0.05, partials: [[2, 0.2], [3, 0.06]], attack: 0.01, cutoff: 1500, detune: rand(-6, 6) });
+            if (!night && n % 2 === 1) noiseBurst(at + 0.02, 0.07, n % 4 === 3 ? 0.035 : 0.018, 7000, 0.8);
+            if (night && n % 8 === 4) noiseBurst(at, 0.12, 0.012, 6000, 0.8);
+            if (n % 8 === 0) tone({ at, freq: hz(chord[0] - 24), len: 1.2, vol: 0.08, cutoff: 400 });
+            if (n % 4 === 2 && Math.random() < 0.45) tone({ at, freq: hz(72 + pick(PENTA)), len: 1, vol: 0.06, partials: [[2, 0.2]], cutoff: 2400 });
+          },
+        },
+        {
+          name: "风铃小院",
+          desc: "环境音风格：长长的铺底和弦，偶尔几声风铃，白天有小鸟，夜晚有虫鸣。几乎没有旋律。",
+          beat: 0.5,
+          step(at, n) {
+            if (n % 24 === 0) {
+              const chord = pick([
+                [48, 55, 64, 71],
+                [45, 52, 60, 67],
+                [41, 48, 57, 64],
+              ]);
+              pad(at, chord, 14, night ? 0.03 : 0.04, night ? 500 : 800);
+            }
+            if (Math.random() < 0.09) {
+              const t0 = at;
+              for (let i = 0; i < Math.floor(rand(2, 5)); i++) tone({ at: t0 + i * rand(0.12, 0.3), freq: hz(84 + pick(PENTA)), len: 2.4, vol: 0.045, partials: [[2.76, 0.3], [5.4, 0.12]], cutoff: 8000 });
+            }
+            if (!night && Math.random() < 0.06) {
+              const f = rand(2600, 3600);
+              for (let i = 0; i < 3; i++) {
+                const o = ac.createOscillator();
+                const g = ac.createGain();
+                const t = at + i * 0.11;
+                o.frequency.setValueAtTime(f, t);
+                o.frequency.exponentialRampToValueAtTime(f * 1.3, t + 0.06);
+                g.gain.setValueAtTime(0.0001, t);
+                g.gain.exponentialRampToValueAtTime(0.02, t + 0.01);
+                g.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+                o.connect(g).connect(dry);
+                o.start(t);
+                o.stop(t + 0.1);
+              }
+            }
+            if (night && n % 2 === 0 && Math.random() < 0.5) for (let i = 0; i < 3; i++) noiseBurst(at + i * 0.05, 0.03, 0.01, 4800, 12);
+          },
+        },
+        {
+          name: "积木华尔兹",
+          desc: "3/4 拍的轻快小华尔兹：低音 + 两下和弦 + 长笛般的旋律，最有“游戏配乐”的感觉，也最显眼。",
+          beat: 0.36,
+          step(at, n) {
+            const bar = Math.floor(n / 3);
+            const chord = CHORDS[Math.floor(bar / 2) % 4];
+            const beat = n % 3;
+            if (beat === 0) tone({ at, freq: hz(chord[0] - 12), len: 0.9, vol: 0.09, partials: [[2, 0.3]], cutoff: 700 });
+            else tone({ at, freq: hz(chord[1]), len: 0.3, vol: 0.035, partials: [[2, 0.4]], cutoff: 1800 }), tone({ at, freq: hz(chord[2]), len: 0.3, vol: 0.03, cutoff: 1800 });
+            if (Math.random() < (night ? 0.3 : 0.55)) {
+              const m = (beat === 0 ? pick(chord) + 12 : 72 + pick(PENTA)) - (night ? 12 : 0);
+              tone({ at: at + 0.01, freq: hz(m), len: beat === 0 ? 0.9 : 0.45, vol: 0.06, attack: 0.04, partials: [[2, 0.12]], cutoff: 2600 });
+            }
+          },
+        },
+      ];
+
+      let timer = 0;
+      function play(track) {
+        setup();
+        if (ac.state === "suspended") ac.resume();
+        stop();
+        current = track;
+        let n = 0;
+        let next = ac.currentTime + 0.1;
+        const tick = () => {
+          while (next < ac.currentTime + 0.3) {
+            track.step(next, n++);
+            next += track.beat * (night ? 1.25 : 1);
+          }
+        };
+        tick();
+        timer = setInterval(tick, 80);
+        render();
+      }
+      function stop() {
+        clearInterval(timer);
+        current = null;
+        if (master) {
+          const old = master.gain.value;
+          master.gain.setTargetAtTime(0, ac.currentTime, 0.15);
+          setTimeout(() => master.gain.setTargetAtTime(Number(document.getElementById("vol").value) * 0.5, ac.currentTime, 0.05), 400);
+        }
+        render();
+      }
+
+      function bubble(at, from, to, volume, length) {
+        const osc = ac.createOscillator();
+        osc.frequency.setValueAtTime(from, at);
+        osc.frequency.exponentialRampToValueAtTime(to, at + length * 0.6);
+        const soft = ac.createBiquadFilter();
+        soft.type = "lowpass";
+        soft.frequency.value = 1800;
+        const gain = ac.createGain();
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.exponentialRampToValueAtTime(volume, at + 0.008);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + length);
+        osc.connect(soft).connect(gain).connect(ac.destination);
+        osc.start(at);
+        osc.stop(at + length + 0.02);
+      }
+
+      const list = document.getElementById("tracks");
+      function render() {
+        list.replaceChildren(
+          ...TRACKS.map((tr, i) => {
+            const el = document.createElement("div");
+            el.className = "track" + (current === tr ? " playing" : "");
+            const b = document.createElement("button");
+            b.className = "play" + (current === tr ? " on" : "");
+            b.textContent = current === tr ? "■" : "▶";
+            b.onclick = () => (current === tr ? stop() : play(tr));
+            const info = document.createElement("div");
+            info.innerHTML = `<h2>${i + 1}. ${tr.name}</h2><p>${tr.desc}</p>`;
+            el.append(b, info);
+            return el;
+          }),
+        );
+      }
+      render();
+
+      const dayB = document.getElementById("day");
+      const nightB = document.getElementById("night");
+      dayB.onclick = () => ((night = false), dayB.classList.add("on"), nightB.classList.remove("on"));
+      nightB.onclick = () => ((night = true), nightB.classList.add("on"), dayB.classList.remove("on"));
+      document.getElementById("vol").oninput = (e) => master && master.gain.setTargetAtTime(Number(e.target.value) * 0.5, ac.currentTime, 0.05);
+      document.getElementById("sfx").onclick = () => {
+        setup();
+        const now = ac.currentTime;
+        bubble(now, 260, 620, 0.32, 0.13);
+        bubble(now + 0.07, 380, 880, 0.18, 0.1);
+      };
+    </script>
+  </body>
+</html>
