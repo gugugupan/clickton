@@ -144,7 +144,7 @@ function applyI18n(): void {
   });
   $("help").textContent = t(viewing ? (coarse ? "helpViewTouch" : "helpView") : coarse ? "helpTouch" : "help");
   document.title = getLang() === "en" ? "Clickton" : `${t("gameName")} · Clickton`;
-  $("music").textContent = t(musicEnabled() ? "musicOn" : "musicOff");
+  refreshMusicButton();
   $("ng-daily").querySelector(".label")!.textContent = t("dailyOptionHint", CHALLENGE_TILES);
   for (const id of ["langs", "tut-langs"]) {
     $(id).replaceChildren(
@@ -294,6 +294,7 @@ function place(x: number, y: number): void {
   playPlace(score.total > 0);
   duckMusic();
   floatScore(x, y, score.total);
+  popBrandScore(score.total);
   const opened = agents.sync(game.board, game.seed);
   if (opened.trains.length) setTimeout(playChime, 250);
   else if (opened.roads.length) setTimeout(playPop, 200);
@@ -332,6 +333,30 @@ function showResult(): void {
   $("result-stats").textContent = t("resultStats", loops, lines.length - loops, completedRoadNetworks(game.board).length);
   $("result-best").textContent = t("bestToday", recordScore(game.day, game.score));
   $("result").classList.add("open");
+}
+
+function refreshMusicButton(): void {
+  const b = $("music");
+  const label = t(musicEnabled() ? "musicOn" : "musicOff");
+  b.classList.toggle("off", !musicEnabled());
+  b.title = label;
+  b.setAttribute("aria-label", label);
+}
+
+function popBrandScore(total: number): void {
+  if (total === 0) return;
+  const pop = $("score-pop");
+  const brand = $("brand");
+  pop.textContent = `${total > 0 ? "+" : ""}${total}`;
+  pop.style.color = total > 0 ? "var(--sage-ink)" : "var(--terracotta-ink)";
+  for (const [el, cls] of [
+    [pop, "show"],
+    [brand, "bump"],
+  ] as const) {
+    el.classList.remove(cls);
+    void el.offsetWidth;
+    el.classList.add(cls);
+  }
 }
 
 function closeResult(): void {
@@ -669,8 +694,19 @@ $("menu").addEventListener("click", (e) => {
 $("tray").addEventListener("pointerdown", () => setMenu(false));
 $("new-game").addEventListener("click", openNewGame);
 $("music").addEventListener("click", () => {
+  setMenu(false);
   setMusicEnabled(!musicEnabled());
-  $("music").textContent = t(musicEnabled() ? "musicOn" : "musicOff");
+  refreshMusicButton();
+});
+const BRAND_KEY = "clickton.brand";
+try {
+  $("brand").classList.toggle("open", localStorage.getItem(BRAND_KEY) === "open");
+} catch {}
+$("brand").addEventListener("click", () => {
+  const open = $("brand").classList.toggle("open");
+  try {
+    localStorage.setItem(BRAND_KEY, open ? "open" : "closed");
+  } catch {}
 });
 initMusic();
 for (const type of ["gesturestart", "gesturechange", "gestureend"]) document.addEventListener(type, (e) => e.preventDefault());

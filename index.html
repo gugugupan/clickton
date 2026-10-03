@@ -28,8 +28,9 @@
       <div id="loading-text"></div>
     </div>
     <div id="hud">
-      <header class="card brand">
+      <header id="brand" class="card brand">
         <div class="logo">Click<span class="stud"></span>ton</div>
+        <span id="score-pop" class="score-pop"></span>
         <div class="local-name" data-i18n="gameName"></div>
         <div id="theme" class="theme-line"></div>
         <div class="stats">
@@ -37,12 +38,12 @@
           <div><span class="label" data-i18n="tiles"></span><span id="tiles" class="value small">0</span></div>
         </div>
       </header>
+      <button id="music" class="card menu-toggle music-toggle">♪</button>
       <button id="menu-toggle" class="card menu-toggle" data-i18n-label="menu">☰</button>
       <nav id="menu" class="card menu">
         <div class="langs" id="langs"></div>
         <button id="share" class="menu-item" data-i18n="share"></button>
         <button id="photo" class="menu-item" data-i18n="photoMode"></button>
-        <button id="music" class="menu-item"></button>
         <button id="help-btn" class="menu-item" data-i18n="helpBtn"></button>
         <button id="new-game" class="menu-item" data-i18n="newGame"></button>
         <button id="back-town" class="menu-item" data-i18n="backToTown"></button>
