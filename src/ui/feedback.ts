@@ -56,13 +56,18 @@ export function openFeedback(context: () => Promise<FeedbackContext>): void {
   $("fb-send").onclick = async () => {
     const message = ($("fb-message") as HTMLTextAreaElement).value.trim();
     const email = ($("fb-email") as HTMLInputElement).value.trim();
-    const bot = ($("fb-bot") as HTMLInputElement).checked;
     if (!message) {
       status.textContent = t("feedbackEmpty");
       return;
     }
     if (Date.now() - lastSent() < COOLDOWN_MS) {
       status.textContent = t("feedbackWait");
+      return;
+    }
+    if (($("fb-bot") as HTMLInputElement).checked) {
+      status.textContent = t("feedbackThanks");
+      status.className = "fb-status ok";
+      setTimeout(closeFeedback, 1600);
       return;
     }
     const ctx = await context();
@@ -77,7 +82,6 @@ export function openFeedback(context: () => Promise<FeedbackContext>): void {
           access_key: key,
           subject: `${SUBJECT} (${ctx.lang})`,
           from_name: "Clickton",
-          botcheck: bot,
           ...(email ? { email, replyto: email } : {}),
           message: `${message}\n\n---\n${details(ctx)}`,
         }),
