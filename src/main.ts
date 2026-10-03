@@ -250,15 +250,9 @@ function positionBubble(): void {
   const badge = $("rot-badge");
   badge.style.display = pending && bubble.style.display !== "none" ? "flex" : "none";
   if (pending) {
-    const corners = [
-      [-0.5, -0.5],
-      [0.5, -0.5],
-      [0.5, 0.5],
-      [-0.5, 0.5],
-    ].map(([dx, dy]) => world.toScreen(pending!.x + dx, pending!.y + dy, 0.2));
-    const right = corners.reduce((a, b) => (b.x > a.x ? b : a));
-    badge.style.left = `${right.x}px`;
-    badge.style.top = `${right.y}px`;
+    const p = world.toScreen(pending.x, pending.y, 0.3);
+    badge.style.left = `${p.x}px`;
+    badge.style.top = `${p.y}px`;
   }
   const c = shownCell();
   if (!c || bubble.style.display === "none") return;
@@ -728,7 +722,6 @@ window.addEventListener("keydown", (e) => {
 });
 
 $("discard").addEventListener("click", discardTile);
-$("rot-badge").addEventListener("click", () => rotate(1));
 $("confirm").addEventListener("click", confirmPending);
 $("cancel").addEventListener("click", cancelPending);
 $("menu-toggle").addEventListener("click", () => setMenu(!document.body.classList.contains("menu-open")));
