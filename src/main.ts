@@ -831,9 +831,14 @@ $("help-btn").addEventListener("click", startTutorial);
 $("photo-exit").addEventListener("click", () => setPhoto(false));
 $("photo-save").addEventListener("click", () => void savePhoto());
 
-const HUD_DAY = { card: [255, 252, 247, 0.88], line: [230, 220, 207, 1], text: [94, 83, 75, 1], "text-soft": [143, 131, 122, 1], chip: [239, 231, 220, 1], "chip-on": [255, 252, 247, 1], bg: [246, 241, 233, 1] };
-const HUD_NIGHT: typeof HUD_DAY = { card: [46, 50, 82, 0.86], line: [70, 75, 112, 1], text: [232, 228, 240, 1], "text-soft": [164, 162, 192, 1], chip: [62, 67, 104, 1], "chip-on": [86, 92, 136, 1], bg: [36, 39, 66, 1] };
+const HUD_DAY = { card: [255, 252, 247, 0.88], line: [230, 220, 207, 1], text: [94, 83, 75, 1], "text-soft": [143, 131, 122, 1], chip: [239, 231, 220, 1], "chip-on": [255, 252, 247, 1], bg: [246, 241, 233, 1], butter: [237, 211, 155, 1], "butter-shadow": [214, 187, 128, 1] };
+const HUD_NIGHT: typeof HUD_DAY = { card: [46, 50, 82, 0.86], line: [70, 75, 112, 1], text: [232, 228, 240, 1], "text-soft": [164, 162, 192, 1], chip: [62, 67, 104, 1], "chip-on": [86, 92, 136, 1], bg: [36, 39, 66, 1], butter: [150, 134, 100, 1], "butter-shadow": [104, 92, 68, 1] };
 let hudNight = -1;
+
+function smooth01(t: number): number {
+  const c = Math.min(1, Math.max(0, t));
+  return c * c * (3 - 2 * c);
+}
 
 function tintHud(night: number): void {
   if (Math.abs(night - hudNight) < 0.01) return;
@@ -852,7 +857,7 @@ function frame(now: number): void {
   lastFrame = now;
   const sky = dayNight.update(dt);
   setMusicDaylight(sky.daylight);
-  tintHud(1 - sky.daylight);
+  tintHud(smooth01((0.62 - sky.daylight) / 0.24));
   world.setSky(sky);
   agents.update(dt, game.board, { camera: world.camera, pixelsPerUnit: world.pixelsPerUnit() }, 1 - sky.daylight);
   world.render(now);

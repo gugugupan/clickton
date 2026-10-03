@@ -10,6 +10,7 @@
   --terracotta-deep: #c98a7c;
   --terracotta-ink: #6e3b30;
   --butter: #edd39b;
+  --butter-shadow: #d6bb80;
   --sage: #a9c89b;
   --sage-ink: #3c5832;
   --sage-wash: #dde9d6;
@@ -468,7 +469,7 @@ button.small-round {
   width: 36px;
   height: 36px;
   font-size: 17px;
-  box-shadow: 0 2px 0 #d6bb80;
+  box-shadow: 0 2px 0 var(--butter-shadow);
 }
 
 .side-stack {
@@ -566,7 +567,7 @@ button.round {
   background: var(--butter);
   color: var(--text);
   font-size: 22px;
-  box-shadow: 0 3px 0 #d6bb80;
+  box-shadow: 0 3px 0 var(--butter-shadow);
   cursor: pointer;
   transition: transform 0.06s, box-shadow 0.06s;
 }
