@@ -74,7 +74,7 @@ function overlay<T extends MeshBasicMaterial | SpriteMaterial>(material: T): T {
   return material;
 }
 
-function badgeTexture(color: number, ok: boolean): CanvasTexture {
+function badgeTexture(color: number): CanvasTexture {
   const size = 128;
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = size;
@@ -93,16 +93,9 @@ function badgeTexture(color: number, ok: boolean): CanvasTexture {
   g.lineCap = "round";
   g.lineJoin = "round";
   g.beginPath();
-  if (ok) {
-    g.moveTo(c - 22, c + 2);
-    g.lineTo(c - 6, c + 18);
-    g.lineTo(c + 24, c - 16);
-  } else {
-    g.moveTo(c - 18, c - 18);
-    g.lineTo(c + 18, c + 18);
-    g.moveTo(c + 18, c - 18);
-    g.lineTo(c - 18, c + 18);
-  }
+  g.moveTo(c - 22, c + 2);
+  g.lineTo(c - 6, c + 18);
+  g.lineTo(c + 24, c - 16);
   g.stroke();
   const tex = new CanvasTexture(canvas);
   tex.anisotropy = 4;
@@ -162,10 +155,9 @@ export class World {
   private readonly matchMaterial = overlay(new MeshBasicMaterial({ color: PALETTE.edgeMatch }));
   private readonly mismatchMaterial = overlay(new MeshBasicMaterial({ color: PALETTE.edgeMismatch }));
   private readonly markRimMaterial = overlay(new MeshBasicMaterial({ color: 0xffffff }));
-  private readonly markGeometry = new BoxGeometry(0.8, 0.02, 0.13);
-  private readonly markRimGeometry = new BoxGeometry(0.86, 0.02, 0.19);
-  private readonly matchBadge = overlay(new SpriteMaterial({ map: badgeTexture(PALETTE.edgeMatch, true) }));
-  private readonly mismatchBadge = overlay(new SpriteMaterial({ map: badgeTexture(PALETTE.edgeMismatch, false) }));
+  private readonly markGeometry = new BoxGeometry(0.8, 0.02, 0.07);
+  private readonly markRimGeometry = new BoxGeometry(0.84, 0.02, 0.11);
+  private readonly matchBadge = overlay(new SpriteMaterial({ map: badgeTexture(PALETTE.edgeMatch) }));
   private ghostKey = "";
   private frontier: LineSegments | null = null;
   private readonly cursor: LineSegments;
@@ -465,9 +457,10 @@ export class World {
         m.renderOrder = order;
         this.edgeMarks.add(m);
       }
-      const badge = new Sprite(ok ? this.matchBadge : this.mismatchBadge);
-      badge.position.set(ex, PLATE_TOP + 0.14, ez);
-      badge.scale.set(0.24, 0.24, 1);
+      if (!ok) continue;
+      const badge = new Sprite(this.matchBadge);
+      badge.position.set(ex, PLATE_TOP + 0.12, ez);
+      badge.scale.set(0.2, 0.2, 1);
       badge.renderOrder = 12;
       this.edgeMarks.add(badge);
     }
@@ -576,7 +569,7 @@ export class World {
     }
     this.glowMaterial.size = GLOW_SIZE * this.pixelsPerUnit() * this.renderer.getPixelRatio();
     const pulse = 0.925 + Math.sin(now / 320) * 0.075;
-    for (const m of [this.matchMaterial, this.mismatchMaterial, this.markRimMaterial, this.matchBadge, this.mismatchBadge]) m.opacity = pulse;
+    for (const m of [this.matchMaterial, this.mismatchMaterial, this.markRimMaterial, this.matchBadge]) m.opacity = pulse;
     if (this.ghost && this.ghostPending) this.ghost.position.y = 0.16 + Math.sin(now / 260) * 0.03;
     if (this.ghost) this.edgeMarks.position.y = this.ghost.position.y;
     this.controls.update();
