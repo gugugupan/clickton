@@ -457,7 +457,9 @@ button.round:active {
 
 .current {
   display: flex;
+  flex: 1;
   align-items: center;
+  justify-content: center;
   gap: 12px;
   min-width: 190px;
   cursor: grab;
