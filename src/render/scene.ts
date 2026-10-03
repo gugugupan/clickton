@@ -62,7 +62,7 @@ interface Drop {
 
 const CHUNK = 8;
 const MISMATCH_DIM = new Color(PALETTE.edgeMismatch);
-const MISMATCH_LIT = new Color(0xffffff);
+const MISMATCH_LIT = new Color(0xc9c2ba);
 const GLOW_SIZE = 0.3;
 const BASE_PART = "@base";
 
