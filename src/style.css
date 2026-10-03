@@ -582,19 +582,22 @@ button.round {
   display: none;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
   transform: translate(-50%, -50%);
   border-radius: 50%;
-  background: rgba(120, 179, 90, 0.55);
-  border: 1.5px solid rgba(255, 255, 255, 0.6);
+  background: rgba(120, 179, 90, 0.4);
+  border: 1.5px solid rgba(255, 255, 255, 0.45);
   backdrop-filter: blur(2px);
-  color: #fff;
-  font-size: 24px;
-  font-weight: 700;
-  line-height: 1;
+  color: rgba(255, 255, 255, 0.95);
   pointer-events: none;
   animation: rot-badge-in 0.25s ease-out;
+}
+
+.rot-badge svg {
+  width: 22px;
+  height: 22px;
+  display: block;
 }
 
 @keyframes rot-badge-in {
