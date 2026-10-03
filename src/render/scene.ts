@@ -61,8 +61,6 @@ interface Drop {
 }
 
 const CHUNK = 8;
-const MISMATCH_DIM = new Color(PALETTE.edgeMismatch);
-const MISMATCH_LIT = new Color(0xc9c2ba);
 const GLOW_SIZE = 0.3;
 const BASE_PART = "@base";
 
@@ -149,7 +147,7 @@ export class World {
   look: Look = DEFAULT_LOOK;
   private readonly glowMap = edgeGlowTexture();
   private readonly matchMaterial = overlay(new MeshBasicMaterial({ color: PALETTE.edgeMatch, map: this.glowMap, blending: AdditiveBlending }));
-  private readonly mismatchMaterial = overlay(new MeshBasicMaterial({ color: PALETTE.edgeMismatch, map: this.glowMap, opacity: 0.85 }));
+  private readonly mismatchMaterial = overlay(new MeshBasicMaterial({ color: PALETTE.edgeMismatch, map: this.glowMap, blending: AdditiveBlending }));
   private readonly markGeometry = new PlaneGeometry(0.92, 0.12).rotateX(-Math.PI / 2);
   private ghostKey = "";
   private frontier: LineSegments | null = null;
@@ -549,8 +547,9 @@ export class World {
       this.updateFrustum();
     }
     this.glowMaterial.size = GLOW_SIZE * this.pixelsPerUnit() * this.renderer.getPixelRatio();
-    this.matchMaterial.opacity = 0.45 + Math.sin(now / 260) * 0.15;
-    this.mismatchMaterial.color.lerpColors(MISMATCH_DIM, MISMATCH_LIT, 0.5 + Math.sin(now / 260) * 0.5);
+    const breath = 0.45 + Math.sin(now / 260) * 0.15;
+    this.matchMaterial.opacity = breath;
+    this.mismatchMaterial.opacity = breath;
     if (this.ghost && this.ghostPending) this.ghost.position.y = 0.16 + Math.sin(now / 260) * 0.03;
     if (this.ghost) this.edgeMarks.position.y = this.ghost.position.y;
     this.controls.update();
