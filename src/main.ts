@@ -4,7 +4,7 @@ import { decodeCity, encodeCity } from "./core/codec";
 import { DISCARD_EVERY, Game } from "./core/game";
 import { CHALLENGE_TILES, dayLabel, todayNumber } from "./core/daily";
 import { completedRailLines, completedRoadNetworks } from "./core/networks";
-import { moodFor } from "./core/themes";
+import { THEMES, moodFor } from "./core/themes";
 import { mulberry32, randomSeed } from "./core/rng";
 import { POINTS, type PlacementScore } from "./core/scoring";
 import { DIRS, DX, DY, TILES, opposite, tileByKey, type Rot } from "./core/tiles";
@@ -97,10 +97,14 @@ function loadDaily(): Game {
   return Game.daily(today);
 }
 
-function demoTown(n: number, theme: string | null): Game {
+function seedForTheme(theme: string | null): number {
   let seed = randomSeed();
   while (theme && moodFor(seed).theme.key !== theme) seed = randomSeed();
-  const g = new Game(seed);
+  return seed;
+}
+
+function demoTown(n: number, theme: string | null): Game {
+  const g = new Game(seedForTheme(theme));
   const rnd = mulberry32(g.seed);
   for (let i = 0; i < n; i++) {
     const cells = g.board.frontier().sort((a, b) => Math.hypot(a.x, a.y) - Math.hypot(b.x, b.y));
@@ -145,6 +149,7 @@ function applyI18n(): void {
   $("help").textContent = t(viewing ? (coarse ? "helpViewTouch" : "helpView") : coarse ? "helpTouch" : "help");
   document.title = getLang() === "en" ? "Clickton" : `${t("gameName")} · Clickton`;
   refreshMusicButton();
+  renderThemePicker();
   $("ng-daily").querySelector(".label")!.textContent = t("dailyOptionHint", CHALLENGE_TILES);
   for (const id of ["langs", "tut-langs"]) {
     $(id).replaceChildren(
@@ -492,13 +497,13 @@ function buildOwn(): void {
   location.reload();
 }
 
-function newTown(): void {
+function newTown(theme: string | null): void {
   const town = game.challenge ? loadLocal("town") : game;
   if (town && town.moves.length > 0 && !window.confirm(t("confirmNewTown"))) return;
   closeNewGame();
   closeResult();
   if (game.challenge) saveLocal(game);
-  game = new Game(randomSeed());
+  game = new Game(seedForTheme(theme));
   rot = 0;
   hover = null;
   pending = null;
@@ -516,7 +521,35 @@ function setMenu(open: boolean): void {
 
 function openNewGame(): void {
   setMenu(false);
+  $("ng-town").classList.remove("expanded");
+  $("ng-themes").classList.remove("open");
   $("newgame").classList.add("open");
+}
+
+function renderThemePicker(): void {
+  const options: { key: string | null; emoji: string; name: string; desc: string }[] = [
+    { key: null, emoji: "🎲", name: t("themeRandom"), desc: t("themeRandom_desc") },
+    ...THEMES.map((th) => ({
+      key: th.key,
+      emoji: th.emoji,
+      name: t(`theme_${th.key}` as Parameters<typeof t>[0]),
+      desc: t(`theme_${th.key}_desc` as Parameters<typeof t>[0]),
+    })),
+  ];
+  $("ng-themes").replaceChildren(
+    ...options.map((o) => {
+      const b = document.createElement("button");
+      b.className = "theme-chip";
+      b.title = o.desc;
+      const name = document.createElement("strong");
+      name.textContent = `${o.emoji} ${o.name}`;
+      const desc = document.createElement("span");
+      desc.textContent = o.desc;
+      b.append(name, desc);
+      b.addEventListener("click", () => newTown(o.key));
+      return b;
+    }),
+  );
 }
 
 function closeNewGame(): void {
@@ -717,7 +750,10 @@ document.addEventListener(
   },
   { passive: false },
 );
-$("ng-town").addEventListener("click", newTown);
+$("ng-town").addEventListener("click", () => {
+  const open = $("ng-themes").classList.toggle("open");
+  $("ng-town").classList.toggle("expanded", open);
+});
 $("ng-daily").addEventListener("click", () => {
   closeNewGame();
   closeResult();

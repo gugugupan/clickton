@@ -19,7 +19,9 @@ const STRINGS = {
   newGame: { en: "New game", zh: "新游戏", ja: "新しいゲーム" },
   menu: { en: "Menu", zh: "菜单", ja: "メニュー" },
   townOption: { en: "New town", zh: "新城镇", ja: "新しい町" },
-  townOptionHint: { en: "Endless building with a fresh random map", zh: "随机新地图，无限建造", ja: "ランダムな新しい地図で、どこまでも" },
+  townOptionHint: { en: "Pick a mode and build forever", zh: "选一个模式，无限建造", ja: "モードを選んで、どこまでも" },
+  themeRandom: { en: "Surprise me", zh: "随机", ja: "おまかせ" },
+  themeRandom_desc: { en: "Let the bricks decide", zh: "交给积木决定", ja: "ブロックにおまかせ" },
   dailyOption: { en: "Daily challenge", zh: "每日挑战", ja: "デイリーチャレンジ" },
   dailyOptionHint: { en: "Same %d tiles for everyone today", zh: "今天所有人同样的 %d 块地块", ja: "今日はみんな同じ %d 枚" },
   confirmNewTown: {
