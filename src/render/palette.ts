@@ -24,6 +24,6 @@ export const PALETTE = {
   foliage: [0x8fb584, 0x9fc28f, 0xb5cc8a],
   flowers: [0xf2c6c0, 0xf6e3a8, 0xd6cdea, 0xffffff],
   frontier: 0x8f837a,
-  edgeMatch: 0x78b35a,
-  edgeMismatch: 0xb0a99f,
+  edgeMatch: 0x5f9a44,
+  edgeMismatch: 0x7d756d,
 } as const;
