@@ -146,7 +146,6 @@ function applyI18n(): void {
       el.title = t(key);
     }
   });
-  $("help").textContent = t(viewing ? (coarse ? "helpViewTouch" : "helpView") : coarse ? "helpTouch" : "help");
   document.title = getLang() === "en" ? "Clickton" : `${t("gameName")} · Clickton`;
   refreshMusicButton();
   renderThemePicker();
@@ -832,6 +831,20 @@ $("help-btn").addEventListener("click", startTutorial);
 $("photo-exit").addEventListener("click", () => setPhoto(false));
 $("photo-save").addEventListener("click", () => void savePhoto());
 
+const HUD_DAY = { card: [255, 252, 247, 0.88], line: [230, 220, 207, 1], text: [94, 83, 75, 1], "text-soft": [143, 131, 122, 1], chip: [239, 231, 220, 1], "chip-on": [255, 252, 247, 1], bg: [246, 241, 233, 1] };
+const HUD_NIGHT: typeof HUD_DAY = { card: [46, 50, 82, 0.86], line: [70, 75, 112, 1], text: [232, 228, 240, 1], "text-soft": [164, 162, 192, 1], chip: [62, 67, 104, 1], "chip-on": [86, 92, 136, 1], bg: [36, 39, 66, 1] };
+let hudNight = -1;
+
+function tintHud(night: number): void {
+  if (Math.abs(night - hudNight) < 0.01) return;
+  hudNight = night;
+  const hud = $("hud");
+  for (const key of Object.keys(HUD_DAY) as (keyof typeof HUD_DAY)[]) {
+    const [r, g, b, a] = HUD_DAY[key].map((d, i) => d + (HUD_NIGHT[key][i] - d) * night);
+    hud.style.setProperty(`--${key}`, `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${a.toFixed(2)})`);
+  }
+}
+
 let lastFrame = performance.now();
 
 function frame(now: number): void {
@@ -839,6 +852,7 @@ function frame(now: number): void {
   lastFrame = now;
   const sky = dayNight.update(dt);
   setMusicDaylight(sky.daylight);
+  tintHud(1 - sky.daylight);
   world.setSky(sky);
   agents.update(dt, game.board, { camera: world.camera, pixelsPerUnit: world.pixelsPerUnit() }, 1 - sky.daylight);
   world.render(now);
