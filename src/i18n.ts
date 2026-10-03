@@ -88,6 +88,7 @@ const STRINGS = {
   tile_rail_straight: { en: "Straight track", zh: "直轨", ja: "まっすぐな線路" },
   tile_rail_curve: { en: "Track bend", zh: "弯轨", ja: "カーブ線路" },
   tile_station: { en: "Station", zh: "车站", ja: "駅" },
+  tile_station_plaza: { en: "Town station", zh: "小镇车站", ja: "町の駅" },
   tile_station_road: { en: "Station with road", zh: "临街车站", ja: "道のある駅" },
   tile_station_through: { en: "Through station", zh: "中途站", ja: "途中駅" },
   tile_city_edge: { en: "Town edge", zh: "城市边缘", ja: "町のはし" },

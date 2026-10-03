@@ -300,11 +300,12 @@ export function buildTile(
     b.box(0.08, 0.012, 0.052, 0, PLATE_TOP + 0.06, 0.01, PALETTE.white);
     b.box(0.14, 0.05, 0.48, -0.24, PLATE_TOP, -0.24, PALETTE.platform);
     prop("canopy", -0.25, -0.24, { size: { x: 0.46, y: 0.2, z: 0.16 }, rotY: Math.PI / 2, lift: 0.05 });
-    prop("station_house", 0, 0.2, { fit: 0.38, maxHeight: 0.28, variant: 1 + Math.floor(rng() * (BUILDING_VARIANTS - 1)) });
+    const plaza = tile.groups.some((g) => g.type === "city");
+    prop("station_house", plaza ? -0.1 : 0, 0.2, { fit: plaza ? 0.32 : 0.38, maxHeight: 0.28, variant: 1 + Math.floor(rng() * (BUILDING_VARIANTS - 1)) });
     prop("crate", -0.24, -0.4, { fit: 0.08, lift: 0.05 });
     prop("barrel", -0.24, -0.29, { fit: 0.055, lift: 0.05 });
     prop("sack", -0.22, -0.2, { fit: 0.06, lift: 0.05, rotY: 0.6 });
-    prop("streetlight", 0.25, 0.37, { height: 0.24 });
+    prop("streetlight", plaza ? -0.36 : 0.25, 0.37, { height: 0.24 });
     occupy(-1, -1);
     occupy(-1, 0);
     occupy(0, 1);

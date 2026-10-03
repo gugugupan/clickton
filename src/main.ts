@@ -673,6 +673,14 @@ $("music").addEventListener("click", () => {
   $("music").textContent = t(musicEnabled() ? "musicOn" : "musicOff");
 });
 initMusic();
+for (const type of ["gesturestart", "gesturechange", "gestureend"]) document.addEventListener(type, (e) => e.preventDefault());
+document.addEventListener(
+  "touchmove",
+  (e) => {
+    if (e.touches.length > 1 && e.target !== canvas) e.preventDefault();
+  },
+  { passive: false },
+);
 $("ng-town").addEventListener("click", newTown);
 $("ng-daily").addEventListener("click", () => {
   closeNewGame();

@@ -90,13 +90,21 @@ const SPECS: TileSpec[] = [
   { key: "farm", edges: [G, G, G, G], groups: [], weight: 0.8, special: "farm" },
   { key: "police", edges: [G, G, R, G], groups: [{ type: R, dirs: [2] }], weight: 0.6, special: "police" },
   { key: "beach", edges: [G, G, G, G], groups: [], weight: 0.6, special: "beach" },
+  {
+    key: "station_plaza",
+    edges: [L, C, R, G],
+    groups: [{ type: L, dirs: [0] }, { type: C, dirs: [1] }, { type: R, dirs: [2] }],
+    weight: 0,
+    station: true,
+  },
 ];
 
 export const TILES: readonly TileDef[] = SPECS.map((s, id) => ({ ...s, id }));
 
-export const RULES_VERSION = 6;
+export const RULES_VERSION = 7;
 
 const LEGACY_WEIGHTS: Record<number, Record<string, number>> = {
+  6: { grass: 6, road_straight: 10, road_curve: 8, road_t: 4, road_cross: 1, rail_straight: 9, rail_curve: 10, station: 1, station_road: 1, station_through: 2, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1, pool: 2, road_end: 4, zoo: 0.6, farm: 0.8, police: 0.6, beach: 0.6 },
   5: { grass: 6, road_straight: 10, road_curve: 8, road_t: 4, road_cross: 1, rail_straight: 9, rail_curve: 10, station: 1, station_road: 1, station_through: 2, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1, pool: 2, road_end: 4 },
   4: { grass: 6, road_straight: 10, road_curve: 8, road_t: 6, road_cross: 4, rail_straight: 9, rail_curve: 10, station: 1, station_road: 1, station_through: 2, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1, pool: 2 },
   3: { grass: 6, road_straight: 10, road_curve: 8, road_t: 6, road_cross: 4, rail_straight: 7, rail_curve: 8, station: 2, station_road: 2, station_through: 5, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1, pool: 2 },
@@ -120,7 +128,16 @@ export function isKnownVersion(version: number): boolean {
   return version === RULES_VERSION || version in LEGACY_WEIGHTS;
 }
 
-export const STARTER_TILE = TILES.findIndex((t) => t.key === "station_road");
+export interface Starter {
+  tile: number;
+  rot: Rot;
+}
+
+export function starterFor(version: number): Starter {
+  return version >= 7
+    ? { tile: TILES.findIndex((t) => t.key === "station_plaza"), rot: 3 }
+    : { tile: TILES.findIndex((t) => t.key === "station_road"), rot: 0 };
+}
 
 export function tileByKey(key: string): TileDef {
   const t = TILES.find((t) => t.key === key);

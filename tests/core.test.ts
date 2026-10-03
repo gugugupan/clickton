@@ -4,7 +4,7 @@ import { decodeCity, encodeCity, packCity, unpackCity, CODEC_VERSION } from "../
 import { Game, tileForStep, type Move } from "../src/core/game";
 import { hash, mulberry32 } from "../src/core/rng";
 import { POINTS, scorePlacement } from "../src/core/scoring";
-import { DIRS, STARTER_TILE, TILES, edgeOf, groupsOf, tileByKey, type Rot } from "../src/core/tiles";
+import { DIRS, TILES, starterFor, edgeOf, groupsOf, tileByKey, type Rot } from "../src/core/tiles";
 
 const id = (key: string) => tileByKey(key).id;
 
@@ -92,10 +92,10 @@ describe("scoring", () => {
 describe("game", () => {
   it("starts with the starter tile and draws deterministically", () => {
     const g = new Game(7);
-    expect(g.board.get(0, 0)?.tile.id).toBe(STARTER_TILE);
+    expect(g.board.get(0, 0)?.tile.id).toBe(starterFor(g.version).tile);
     expect(tileForStep(7, 3)).toBe(tileForStep(7, 3));
     const kinds = new Set(Array.from({ length: 3000 }, (_, i) => tileForStep(123, i)));
-    expect(kinds.size).toBe(TILES.length);
+    expect(kinds.size).toBe(TILES.filter((t) => t.weight > 0).length);
   });
 
   it("replay reproduces board and score", () => {

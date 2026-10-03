@@ -4,7 +4,7 @@ import { scorePlacement, type PlacementScore } from "./scoring";
 import { balancedWeights } from "./balance";
 import { CHALLENGE_TILES, seedForDay } from "./daily";
 import { moodFor, type WorldMood } from "./themes";
-import { RULES_VERSION, STARTER_TILE, TILES, weightsFor, type Rot } from "./tiles";
+import { RULES_VERSION, TILES, starterFor, weightsFor, type Rot } from "./tiles";
 
 export interface Move {
   x: number;
@@ -72,7 +72,8 @@ export class Game {
     this.challenge = (version & CHALLENGE_FLAG) !== 0;
     this.version = version & VERSION_MASK;
     if (this.explicit) return;
-    this.board.place(STARTER_TILE, 0, 0, 0);
+    const starter = starterFor(this.version);
+    this.board.place(starter.tile, starter.rot, 0, 0);
     if (this.queued) this.queue.push(this.draw(0), this.draw(1));
   }
 
