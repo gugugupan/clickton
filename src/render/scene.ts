@@ -27,9 +27,6 @@ import {
   AdditiveBlending,
   CanvasTexture,
   Object3D,
-  Sprite,
-  SpriteMaterial,
-  SRGBColorSpace,
 } from "three";
 import { MapControls } from "three/addons/controls/MapControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
@@ -67,40 +64,36 @@ const CHUNK = 8;
 const GLOW_SIZE = 0.3;
 const BASE_PART = "@base";
 
-function overlay<T extends MeshBasicMaterial | SpriteMaterial>(material: T): T {
+function overlay(material: MeshBasicMaterial): MeshBasicMaterial {
   material.transparent = true;
   material.depthTest = false;
   material.depthWrite = false;
   return material;
 }
 
-function badgeTexture(color: number): CanvasTexture {
-  const size = 128;
+function edgeGlowTexture(): CanvasTexture {
+  const w = 256, h = 64;
   const canvas = document.createElement("canvas");
-  canvas.width = canvas.height = size;
+  canvas.width = w;
+  canvas.height = h;
   const g = canvas.getContext("2d")!;
-  const c = size / 2;
-  g.fillStyle = "#ffffff";
-  g.beginPath();
-  g.arc(c, c, c - 4, 0, Math.PI * 2);
-  g.fill();
-  g.fillStyle = `#${color.toString(16).padStart(6, "0")}`;
-  g.beginPath();
-  g.arc(c, c, c - 16, 0, Math.PI * 2);
-  g.fill();
-  g.strokeStyle = "#ffffff";
-  g.lineWidth = 13;
-  g.lineCap = "round";
-  g.lineJoin = "round";
-  g.beginPath();
-  g.moveTo(c - 22, c + 2);
-  g.lineTo(c - 6, c + 18);
-  g.lineTo(c + 24, c - 16);
-  g.stroke();
-  const tex = new CanvasTexture(canvas);
-  tex.anisotropy = 4;
-  tex.colorSpace = SRGBColorSpace;
-  return tex;
+  const across = g.createLinearGradient(0, 0, 0, h);
+  across.addColorStop(0, "rgba(255,255,255,0)");
+  across.addColorStop(0.38, "rgba(255,255,255,0.35)");
+  across.addColorStop(0.5, "rgba(255,255,255,1)");
+  across.addColorStop(0.62, "rgba(255,255,255,0.35)");
+  across.addColorStop(1, "rgba(255,255,255,0)");
+  g.fillStyle = across;
+  g.fillRect(0, 0, w, h);
+  g.globalCompositeOperation = "destination-in";
+  const along = g.createLinearGradient(0, 0, w, 0);
+  along.addColorStop(0, "rgba(0,0,0,0)");
+  along.addColorStop(0.12, "rgba(0,0,0,1)");
+  along.addColorStop(0.88, "rgba(0,0,0,1)");
+  along.addColorStop(1, "rgba(0,0,0,0)");
+  g.fillStyle = along;
+  g.fillRect(0, 0, w, h);
+  return new CanvasTexture(canvas);
 }
 
 export class World {
@@ -152,12 +145,10 @@ export class World {
   private readonly hemi: HemisphereLight;
   private readonly tableMaterial = new MeshLambertMaterial({ color: PALETTE.table });
   look: Look = DEFAULT_LOOK;
-  private readonly matchMaterial = overlay(new MeshBasicMaterial({ color: PALETTE.edgeMatch }));
-  private readonly mismatchMaterial = overlay(new MeshBasicMaterial({ color: PALETTE.edgeMismatch }));
-  private readonly markRimMaterial = overlay(new MeshBasicMaterial({ color: 0xffffff }));
-  private readonly markGeometry = new BoxGeometry(0.8, 0.02, 0.07);
-  private readonly markRimGeometry = new BoxGeometry(0.84, 0.02, 0.11);
-  private readonly matchBadge = overlay(new SpriteMaterial({ map: badgeTexture(PALETTE.edgeMatch) }));
+  private readonly glowMap = edgeGlowTexture();
+  private readonly matchMaterial = overlay(new MeshBasicMaterial({ color: PALETTE.edgeMatch, map: this.glowMap, blending: AdditiveBlending }));
+  private readonly mismatchMaterial = overlay(new MeshBasicMaterial({ color: PALETTE.edgeMismatch, map: this.glowMap, opacity: 0.4 }));
+  private readonly markGeometry = new PlaneGeometry(0.92, 0.2).rotateX(-Math.PI / 2);
   private ghostKey = "";
   private frontier: LineSegments | null = null;
   private readonly cursor: LineSegments;
@@ -445,24 +436,12 @@ export class World {
       const theirs = around[d];
       if (theirs === undefined) continue;
       const ok = edgeOf(tile, rot, d) === theirs;
-      const ex = x + DX[d] * 0.44, ez = y + DY[d] * 0.44;
-      const rim = new Mesh(this.markRimGeometry, this.markRimMaterial);
+      const ex = x + DX[d] * 0.46, ez = y + DY[d] * 0.46;
       const mark = new Mesh(this.markGeometry, ok ? this.matchMaterial : this.mismatchMaterial);
-      for (const [m, order] of [
-        [rim, 10],
-        [mark, 11],
-      ] as const) {
-        m.position.set(ex, PLATE_TOP + 0.01, ez);
-        m.rotation.y = d % 2 === 0 ? 0 : Math.PI / 2;
-        m.renderOrder = order;
-        this.edgeMarks.add(m);
-      }
-      if (!ok) continue;
-      const badge = new Sprite(this.matchBadge);
-      badge.position.set(ex, PLATE_TOP + 0.12, ez);
-      badge.scale.set(0.2, 0.2, 1);
-      badge.renderOrder = 12;
-      this.edgeMarks.add(badge);
+      mark.position.set(ex, PLATE_TOP + 0.01, ez);
+      mark.rotation.y = d % 2 === 0 ? 0 : Math.PI / 2;
+      mark.renderOrder = 10;
+      this.edgeMarks.add(mark);
     }
   }
 
@@ -568,8 +547,7 @@ export class World {
       this.updateFrustum();
     }
     this.glowMaterial.size = GLOW_SIZE * this.pixelsPerUnit() * this.renderer.getPixelRatio();
-    const pulse = 0.925 + Math.sin(now / 320) * 0.075;
-    for (const m of [this.matchMaterial, this.mismatchMaterial, this.markRimMaterial, this.matchBadge]) m.opacity = pulse;
+    this.matchMaterial.opacity = 0.75 + Math.sin(now / 260) * 0.25;
     if (this.ghost && this.ghostPending) this.ghost.position.y = 0.16 + Math.sin(now / 260) * 0.03;
     if (this.ghost) this.edgeMarks.position.y = this.ghost.position.y;
     this.controls.update();
