@@ -27,6 +27,9 @@ import {
   AdditiveBlending,
   CanvasTexture,
   Object3D,
+  Sprite,
+  SpriteMaterial,
+  SRGBColorSpace,
 } from "three";
 import { MapControls } from "three/addons/controls/MapControls.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
@@ -63,6 +66,49 @@ interface Drop {
 const CHUNK = 8;
 const GLOW_SIZE = 0.3;
 const BASE_PART = "@base";
+
+function overlay<T extends MeshBasicMaterial | SpriteMaterial>(material: T): T {
+  material.transparent = true;
+  material.depthTest = false;
+  material.depthWrite = false;
+  return material;
+}
+
+function badgeTexture(color: number, ok: boolean): CanvasTexture {
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = size;
+  const g = canvas.getContext("2d")!;
+  const c = size / 2;
+  g.fillStyle = "#ffffff";
+  g.beginPath();
+  g.arc(c, c, c - 4, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = `#${color.toString(16).padStart(6, "0")}`;
+  g.beginPath();
+  g.arc(c, c, c - 16, 0, Math.PI * 2);
+  g.fill();
+  g.strokeStyle = "#ffffff";
+  g.lineWidth = 13;
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  g.beginPath();
+  if (ok) {
+    g.moveTo(c - 22, c + 2);
+    g.lineTo(c - 6, c + 18);
+    g.lineTo(c + 24, c - 16);
+  } else {
+    g.moveTo(c - 18, c - 18);
+    g.lineTo(c + 18, c + 18);
+    g.moveTo(c + 18, c - 18);
+    g.lineTo(c - 18, c + 18);
+  }
+  g.stroke();
+  const tex = new CanvasTexture(canvas);
+  tex.anisotropy = 4;
+  tex.colorSpace = SRGBColorSpace;
+  return tex;
+}
 
 export class World {
   readonly renderer: WebGLRenderer;
@@ -113,9 +159,13 @@ export class World {
   private readonly hemi: HemisphereLight;
   private readonly tableMaterial = new MeshLambertMaterial({ color: PALETTE.table });
   look: Look = DEFAULT_LOOK;
-  private readonly matchMaterial = new MeshBasicMaterial({ color: PALETTE.edgeMatch, transparent: true, opacity: 0.9 });
-  private readonly mismatchMaterial = new MeshBasicMaterial({ color: PALETTE.edgeMismatch, transparent: true, opacity: 0.9 });
-  private readonly markGeometry = new BoxGeometry(0.82, 0.02, 0.07);
+  private readonly matchMaterial = overlay(new MeshBasicMaterial({ color: PALETTE.edgeMatch }));
+  private readonly mismatchMaterial = overlay(new MeshBasicMaterial({ color: PALETTE.edgeMismatch }));
+  private readonly markRimMaterial = overlay(new MeshBasicMaterial({ color: 0xffffff }));
+  private readonly markGeometry = new BoxGeometry(0.8, 0.02, 0.13);
+  private readonly markRimGeometry = new BoxGeometry(0.86, 0.02, 0.19);
+  private readonly matchBadge = overlay(new SpriteMaterial({ map: badgeTexture(PALETTE.edgeMatch, true) }));
+  private readonly mismatchBadge = overlay(new SpriteMaterial({ map: badgeTexture(PALETTE.edgeMismatch, false) }));
   private ghostKey = "";
   private frontier: LineSegments | null = null;
   private readonly cursor: LineSegments;
@@ -387,6 +437,7 @@ export class World {
     this.cursor.visible = true;
     this.ghost = this.makeMesh(tile, rot, x, y, pending ? "pending" : "ghost");
     this.ghost.position.y = 0.06;
+    this.edgeMarks.position.y = 0.06;
     this.ghost.castShadow = pending;
     this.ghostPending = pending;
     this.scene.add(this.ghost);
@@ -401,11 +452,24 @@ export class World {
     for (const d of DIRS) {
       const theirs = around[d];
       if (theirs === undefined) continue;
-      const mark = new Mesh(this.markGeometry, edgeOf(tile, rot, d) === theirs ? this.matchMaterial : this.mismatchMaterial);
-      mark.position.set(x + DX[d] * 0.5, PLATE_TOP + 0.012, y + DY[d] * 0.5);
-      mark.rotation.y = d % 2 === 0 ? 0 : Math.PI / 2;
-      mark.renderOrder = 2;
-      this.edgeMarks.add(mark);
+      const ok = edgeOf(tile, rot, d) === theirs;
+      const ex = x + DX[d] * 0.44, ez = y + DY[d] * 0.44;
+      const rim = new Mesh(this.markRimGeometry, this.markRimMaterial);
+      const mark = new Mesh(this.markGeometry, ok ? this.matchMaterial : this.mismatchMaterial);
+      for (const [m, order] of [
+        [rim, 10],
+        [mark, 11],
+      ] as const) {
+        m.position.set(ex, PLATE_TOP + 0.01, ez);
+        m.rotation.y = d % 2 === 0 ? 0 : Math.PI / 2;
+        m.renderOrder = order;
+        this.edgeMarks.add(m);
+      }
+      const badge = new Sprite(ok ? this.matchBadge : this.mismatchBadge);
+      badge.position.set(ex, PLATE_TOP + 0.14, ez);
+      badge.scale.set(0.24, 0.24, 1);
+      badge.renderOrder = 12;
+      this.edgeMarks.add(badge);
     }
   }
 
@@ -511,10 +575,10 @@ export class World {
       this.updateFrustum();
     }
     this.glowMaterial.size = GLOW_SIZE * this.pixelsPerUnit() * this.renderer.getPixelRatio();
-    const pulse = 0.65 + Math.sin(now / 220) * 0.25;
-    this.matchMaterial.opacity = pulse;
-    this.mismatchMaterial.opacity = pulse;
+    const pulse = 0.925 + Math.sin(now / 320) * 0.075;
+    for (const m of [this.matchMaterial, this.mismatchMaterial, this.markRimMaterial, this.matchBadge, this.mismatchBadge]) m.opacity = pulse;
     if (this.ghost && this.ghostPending) this.ghost.position.y = 0.16 + Math.sin(now / 260) * 0.03;
+    if (this.ghost) this.edgeMarks.position.y = this.ghost.position.y;
     this.controls.update();
     const tgt = this.controls.target;
     this.sun.position.set(tgt.x + 8, 16, tgt.z + 5);
