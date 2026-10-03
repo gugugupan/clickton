@@ -61,6 +61,8 @@ interface Drop {
 }
 
 const CHUNK = 8;
+const MISMATCH_DIM = new Color(PALETTE.edgeMismatch);
+const MISMATCH_LIT = new Color(0xffffff);
 const GLOW_SIZE = 0.3;
 const BASE_PART = "@base";
 
@@ -548,6 +550,7 @@ export class World {
     }
     this.glowMaterial.size = GLOW_SIZE * this.pixelsPerUnit() * this.renderer.getPixelRatio();
     this.matchMaterial.opacity = 0.6 + Math.sin(now / 260) * 0.2;
+    this.mismatchMaterial.color.lerpColors(MISMATCH_DIM, MISMATCH_LIT, 0.5 + Math.sin(now / 260) * 0.5);
     if (this.ghost && this.ghostPending) this.ghost.position.y = 0.16 + Math.sin(now / 260) * 0.03;
     if (this.ghost) this.edgeMarks.position.y = this.ghost.position.y;
     this.controls.update();
