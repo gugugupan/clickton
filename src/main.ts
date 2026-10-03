@@ -11,7 +11,7 @@ import { DIRS, DX, DY, TILES, opposite, tileByKey, type Rot } from "./core/tiles
 import { Board } from "./core/board";
 import { LANGS, getLang, hasKey, setLang, t, type Lang } from "./i18n";
 import { ModelLibrary } from "./render/models";
-import { DayNight } from "./render/daynight";
+import { DayNight, type TimeMode } from "./render/daynight";
 import { duckMusic, initMusic, musicEnabled, setMusicDaylight, setMusicEnabled } from "./music";
 import { lookFor } from "./render/looks";
 import { World } from "./render/scene";
@@ -167,6 +167,7 @@ function applyI18n(): void {
 function switchLang(l: Lang): void {
   setLang(l);
   applyI18n();
+  refreshTimeButton();
   refreshTutorial();
   refreshStats();
 }
@@ -726,7 +727,8 @@ $("confirm").addEventListener("click", confirmPending);
 $("cancel").addEventListener("click", cancelPending);
 $("menu-toggle").addEventListener("click", () => setMenu(!document.body.classList.contains("menu-open")));
 $("menu").addEventListener("click", (e) => {
-  if ((e.target as HTMLElement).closest(".menu-item")) setMenu(false);
+  const item = (e.target as HTMLElement).closest(".menu-item");
+  if (item && !item.classList.contains("keep-open")) setMenu(false);
 });
 $("tray").addEventListener("pointerdown", () => setMenu(false));
 $("new-game").addEventListener("click", openNewGame);
@@ -817,6 +819,24 @@ function updateStats(now: number): void {
 
 const dayNight = new DayNight();
 if (import.meta.env.DEV) Object.assign((window as unknown as { __clickton: object }).__clickton, { dayNight });
+const TIME_KEY = "clickton.time";
+const TIME_LABEL = { auto: "timeAuto", day: "timeDay", night: "timeNight" } as const;
+try {
+  const saved = localStorage.getItem(TIME_KEY);
+  if (saved === "auto" || saved === "day" || saved === "night") dayNight.mode = saved;
+} catch {}
+function refreshTimeButton(): void {
+  $("time").textContent = t(TIME_LABEL[dayNight.mode]);
+}
+$("time").addEventListener("click", () => {
+  const order: TimeMode[] = ["auto", "day", "night"];
+  dayNight.mode = order[(order.indexOf(dayNight.mode) + 1) % order.length];
+  try {
+    localStorage.setItem(TIME_KEY, dayNight.mode);
+  } catch {}
+  refreshTimeButton();
+});
+refreshTimeButton();
 $("photo").addEventListener("click", () => setPhoto(true));
 $("back-town").addEventListener("click", () => {
   closeResult();
