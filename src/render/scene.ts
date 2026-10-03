@@ -147,7 +147,7 @@ export class World {
   look: Look = DEFAULT_LOOK;
   private readonly glowMap = edgeGlowTexture();
   private readonly matchMaterial = overlay(new MeshBasicMaterial({ color: PALETTE.edgeMatch, map: this.glowMap, blending: AdditiveBlending }));
-  private readonly mismatchMaterial = overlay(new MeshBasicMaterial({ color: PALETTE.edgeMismatch, map: this.glowMap, opacity: 0.4 }));
+  private readonly mismatchMaterial = overlay(new MeshBasicMaterial({ color: PALETTE.edgeMismatch, map: this.glowMap, opacity: 0.85 }));
   private readonly markGeometry = new PlaneGeometry(0.92, 0.2).rotateX(-Math.PI / 2);
   private ghostKey = "";
   private frontier: LineSegments | null = null;
@@ -547,7 +547,7 @@ export class World {
       this.updateFrustum();
     }
     this.glowMaterial.size = GLOW_SIZE * this.pixelsPerUnit() * this.renderer.getPixelRatio();
-    this.matchMaterial.opacity = 0.75 + Math.sin(now / 260) * 0.25;
+    this.matchMaterial.opacity = 0.6 + Math.sin(now / 260) * 0.2;
     if (this.ghost && this.ghostPending) this.ghost.position.y = 0.16 + Math.sin(now / 260) * 0.03;
     if (this.ghost) this.edgeMarks.position.y = this.ghost.position.y;
     this.controls.update();
