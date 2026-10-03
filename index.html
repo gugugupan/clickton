@@ -46,6 +46,7 @@
         <button id="photo" class="menu-item" data-i18n="photoMode"></button>
         <button id="time" class="menu-item keep-open"></button>
         <button id="help-btn" class="menu-item" data-i18n="helpBtn"></button>
+        <button id="feedback-btn" class="menu-item" data-i18n="feedback"></button>
         <button id="new-game" class="menu-item" data-i18n="newGame"></button>
         <button id="back-town" class="menu-item" data-i18n="backToTown"></button>
         <button id="build-own" class="menu-item" data-i18n="buildOwn"></button>
@@ -92,6 +93,21 @@
             <button id="result-share" class="pill confirm" data-i18n="shareResult"></button>
             <button id="result-again" class="pill cancel" data-i18n="playAgain"></button>
             <button id="result-close" class="pill cancel" data-i18n="backToTown"></button>
+          </div>
+        </div>
+      </section>
+      <section id="feedback" class="result-backdrop">
+        <div class="card result-card fb-card">
+          <h2 data-i18n="feedback"></h2>
+          <p class="label" data-i18n="feedbackIntro"></p>
+          <textarea id="fb-message" class="fb-input" rows="5" maxlength="3000" data-i18n-placeholder="feedbackPlaceholder"></textarea>
+          <input id="fb-email" class="fb-input" type="email" autocomplete="email" data-i18n-placeholder="feedbackEmail" />
+          <label class="fb-bot" aria-hidden="true"><input id="fb-bot" type="checkbox" tabindex="-1" /></label>
+          <div id="fb-status" class="fb-status"></div>
+          <a id="fb-mail" class="fb-mail" data-i18n="feedbackByMail"></a>
+          <div class="result-actions">
+            <button id="fb-cancel" class="pill cancel" data-i18n="cancel"></button>
+            <button id="fb-send" class="pill confirm" data-i18n="feedbackSend"></button>
           </div>
         </div>
       </section>

@@ -916,6 +916,66 @@ body.viewing.daily-link #try-daily {
   margin-top: 14px;
 }
 
+.fb-card {
+  width: 420px;
+  text-align: left;
+}
+
+.fb-card h2,
+.fb-card > .label {
+  text-align: center;
+}
+
+.fb-input {
+  display: block;
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--chip-on);
+  color: var(--text);
+  font: 500 14px var(--font-body);
+  resize: vertical;
+  user-select: text;
+  -webkit-user-select: text;
+  touch-action: auto;
+}
+
+.fb-input:focus {
+  outline: 2px solid var(--sage);
+  outline-offset: 1px;
+}
+
+.fb-bot {
+  position: absolute;
+  left: -9999px;
+}
+
+.fb-status {
+  min-height: 1.4em;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-soft);
+  text-align: center;
+}
+
+.fb-status.ok {
+  color: var(--sage-ink);
+}
+
+.fb-status.bad {
+  color: var(--terracotta-ink);
+}
+
+.fb-mail {
+  display: none;
+  width: 100%;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text);
+}
+
 .tutorial {
   position: fixed;
   inset: 0;

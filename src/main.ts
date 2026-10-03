@@ -18,6 +18,7 @@ import { World } from "./render/scene";
 import { Agents } from "./render/agents";
 import { loadLocal, recordScore, saveLocal } from "./save";
 import { refreshTutorial, startTutorial, tutorialSeen } from "./ui/tutorial";
+import { closeFeedback, openFeedback } from "./ui/feedback";
 import { download, framePhoto, toBlob } from "./ui/photo";
 import { drawTilePreview } from "./ui/tilePreview";
 
@@ -138,6 +139,10 @@ function applyI18n(): void {
   document.querySelectorAll<HTMLElement>("[data-i18n]").forEach((el) => {
     const key = el.dataset.i18n!;
     if (hasKey(key)) el.textContent = t(key);
+  });
+  document.querySelectorAll<HTMLInputElement>("[data-i18n-placeholder]").forEach((el) => {
+    const key = el.dataset.i18nPlaceholder!;
+    if (hasKey(key)) el.placeholder = t(key);
   });
   document.querySelectorAll<HTMLElement>("[data-i18n-label]").forEach((el) => {
     const key = el.dataset.i18nLabel!;
@@ -419,9 +424,13 @@ async function savePhoto(): Promise<void> {
   toast(t("photoSaved"));
 }
 
-async function shareTown(): Promise<void> {
+async function townLink(): Promise<string> {
   const code = await encodeCity({ version: game.linkVersion, seed: game.seed, moves: game.moves, day: game.day });
-  const url = `${location.origin}${location.pathname}#c=${code}`;
+  return `${location.origin}${location.pathname}#c=${code}`;
+}
+
+async function shareTown(): Promise<void> {
+  const url = await townLink();
   if (coarse && navigator.share) {
     try {
       const file = new File([await toBlob(townPhoto(1.5))], "clickton.png", { type: "image/png" });
@@ -693,6 +702,11 @@ trayTile.addEventListener("pointerup", endTrayGesture);
 trayTile.addEventListener("pointercancel", endTrayGesture);
 
 window.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && $("feedback").classList.contains("open")) {
+    closeFeedback();
+    return;
+  }
+  if ((e.target as HTMLElement).closest("input, textarea")) return;
   if (e.key === "Escape" && document.body.classList.contains("photo")) {
     setPhoto(false);
     return;
@@ -760,6 +774,11 @@ $("ng-daily").addEventListener("click", () => {
   switchGame(game.challenge ? Game.daily(todayNumber()) : loadDaily());
 });
 $("ng-cancel").addEventListener("click", closeNewGame);
+$("feedback-btn").addEventListener("click", () => openFeedback(async () => ({ townLink: await townLink(), lang: getLang() })));
+$("fb-cancel").addEventListener("click", closeFeedback);
+$("feedback").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeFeedback();
+});
 $("newgame").addEventListener("click", (e) => {
   if (e.target === e.currentTarget) closeNewGame();
 });
