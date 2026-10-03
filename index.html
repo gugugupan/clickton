@@ -51,7 +51,6 @@
       </nav>
       <section id="tray" class="card tray">
         <div class="tray-row">
-          <button id="rot-left" class="round" data-i18n-label="rotateLeft">↺</button>
           <div id="tray-tile" class="current">
             <canvas id="preview"></canvas>
             <div>
@@ -60,7 +59,6 @@
               <div id="tile-hint" class="tile-hint"></div>
             </div>
           </div>
-          <button id="rot-right" class="round" data-i18n-label="rotateRight">↻</button>
           <div class="side-stack">
             <div class="next-box">
               <canvas id="next-preview"></canvas>
@@ -130,6 +128,7 @@
       </section>
       <div id="toast" class="toast" role="status"></div>
       <div id="bubble" class="bubble"></div>
+      <button id="rot-badge" class="rot-badge" data-i18n-label="rotate">↻</button>
     </div>
     <script type="module" src="/src/main.ts"></script>
   </body>

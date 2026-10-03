@@ -247,6 +247,19 @@ function updateGhost(): void {
 }
 
 function positionBubble(): void {
+  const badge = $("rot-badge");
+  badge.style.display = pending && bubble.style.display !== "none" ? "flex" : "none";
+  if (pending) {
+    const corners = [
+      [-0.5, -0.5],
+      [0.5, -0.5],
+      [0.5, 0.5],
+      [-0.5, 0.5],
+    ].map(([dx, dy]) => world.toScreen(pending!.x + dx, pending!.y + dy, 0.2));
+    const right = corners.reduce((a, b) => (b.x > a.x ? b : a));
+    badge.style.left = `${right.x}px`;
+    badge.style.top = `${right.y}px`;
+  }
   const c = shownCell();
   if (!c || bubble.style.display === "none") return;
   const p = world.toScreen(c.x, c.y, pending ? 1.05 : 0.9);
@@ -714,9 +727,8 @@ window.addEventListener("keydown", (e) => {
   if (e.key === "x" || e.key === "X") discardTile();
 });
 
-$("rot-left").addEventListener("click", () => rotate(-1));
 $("discard").addEventListener("click", discardTile);
-$("rot-right").addEventListener("click", () => rotate(1));
+$("rot-badge").addEventListener("click", () => rotate(1));
 $("confirm").addEventListener("click", confirmPending);
 $("cancel").addEventListener("click", cancelPending);
 $("menu-toggle").addEventListener("click", () => setMenu(!document.body.classList.contains("menu-open")));

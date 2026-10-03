@@ -572,6 +572,43 @@ button.round {
   transition: transform 0.06s, box-shadow 0.06s;
 }
 
+.rot-badge {
+  position: absolute;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  margin: -19px 0 0 -6px;
+  padding: 0;
+  border: 2px solid var(--card);
+  border-radius: 50%;
+  background: var(--butter);
+  box-shadow: 0 2px 0 var(--butter-shadow), 0 4px 10px rgba(43, 36, 32, 0.18);
+  color: var(--text);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  animation: rot-badge-in 0.25s ease-out;
+}
+
+.rot-badge:active {
+  transform: translateY(1px) rotate(30deg);
+}
+
+@keyframes rot-badge-in {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+
+body.photo .rot-badge,
+body.viewing .rot-badge {
+  display: none !important;
+}
+
 .bubble {
   position: absolute;
   transform: translate(-50%, -100%);

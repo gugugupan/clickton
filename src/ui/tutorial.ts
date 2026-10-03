@@ -7,7 +7,7 @@ interface Step {
 
 const STEPS: Step[] = [
   { text: "tut1", focus: ["#tray-tile"] },
-  { text: "tut2", focus: ["#rot-left", "#rot-right"] },
+  { text: "tut2", focus: ["#tray-tile"] },
   { text: "tut3", focus: ["#tray"] },
   { text: "tut4", focus: [] },
 ];
