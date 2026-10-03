@@ -305,7 +305,6 @@ function place(x: number, y: number): void {
   fitTown();
   playPlace(score.total > 0);
   duckMusic();
-  floatScore(x, y, score.total);
   popBrandScore(score.total);
   const opened = agents.sync(game.board, game.seed);
   if (opened.trains.length) setTimeout(playChime, 250);
@@ -373,11 +372,6 @@ function popBrandScore(total: number): void {
 
 function closeResult(): void {
   $("result").classList.remove("open");
-}
-
-function floatScore(x: number, y: number, total: number): void {
-  const color = total > 0 ? "var(--sage-ink)" : total < 0 ? "var(--terracotta-ink)" : "var(--text-soft)";
-  floatText(x, y, `${total > 0 ? "+" : ""}${total}`, color);
 }
 
 function floatText(x: number, y: number, text: string, color: string): void {
