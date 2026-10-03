@@ -9,7 +9,7 @@ import { mulberry32, randomSeed } from "./core/rng";
 import { POINTS, type PlacementScore } from "./core/scoring";
 import { DIRS, DX, DY, TILES, opposite, tileByKey, type Rot } from "./core/tiles";
 import { Board } from "./core/board";
-import { LANGS, getLang, hasKey, setLang, t, type Lang } from "./i18n";
+import { LANGS, chooseLang, getLang, hasKey, setLang, t, watchLang, type Lang } from "./i18n";
 import { ModelLibrary } from "./render/models";
 import { DayNight, type TimeMode } from "./render/daynight";
 import { duckMusic, initMusic, musicEnabled, setAmbience, setMusicDaylight, setMusicEnabled } from "./music";
@@ -161,7 +161,10 @@ function applyI18n(): void {
         const b = document.createElement("button");
         b.textContent = { en: "EN", zh: "中文", ja: "日本語" }[l];
         b.classList.toggle("active", l === getLang());
-        b.addEventListener("click", () => switchLang(l));
+        b.addEventListener("click", () => {
+          chooseLang(l);
+          switchLang(l);
+        });
         return b;
       }),
     );
@@ -790,6 +793,7 @@ document.body.classList.toggle("viewing", viewing);
 
 setLang(getLang());
 applyI18n();
+watchLang(switchLang);
 rebuildWorld();
 refreshStats();
 if (viewing && game.challenge) {

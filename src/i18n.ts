@@ -141,20 +141,31 @@ const STRINGS = {
 
 export type StringKey = keyof typeof STRINGS;
 
-const STORAGE_KEY = "clickton.lang";
+// Shared by every site on gugugupan.github.io so a choice made on one applies to all.
+const SHARED_KEY = "gratin:lang";
+const LEGACY_KEY = "clickton.lang";
+const FALLBACK: Lang = "ja";
 const HTML_LANG: Record<Lang, string> = { en: "en", zh: "zh-CN", ja: "ja" };
+
+const isLang = (v: unknown): v is Lang => typeof v === "string" && (LANGS as readonly string[]).includes(v);
 
 let current: Lang = detect();
 
-function detect(): Lang {
+function chosen(): string | null {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved && (LANGS as string[]).includes(saved)) return saved as Lang;
-  } catch {}
-  const nav = typeof navigator === "undefined" ? "en" : navigator.language.toLowerCase();
-  if (nav.startsWith("zh")) return "zh";
-  if (nav.startsWith("ja")) return "ja";
-  return "en";
+    return localStorage.getItem(SHARED_KEY) ?? localStorage.getItem(LEGACY_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function detect(): Lang {
+  const saved = chosen();
+  if (saved) return isLang(saved) ? saved : FALLBACK;
+  if (typeof navigator === "undefined") return FALLBACK;
+  const bases = (navigator.languages?.length ? navigator.languages : [navigator.language]).map((tag) => tag.toLowerCase().split("-")[0]);
+  if (bases.includes("ja")) return "ja";
+  return bases.find(isLang) ?? FALLBACK;
 }
 
 export function getLang(): Lang {
@@ -163,10 +174,27 @@ export function getLang(): Lang {
 
 export function setLang(lang: Lang): void {
   current = lang;
-  try {
-    localStorage.setItem(STORAGE_KEY, lang);
-  } catch {}
   if (typeof document !== "undefined") document.documentElement.lang = HTML_LANG[lang];
+}
+
+export function chooseLang(lang: Lang): void {
+  try {
+    localStorage.setItem(SHARED_KEY, lang);
+  } catch {}
+  setLang(lang);
+}
+
+export function watchLang(onChange: (lang: Lang) => void): void {
+  const update = () => {
+    const next = detect();
+    if (next !== current) onChange(next);
+  };
+  window.addEventListener("storage", (e) => {
+    if (e.key === SHARED_KEY || e.key === null) update();
+  });
+  window.addEventListener("languagechange", () => {
+    if (!chosen()) update();
+  });
 }
 
 export function t(key: StringKey, ...args: (string | number)[]): string {
