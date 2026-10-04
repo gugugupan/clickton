@@ -221,6 +221,23 @@ function drawSpecial(b: PartBuilder, kind: Special, rng: Rng, prop: PropFn, look
   }
 }
 
+export interface LandmarkProp {
+  model: ModelKey;
+  x: number;
+  z: number;
+  rotY: number;
+  lift: number;
+  height?: number;
+  fit?: number;
+  maxHeight?: number;
+}
+
+export const LANDMARK_PROPS = {
+  windmill: { model: "lm_windmill", x: 0, z: -0.05, rotY: 0, lift: 0, height: 0.6 },
+  watermill: { model: "lm_watermill", x: 0.27, z: 0, rotY: -Math.PI / 2, lift: 0, fit: 0.42, maxHeight: 0.42 },
+  lighthouse: { model: "lm_tower", x: 0.3, z: 0.3, rotY: 0, lift: 0.04, height: 0.58 },
+} satisfies Record<string, LandmarkProp>;
+
 function drawLandmark(b: PartBuilder, kind: Landmark, rng: Rng, prop: PropFn, look: Look): void {
   const flowers = (x: number, z: number, n: number, spread: number) => {
     for (let i = 0; i < n; i++) {
@@ -250,6 +267,9 @@ function drawLandmark(b: PartBuilder, kind: Landmark, rng: Rng, prop: PropFn, lo
       prop(pick(rng, BUSHES), 0, -0.34, { fit: 0.13 });
       prop(pick(rng, BUSHES), 0, 0.34, { fit: 0.13 });
       prop("bench", -0.3, 0, { fit: 0.13, rotY: Math.PI / 2 });
+      b.box(0.012, 0.13, 0.012, -0.16, PLATE_TOP, 0.12, PALETTE.trunk);
+      b.box(0.012, 0.13, 0.012, -0.11, PLATE_TOP, 0.12, PALETTE.trunk);
+      b.box(0.08, 0.06, 0.008, -0.135, PLATE_TOP + 0.08, 0.115, PALETTE.white);
       break;
     case "church":
       prop("lm_church", 0, 0, { fit: 0.66, maxHeight: 0.7 });
@@ -259,11 +279,11 @@ function drawLandmark(b: PartBuilder, kind: Landmark, rng: Rng, prop: PropFn, lo
       break;
     case "lighthouse":
       b.cylinder(0.13, 0.04, 0.3, PLATE_TOP, 0.3, PALETTE.platform, 14);
-      prop("lm_tower", 0.3, 0.3, { height: 0.58, lift: 0.04 });
+      prop(LANDMARK_PROPS.lighthouse.model, LANDMARK_PROPS.lighthouse.x, LANDMARK_PROPS.lighthouse.z, LANDMARK_PROPS.lighthouse);
       prop(pick(rng, ROCKS), -0.32, 0.32, { fit: 0.12 });
       break;
     case "watermill":
-      prop("lm_watermill", 0.27, 0, { fit: 0.42, maxHeight: 0.42, rotY: -Math.PI / 2 });
+      prop(LANDMARK_PROPS.watermill.model, LANDMARK_PROPS.watermill.x, LANDMARK_PROPS.watermill.z, LANDMARK_PROPS.watermill);
       prop("sack", -0.32, -0.3, { fit: 0.07 });
       prop(pick(rng, TREES), -0.3, 0.28, { fit: 0.2, maxHeight: 0.3 });
       break;
@@ -278,7 +298,7 @@ function drawLandmark(b: PartBuilder, kind: Landmark, rng: Rng, prop: PropFn, lo
       prop("lantern", 0.34, 0.3, { height: 0.14 });
       break;
     case "windmill":
-      prop("lm_windmill", 0, -0.05, { height: 0.7 });
+      prop(LANDMARK_PROPS.windmill.model, LANDMARK_PROPS.windmill.x, LANDMARK_PROPS.windmill.z, LANDMARK_PROPS.windmill);
       for (const [x, z] of [[0.3, 0.28], [0.21, 0.32]]) b.cylinder(0.05, 0.06, x, PLATE_TOP, z, PALETTE.hay, 10);
       prop("wheelbarrow", -0.28, 0.27, { fit: 0.12, rotY: 0.5 });
       break;
@@ -540,7 +560,7 @@ export function buildTile(
     p.rotY += angle;
   }
   const lights = props
-    .filter((p) => p.model === "streetlight")
-    .map((p) => ({ x: p.x, y: (p.y ?? PLATE_TOP) + (p.height ?? 0.22) * 0.92, z: p.z }));
+    .filter((p) => p.model === "streetlight" || p.model === "lantern")
+    .map((p) => ({ x: p.x, y: (p.y ?? PLATE_TOP) + (p.height ?? 0.22) * (p.model === "lantern" ? 0.6 : 0.92), z: p.z }));
   return { base, props, lights };
 }

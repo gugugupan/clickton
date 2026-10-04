@@ -318,11 +318,17 @@
     },
     "lm_windmill": {
       "pack": "medieval",
-      "file": "buildings/red/building_windmill_red.gltf"
+      "file": "buildings/red/building_windmill_red.gltf",
+      "exclude": [
+        "building_windmill_top_fan_red"
+      ]
     },
     "lm_watermill": {
       "pack": "medieval",
-      "file": "buildings/blue/building_watermill_blue.gltf"
+      "file": "buildings/blue/building_watermill_blue.gltf",
+      "exclude": [
+        "building_watermill_wheel_blue"
+      ]
     },
     "lm_church": {
       "pack": "medieval",
@@ -379,6 +385,26 @@
     "present": {
       "pack": "holiday",
       "file": "present_A_red.gltf"
+    },
+    "windmill_fan": {
+      "pack": "medieval",
+      "file": "buildings/red/building_windmill_red.gltf",
+      "only": "building_windmill_top_fan_red",
+      "pivot": "center"
+    },
+    "watermill_wheel": {
+      "pack": "medieval",
+      "file": "buildings/blue/building_watermill_blue.gltf",
+      "only": "building_watermill_wheel_blue",
+      "pivot": "center"
+    },
+    "tender_gifts_a": {
+      "pack": "holiday",
+      "file": "train_tender_presents_A.gltf"
+    },
+    "tender_gifts_b": {
+      "pack": "holiday",
+      "file": "train_tender_presents_B.gltf"
     }
   },
   "agents": {
@@ -427,7 +453,11 @@
         "animal-panda.glb",
         "animal-monkey.glb",
         "animal-penguin.glb",
-        "animal-crab.glb"
+        "animal-crab.glb",
+        "animal-bee.glb",
+        "animal-parrot.glb",
+        "animal-caterpillar.glb",
+        "animal-polar.glb"
       ]
     }
   }

@@ -1,14 +1,10 @@
 import {
   AdditiveBlending,
-  AnimationClip,
-  AnimationMixer,
   Box3,
   Camera,
   Frustum,
   Group,
   Matrix4,
-  Mesh,
-  Object3D,
   Sprite,
   SpriteMaterial,
   Vector3,
@@ -17,20 +13,15 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import type { Board, Placed } from "../core/board";
 import { completedRoadCells, specialStatus } from "../core/specials";
-import { completedRailLines, completedRoadNetworks, grassExits, hasRoad, isHome, isMeadow, isPond, roadExits, type RailLine } from "../core/networks";
+import { completedRailLines, completedRoadNetworks, edgeRegions, grassExits, hasRoad, isHome, isMeadow, isPond, regionAt, roadExits, type RailLine } from "../core/networks";
 import { hash } from "../core/rng";
 import { DIRS, DX, DY, groupsOf, type Dir, type Special } from "../core/tiles";
 import catalog from "./assets.json";
 import { modelUrl, type ModelKey, type ModelLibrary } from "./models";
 import { glowTexture } from "./scene";
-import { PLATE_TOP } from "./tileMeshes";
-
-interface Rig {
-  scene: Object3D;
-  clips: AnimationClip[];
-  height: number;
-  minY: number;
-}
+import { LANDMARK_PROPS, PLATE_TOP } from "./tileMeshes";
+import { BEE, Beam, Flyer, Jumper, PARROT, Shuttle, Snow, Spinner, onTile, type Life, type Spot } from "./landmarkLife";
+import { Puppet, easeOutBack, moveToward, pointIn, tileArea, type Area, type Rig } from "./puppet";
 
 const PET_HEIGHT: Record<string, number> = {
   bunny: 0.08,
@@ -51,6 +42,10 @@ const PET_HEIGHT: Record<string, number> = {
   monkey: 0.08,
   penguin: 0.07,
   crab: 0.045,
+  bee: 0.04,
+  parrot: 0.07,
+  caterpillar: 0.04,
+  polar: 0.12,
 };
 const MEADOW_PETS = ["bunny", "chick", "cow", "pig", "deer", "fox", "dog", "cat"];
 const ZOO_PETS = ["lion", "tiger", "elephant", "giraffe", "panda", "monkey"];
@@ -60,71 +55,14 @@ const PERSON_HEIGHT = 0.15;
 const CAR_SPACING = 0.27;
 const TRAIN_SPEED = 0.7;
 const SIDING_OFFSET = 0.2;
+const GIFT_TENDER: ModelKey[] = ["locomotive", "tender_gifts_a", "wagon"];
+const GIFT_TRAIN: ModelKey[] = ["locomotive", "tender_gifts_a", "tender_gifts_b"];
+const GIFT_LOOP_MIN = 8;
 
-class Puppet {
-  readonly root = new Group();
-  private readonly mixer: AnimationMixer;
-  private current = "";
-  private grow = 0;
-
-  constructor(rig: Rig, height: number, private readonly clips: AnimationClip[]) {
-    const body = rig.scene.clone(true);
-    const scale = height / rig.height;
-    body.scale.setScalar(scale);
-    body.position.y = -rig.minY * scale;
-    body.traverse((o) => {
-      if ((o as Mesh).isMesh) o.frustumCulled = false;
-    });
-    this.root.add(body);
-    this.root.scale.setScalar(0.001);
-    this.mixer = new AnimationMixer(body);
-    this.play("idle");
-  }
-
-  play(name: string): void {
-    if (name === this.current) return;
-    const clip = this.clips.find((c) => c.name === name) ?? this.clips.find((c) => c.name === "idle");
-    if (!clip) return;
-    const next = this.mixer.clipAction(clip);
-    const prev = this.current ? this.mixer.existingAction(this.clips.find((c) => c.name === this.current)!) : null;
-    next.reset().fadeIn(0.2).play();
-    prev?.fadeOut(0.2);
-    this.current = name;
-  }
-
-  update(dt: number): void {
-    if (this.root.visible) this.mixer.update(dt);
-    if (this.grow < 1) {
-      this.grow = Math.min(1, this.grow + dt * 3);
-      this.root.scale.setScalar(easeOutBack(this.grow));
-    }
-  }
-
-  face(dx: number, dz: number, dt: number): void {
-    if (Math.abs(dx) + Math.abs(dz) < 1e-5) return;
-    const target = Math.atan2(dx, dz);
-    let delta = target - this.root.rotation.y;
-    delta = Math.atan2(Math.sin(delta), Math.cos(delta));
-    this.root.rotation.y += delta * Math.min(1, dt * 10);
-  }
-}
-
-function easeOutBack(t: number): number {
-  const c = 1.7;
-  return 1 + (c + 1) * Math.pow(t - 1, 3) + c * Math.pow(t - 1, 2);
-}
-
-function moveToward(pos: Vector3, target: Vector3, step: number): boolean {
-  const dx = target.x - pos.x, dz = target.z - pos.z;
-  const dist = Math.hypot(dx, dz);
-  if (dist <= step) {
-    pos.x = target.x;
-    pos.z = target.z;
-    return true;
-  }
-  pos.x += (dx / dist) * step;
-  pos.z += (dz / dist) * step;
-  return false;
+function gateOf(farm: Placed, from: Placed): Spot {
+  const dx = from.x - farm.x, dz = from.y - farm.y;
+  const len = Math.hypot(dx, dz) || 1;
+  return { x: farm.x + (dx / len) * 0.38, z: farm.y + (dz / len) * 0.38 };
 }
 
 class Person {
@@ -200,23 +138,6 @@ class Person {
     const node = nodePosition(board, this.cell.x, this.cell.y);
     this.target.set(node.x - DY[d] * this.side, this.pos.y, node.z + DX[d] * this.side);
   }
-}
-
-interface Area {
-  x: number;
-  z: number;
-  r: number;
-}
-
-function pointIn(area: Area, out: Vector3): void {
-  const a = Math.random() * Math.PI * 2, r = Math.sqrt(Math.random()) * area.r;
-  out.x = area.x + Math.cos(a) * r;
-  out.z = area.z + Math.sin(a) * r;
-}
-
-function tileArea(p: Placed, cx: number, cz: number, r: number): Area {
-  const angle = (-p.rot * Math.PI) / 2;
-  return { x: p.x + cx * Math.cos(angle) + cz * Math.sin(angle), z: p.y - cx * Math.sin(angle) + cz * Math.cos(angle), r };
 }
 
 function nodePosition(board: Board, x: number, y: number): { x: number; z: number } {
@@ -302,7 +223,7 @@ class Animal {
     private readonly area?: Area,
   ) {
     this.puppet = new Puppet(rig, PET_HEIGHT[kind] ?? 0.08, rig.clips);
-    this.speed = kind === "bunny" ? 0.14 : kind === "cow" || kind === "elephant" ? 0.06 : 0.09;
+    this.speed = kind === "bunny" ? 0.14 : kind === "caterpillar" ? 0.025 : kind === "cow" || kind === "elephant" || kind === "polar" ? 0.06 : 0.09;
     this.pos.set(tile.x + (Math.random() - 0.5) * 0.5, PLATE_TOP + (kind === "fish" ? 0.0 : 0.035), tile.y + (Math.random() - 0.5) * 0.5);
     if (kind === "fish") this.pos.set(tile.x, PLATE_TOP + 0.005, tile.y);
     if (area) pointIn(area, this.pos);
@@ -435,7 +356,14 @@ class Train {
   private turnPending = false;
   private runaround: Runaround | null = null;
 
-  constructor(private readonly line: RailLine, library: ModelLibrary, halts: boolean[] = [], light?: SpriteMaterial) {
+  constructor(
+    private readonly line: RailLine,
+    library: ModelLibrary,
+    halts: boolean[] = [],
+    light?: SpriteMaterial,
+    consist: ModelKey[] = ["locomotive", "tender", "wagon"],
+    offset = 0,
+  ) {
     const marks: number[] = [];
     this.points = trackPoints(line, marks);
     this.length = this.points[this.points.length - 1].s;
@@ -448,7 +376,7 @@ class Train {
     const maxCars = line.loop
       ? Math.floor((this.length - 0.3) / CAR_SPACING)
       : Math.floor((this.length - 0.08) / CAR_SPACING) - 1;
-    const kinds: ModelKey[] = (["locomotive", "tender", "wagon"] as ModelKey[]).slice(0, Math.max(1, Math.min(3, maxCars)));
+    const kinds = consist.slice(0, Math.max(1, Math.min(3, maxCars)));
     for (const kind of kinds) {
       const size = library.size(kind);
       const car = new Group();
@@ -466,7 +394,7 @@ class Train {
       this.cars.push(car);
       this.root.add(car);
     }
-    this.head = line.loop ? 0 : Math.min(this.length - 0.04, (this.cars.length - 1) * CAR_SPACING + 0.04);
+    this.head = line.loop ? offset * this.length : Math.min(this.length - 0.04, (this.cars.length - 1) * CAR_SPACING + 0.04);
     this.root.scale.setScalar(0.001);
     this.place();
   }
@@ -667,6 +595,12 @@ export class Agents {
   private readonly cars: Car[] = [];
   private readonly roads = new Set<string>();
   private readonly specials = new Map<string, number>();
+  private readonly lives: Life[] = [];
+  private readonly landmarks = new Set<string>();
+  private readonly shuttles = new Map<string, Shuttle>();
+  private readonly jumpers = new Map<string, Jumper>();
+  private readonly snows: Snow[] = [];
+  private gifts = false;
   private readonly headlight = new SpriteMaterial({
     map: glowTexture(),
     color: 0xfff1cf,
@@ -715,6 +649,12 @@ export class Agents {
     this.cars.length = 0;
     this.roads.clear();
     this.specials.clear();
+    this.lives.length = 0;
+    this.landmarks.clear();
+    this.shuttles.clear();
+    this.jumpers.clear();
+    this.snows.length = 0;
+    this.gifts = false;
   }
 
   sync(
@@ -747,14 +687,26 @@ export class Agents {
         this.root.add(car.root);
       }
     }
+    const gifts = [...board.all()].some((p) => p.tile.landmark === "xmas");
+    if (gifts !== this.gifts) {
+      this.gifts = gifts;
+      for (const t of this.trains.values()) this.root.remove(t.root);
+      this.trains.clear();
+    }
     for (const line of completedRailLines(board)) {
       if (this.trains.has(line.key)) continue;
       const halts = line.steps.map((st) => !!board.get(st.x, st.y)?.tile.halt);
-      const train = new Train(line, this.library, halts, this.headlight);
+      const train = new Train(line, this.library, halts, this.headlight, gifts ? GIFT_TENDER : undefined);
       this.trains.set(line.key, train);
       this.root.add(train.root);
       newTrains.push(train.start);
+      if (gifts && line.loop && !halts.some(Boolean) && line.steps.length >= GIFT_LOOP_MIN) {
+        const extra = new Train(line, this.library, halts, this.headlight, GIFT_TRAIN, 0.5);
+        this.trains.set(`gift:${line.key}`, extra);
+        this.root.add(extra.root);
+      }
     }
+    this.syncLandmarks(board, seed);
     for (const p of board.all()) {
       const key = `${p.x},${p.y}`;
       if (isHome(p) && !this.persons.has(key) && this.persons.size < this.cap && this.people.length) {
@@ -774,6 +726,99 @@ export class Agents {
       }
     }
     return { trains: newTrains, roads: newRoads, specials: opened };
+  }
+
+  private addLife(life: Life): void {
+    this.lives.push(life);
+    this.root.add(life.root);
+  }
+
+  private nearest(board: Board, p: Placed, test: (q: Placed) => boolean, radius = 3): Placed | undefined {
+    let best: Placed | undefined, bestD = Infinity;
+    for (const q of board.all()) {
+      const d = Math.abs(q.x - p.x) + Math.abs(q.y - p.y);
+      if (d > 0 && d <= radius && d < bestD && test(q)) [best, bestD] = [q, d];
+    }
+    return best;
+  }
+
+  private syncLandmarks(board: Board, seed: number): void {
+    const water = edgeRegions(board, "water");
+    for (const p of board.all()) {
+      if (!p.tile.landmark) continue;
+      const key = `${p.x},${p.y}`;
+      if (!this.landmarks.has(key)) {
+        this.landmarks.add(key);
+        this.spawnLandmark(p, board, seed);
+      }
+      const farm = p.tile.landmark === "windmill" && this.nearest(board, p, (q) => q.tile.special === "farm" || isMeadow(q));
+      if (farm) this.shuttles.get(key)?.retarget(gateOf(farm, p));
+      const fish = this.jumpers.get(key);
+      if (fish) fish.setCells((regionAt(water, p.x, p.y)?.cells ?? []).map((c) => ({ x: c.x, z: c.y })));
+    }
+  }
+
+  private spawnLandmark(p: Placed, board: Board, seed: number): void {
+    const h = (i: number) => hash(seed, p.x, p.y, 70 + i);
+    const key = `${p.x},${p.y}`;
+    const spot = (x: number, z: number): Spot => onTile(p, x, z);
+    switch (p.tile.landmark) {
+      case "windmill": {
+        this.addLife(new Spinner(this.library, LANDMARK_PROPS.windmill, "windmill_fan", p, 0.9));
+        const rig = this.people[h(0) % this.people.length];
+        if (!rig) break;
+        const barrow = this.library.buildProps([{ model: "wheelbarrow", x: 0, z: 0.12, y: 0, rotY: Math.PI / 2, fit: 0.14 }], "solid");
+        const farm = this.nearest(board, p, (q) => q.tile.special === "farm" || isMeadow(q));
+        const shuttle = new Shuttle(rig, PERSON_HEIGHT, spot(0.18, 0.22), farm ? gateOf(farm, p) : spot(-0.3, 0.3), barrow);
+        this.shuttles.set(key, shuttle);
+        this.addLife(shuttle);
+        break;
+      }
+      case "watermill":
+        this.addLife(new Spinner(this.library, LANDMARK_PROPS.watermill, "watermill_wheel", p, -0.8));
+        break;
+      case "market": {
+        this.addPerson(h(1), p, board, tileArea(p, 0, -0.32, 0.04), "interact-right");
+        for (let i = 0; i < 2; i++) this.addPerson(h(2 + i), p, board, tileArea(p, 0, 0.02, 0.14), "idle");
+        for (let i = 0; i < 2 && this.people.length; i++) {
+          const walker = new Person(this.people[h(4 + i) % this.people.length], { x: p.x, y: p.y }, board);
+          this.persons.set(`${key}:walker:${i}`, walker);
+          this.root.add(walker.puppet.root);
+        }
+        break;
+      }
+      case "garden": {
+        const flowers = tileArea(p, 0, 0, 0.36);
+        const bee = this.pets.get("bee");
+        if (bee) for (let i = 0; i < 3; i++) this.addLife(new Flyer(bee, PET_HEIGHT.bee, flowers, BEE));
+        const parrot = this.pets.get("parrot");
+        const land = (x: number, z: number) => board.has(Math.round(x), Math.round(z));
+        if (parrot) this.addLife(new Flyer(parrot, PET_HEIGHT.parrot, { x: p.x, z: p.y, r: 1.2 }, PARROT, land));
+        this.addAnimal("caterpillar", p, flowers);
+        this.addPerson(h(6), p, board, tileArea(p, -0.14, 0.2, 0.01), "interact-right");
+        break;
+      }
+      case "lighthouse": {
+        const lp = LANDMARK_PROPS.lighthouse;
+        const at = onTile(p, lp.x, lp.z);
+        this.addLife(new Beam(new Vector3(at.x, PLATE_TOP + lp.lift + lp.height * 0.86, at.z)));
+        this.addAnimal("beaver", p, tileArea(p, 0, 0, 0.12));
+        const fish = this.pets.get("fish");
+        if (fish) {
+          const jumper = new Jumper(fish, []);
+          this.jumpers.set(key, jumper);
+          this.addLife(jumper);
+        }
+        break;
+      }
+      case "xmas": {
+        const snow = new Snow({ x: p.x, z: p.y });
+        this.snows.push(snow);
+        this.addLife(snow);
+        this.addAnimal("polar", p, tileArea(p, -0.2, 0.22, 0.14));
+        break;
+      }
+    }
   }
 
   private addAnimal(kind: string, p: Placed, area: Area): void {
@@ -836,5 +881,7 @@ export class Agents {
       else a.update(dt, board);
     }
     for (const c of this.cars) c.update(dt, board);
+    if (view) for (const s of this.snows) s.setPixelSize(0.045 * view.pixelsPerUnit * Math.min(2, window.devicePixelRatio || 1));
+    for (const l of this.lives) l.update(dt, night);
   }
 }

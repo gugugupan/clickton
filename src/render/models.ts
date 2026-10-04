@@ -1,4 +1,4 @@
-import { Box3, BufferAttribute, BufferGeometry, InterleavedBufferAttribute, Matrix4, Mesh, MeshStandardMaterial, Texture, Vector3 } from "three";
+import { Box3, BufferAttribute, BufferGeometry, InterleavedBufferAttribute, Matrix4, Mesh, MeshStandardMaterial, Object3D, Texture, Vector3 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
@@ -29,6 +29,16 @@ interface Model {
   pack: string;
   geometry: BufferGeometry;
   size: Vector3;
+  origin: Vector3;
+}
+
+interface ModelDef {
+  pack: PackKey;
+  file: string;
+  tint?: string;
+  only?: string;
+  exclude?: string[];
+  pivot?: "center";
 }
 
 const MODES: Record<MaterialMode, { opacity: number; transparent: boolean }> = {
@@ -59,7 +69,7 @@ export class ModelLibrary {
 
   async load(onProgress: (done: number, total: number) => void): Promise<void> {
     const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-    const entries = Object.entries(catalog.models) as [ModelKey, { pack: PackKey; file: string; tint?: string }][];
+    const entries = Object.entries(catalog.models) as [ModelKey, ModelDef][];
     let done = 0;
     await Promise.all(
       entries.map(async ([key, def]) => {
@@ -68,9 +78,12 @@ export class ModelLibrary {
         gltf.scene.updateMatrixWorld(true);
         const group = def.tint ? `${def.pack}${def.tint}` : def.pack;
         const parts: BufferGeometry[] = [];
+        const named = (o: Object3D | null, name: string): boolean => !!o && (o.name === name || named(o.parent, name));
         gltf.scene.traverse((o) => {
           const m = o as Mesh;
           if (!m.isMesh) return;
+          if (def.only && !named(m, def.only)) return;
+          if (def.exclude?.some((name) => named(m, name))) return;
           const mat = (Array.isArray(m.material) ? m.material[0] : m.material) as MeshStandardMaterial;
           if (mat.map && !this.textures.has(group)) {
             const pack = catalog.packs[def.pack];
@@ -97,8 +110,9 @@ export class ModelLibrary {
         if (!geometry) throw new Error(`failed to merge model ${key}`);
         const box = new Box3().setFromBufferAttribute(geometry.getAttribute("position") as never);
         const center = box.getCenter(new Vector3());
-        geometry.translate(-center.x, -box.min.y, -center.z);
-        this.models.set(key, { pack: group, geometry, size: box.getSize(new Vector3()) });
+        const origin = new Vector3(center.x, def.pivot === "center" ? center.y : box.min.y, center.z);
+        geometry.translate(-origin.x, -origin.y, -origin.z);
+        this.models.set(key, { pack: group, geometry, size: box.getSize(new Vector3()), origin });
         onProgress(++done, entries.length);
       }),
     );
@@ -113,6 +127,23 @@ export class ModelLibrary {
 
   size(key: ModelKey): Vector3 | undefined {
     return this.models.get(key)?.size;
+  }
+
+  scaleFor(p: Pick<Prop, "model" | "height" | "fit" | "maxHeight">): number {
+    const model = this.models.get(p.model);
+    if (!model) return 1;
+    const scale = p.height ? p.height / model.size.y : (p.fit ?? 0.3) / Math.max(model.size.x, model.size.z);
+    return p.maxHeight ? Math.min(scale, p.maxHeight / model.size.y) : scale;
+  }
+
+  offset(part: ModelKey, whole: ModelKey): Vector3 | undefined {
+    const a = this.models.get(part), b = this.models.get(whole);
+    return a && b ? a.origin.clone().sub(b.origin) : undefined;
+  }
+
+  solidMesh(key: ModelKey): Mesh | null {
+    const model = this.models.get(key);
+    return model ? new Mesh(model.geometry, this.material(model.pack, "solid")) : null;
   }
 
   material(pack: string, mode: MaterialMode): MeshStandardMaterial {
@@ -156,8 +187,7 @@ export class ModelLibrary {
     for (const p of props) {
       const model = this.models.get(p.model);
       if (!model) continue;
-      let scale = p.height ? p.height / model.size.y : (p.fit ?? 0.3) / Math.max(model.size.x, model.size.z);
-      if (p.maxHeight) scale = Math.min(scale, p.maxHeight / model.size.y);
+      const scale = this.scaleFor(p);
       const g = model.geometry.clone();
       const rows = this.atlasRows.get(model.pack);
       if (rows) {
