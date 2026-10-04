@@ -1,0 +1,343 @@
+{
+  "asset": {
+    "generator": "glTF-Transform v4.5.1",
+    "version": "2.0"
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 24114,
+      "normalized": false,
+      "byteOffset": 0,
+      "bufferView": 0
+    },
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 3648,
+      "normalized": false,
+      "byteOffset": 48228,
+      "bufferView": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 10333,
+      "max": [
+        22610,
+        27307,
+        22610
+      ],
+      "min": [
+        -22610,
+        -32767,
+        -22610
+      ],
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 1
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 10333,
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 2
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 10333,
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 3
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 1391,
+      "max": [
+        17634,
+        32767,
+        16958
+      ],
+      "min": [
+        -15753,
+        -17070,
+        -17634
+      ],
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 4
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 1391,
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 5
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 1391,
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 6
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 1,
+      "byteOffset": 0,
+      "byteLength": 55524,
+      "target": 34963,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 0,
+          "byteLength": 9788,
+          "mode": "TRIANGLES",
+          "byteStride": 2,
+          "count": 27762
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 55524,
+      "byteLength": 82664,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 9788,
+          "byteLength": 49141,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 10333
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 138188,
+      "byteLength": 41332,
+      "target": 34962,
+      "byteStride": 4,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 58932,
+          "byteLength": 29971,
+          "mode": "ATTRIBUTES",
+          "byteStride": 4,
+          "count": 10333
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 179520,
+      "byteLength": 82664,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 88904,
+          "byteLength": 55601,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 10333
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 262184,
+      "byteLength": 11128,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 144508,
+          "byteLength": 6601,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 1391
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 273312,
+      "byteLength": 5564,
+      "target": 34962,
+      "byteStride": 4,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 151112,
+          "byteLength": 4586,
+          "mode": "ATTRIBUTES",
+          "byteStride": 4,
+          "count": 1391
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 278876,
+      "byteLength": 11128,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 155700,
+          "byteLength": 8358,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 1391
+        }
+      }
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "textures": [
+    {
+      "source": 0,
+      "sampler": 0
+    }
+  ],
+  "images": [
+    {
+      "name": "holiday_bits_texture",
+      "mimeType": "image/png",
+      "uri": "holiday_bits_texture.png"
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "christmas_tree_decorated.bin",
+      "byteLength": 164060
+    },
+    {
+      "byteLength": 290004,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "fallback": true
+        }
+      }
+    }
+  ],
+  "materials": [
+    {
+      "name": "holiday",
+      "pbrMetallicRoughness": {
+        "roughnessFactor": 0.5,
+        "metallicFactor": 0,
+        "baseColorTexture": {
+          "index": 0
+        }
+      }
+    },
+    {
+      "name": "holiday_glow",
+      "pbrMetallicRoughness": {
+        "roughnessFactor": 0.5,
+        "metallicFactor": 0,
+        "baseColorTexture": {
+          "index": 0
+        }
+      },
+      "emissiveFactor": [
+        1,
+        1,
+        1
+      ],
+      "emissiveTexture": {
+        "index": 0
+      },
+      "extensions": {
+        "KHR_materials_emissive_strength": {
+          "emissiveStrength": 4
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "christmas_tree_decorated",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 2,
+            "TEXCOORD_0": 3,
+            "NORMAL": 4
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0
+        },
+        {
+          "attributes": {
+            "POSITION": 5,
+            "TEXCOORD_0": 6,
+            "NORMAL": 7
+          },
+          "mode": 4,
+          "material": 1,
+          "indices": 1
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "christmas_tree_decorated",
+      "translation": [
+        0,
+        2.115366457030177,
+        0
+      ],
+      "scale": [
+        2.1153664607554674,
+        2.1153664607554674,
+        2.1153664607554674
+      ],
+      "mesh": 0
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0,
+  "extensionsUsed": [
+    "EXT_meshopt_compression",
+    "KHR_materials_emissive_strength",
+    "KHR_mesh_quantization"
+  ],
+  "extensionsRequired": [
+    "EXT_meshopt_compression",
+    "KHR_mesh_quantization"
+  ]
+}

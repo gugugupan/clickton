@@ -1,3 +1,4 @@
+import { LANDMARK_EMOJI } from "../core/landmarks";
 import { DX, DY, type Rot, type TileDef } from "../core/tiles";
 import { DEFAULT_LOOK, type Look } from "../render/looks";
 import { PALETTE } from "../render/palette";
@@ -138,5 +139,16 @@ export function drawTilePreview(canvas: HTMLCanvasElement, tile: TileDef, rot: R
     g.fillRect(-0.14, -0.46, 0.28, 0.3);
     g.fillStyle = css(PALETTE.roofs[0]);
     g.fillRect(-0.14, -0.46, 0.28, 0.1);
+  }
+  if (tile.landmark) {
+    g.fillStyle = "rgba(255, 250, 242, 0.85)";
+    g.beginPath();
+    g.arc(0, 0, 0.26, 0, Math.PI * 2);
+    g.fill();
+    g.setTransform(dpr, 0, 0, dpr, (dpr * size) / 2, (dpr * size) / 2);
+    g.font = `${Math.round(size * 0.32)}px sans-serif`;
+    g.textAlign = "center";
+    g.textBaseline = "middle";
+    g.fillText(LANDMARK_EMOJI[tile.landmark], 0, size * 0.02);
   }
 }

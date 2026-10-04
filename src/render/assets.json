@@ -315,6 +315,70 @@
     "parasol_b": {
       "pack": "commercial",
       "file": "detail-parasol-b.glb"
+    },
+    "lm_windmill": {
+      "pack": "medieval",
+      "file": "buildings/red/building_windmill_red.gltf"
+    },
+    "lm_watermill": {
+      "pack": "medieval",
+      "file": "buildings/blue/building_watermill_blue.gltf"
+    },
+    "lm_church": {
+      "pack": "medieval",
+      "file": "buildings/blue/building_church_blue.gltf"
+    },
+    "lm_castle": {
+      "pack": "medieval",
+      "file": "buildings/yellow/building_castle_yellow.gltf"
+    },
+    "lm_market": {
+      "pack": "medieval",
+      "file": "buildings/red/building_market_red.gltf"
+    },
+    "lm_tavern": {
+      "pack": "medieval",
+      "file": "buildings/green/building_tavern_green.gltf"
+    },
+    "lm_lumber": {
+      "pack": "medieval",
+      "file": "buildings/yellow/building_lumbermill_yellow.gltf"
+    },
+    "lm_tower": {
+      "pack": "medieval",
+      "file": "buildings/red/building_tower_A_red.gltf"
+    },
+    "xmas_tree": {
+      "pack": "holiday",
+      "file": "christmas_tree_decorated.gltf"
+    },
+    "snowman": {
+      "pack": "holiday",
+      "file": "snowman_A.gltf"
+    },
+    "gingerbread_house": {
+      "pack": "holiday",
+      "file": "gingerbread_house_decorated.gltf"
+    },
+    "gingerbread_man": {
+      "pack": "holiday",
+      "file": "gingerbread_man.gltf"
+    },
+    "football": {
+      "pack": "holiday",
+      "file": "football.gltf"
+    },
+    "basketball": {
+      "pack": "holiday",
+      "file": "basketball.gltf"
+    },
+    "lantern": {
+      "pack": "holiday",
+      "file": "lantern_decorated.gltf"
+    },
+    "present": {
+      "pack": "holiday",
+      "file": "present_A_red.gltf"
     }
   },
   "agents": {

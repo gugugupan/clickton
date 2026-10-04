@@ -1,0 +1,216 @@
+{
+  "asset": {
+    "generator": "glTF-Transform v4.5.1",
+    "version": "2.0"
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 3630,
+      "normalized": false,
+      "byteOffset": 0,
+      "bufferView": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 855,
+      "max": [
+        32767,
+        30971,
+        20698
+      ],
+      "min": [
+        -32767,
+        -30971,
+        -20698
+      ],
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 1
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 855,
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 2
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 855,
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 3
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 1,
+      "byteOffset": 0,
+      "byteLength": 7260,
+      "target": 34963,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 0,
+          "byteLength": 1314,
+          "mode": "TRIANGLES",
+          "byteStride": 2,
+          "count": 3630
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 7260,
+      "byteLength": 6840,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 1316,
+          "byteLength": 4791,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 855
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 14100,
+      "byteLength": 3420,
+      "target": 34962,
+      "byteStride": 4,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 6108,
+          "byteLength": 2677,
+          "mode": "ATTRIBUTES",
+          "byteStride": 4,
+          "count": 855
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 17520,
+      "byteLength": 6840,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 8788,
+          "byteLength": 5080,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 855
+        }
+      }
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "textures": [
+    {
+      "source": 0,
+      "sampler": 0
+    }
+  ],
+  "images": [
+    {
+      "name": "holiday_bits_texture",
+      "mimeType": "image/png",
+      "uri": "holiday_bits_texture.png"
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "snowman_A.bin",
+      "byteLength": 13868
+    },
+    {
+      "byteLength": 24360,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "fallback": true
+        }
+      }
+    }
+  ],
+  "materials": [
+    {
+      "name": "holiday",
+      "pbrMetallicRoughness": {
+        "roughnessFactor": 0.5,
+        "metallicFactor": 0,
+        "baseColorTexture": {
+          "index": 0
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "snowman_A",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 1,
+            "TEXCOORD_0": 2,
+            "NORMAL": 3
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "snowman_A",
+      "translation": [
+        -0.01193535327911377,
+        1.0237150127068162,
+        0.061946094036102295
+      ],
+      "scale": [
+        1.0837355852127075,
+        1.0837355852127075,
+        1.0837355852127075
+      ],
+      "mesh": 0
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0,
+  "extensionsUsed": [
+    "EXT_meshopt_compression",
+    "KHR_mesh_quantization"
+  ],
+  "extensionsRequired": [
+    "EXT_meshopt_compression",
+    "KHR_mesh_quantization"
+  ]
+}

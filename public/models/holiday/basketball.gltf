@@ -1,0 +1,211 @@
+{
+  "asset": {
+    "generator": "glTF-Transform v4.5.1",
+    "version": "2.0"
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 3024,
+      "normalized": false,
+      "byteOffset": 0,
+      "bufferView": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 1058,
+      "max": [
+        32767,
+        32767,
+        32707
+      ],
+      "min": [
+        -32767,
+        -32767,
+        -32707
+      ],
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 1
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 1058,
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 2
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 1058,
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 3
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 1,
+      "byteOffset": 0,
+      "byteLength": 6048,
+      "target": 34963,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 0,
+          "byteLength": 1220,
+          "mode": "TRIANGLES",
+          "byteStride": 2,
+          "count": 3024
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 6048,
+      "byteLength": 8464,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 1220,
+          "byteLength": 6235,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 1058
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 14512,
+      "byteLength": 4232,
+      "target": 34962,
+      "byteStride": 4,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 7456,
+          "byteLength": 3210,
+          "mode": "ATTRIBUTES",
+          "byteStride": 4,
+          "count": 1058
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 18744,
+      "byteLength": 8464,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 10668,
+          "byteLength": 6231,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 1058
+        }
+      }
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "textures": [
+    {
+      "source": 0,
+      "sampler": 0
+    }
+  ],
+  "images": [
+    {
+      "name": "holiday_bits_texture",
+      "mimeType": "image/png",
+      "uri": "holiday_bits_texture.png"
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "basketball.bin",
+      "byteLength": 16900
+    },
+    {
+      "byteLength": 27208,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "fallback": true
+        }
+      }
+    }
+  ],
+  "materials": [
+    {
+      "name": "holiday",
+      "pbrMetallicRoughness": {
+        "roughnessFactor": 0.5,
+        "metallicFactor": 0,
+        "baseColorTexture": {
+          "index": 0
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "basketball",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 1,
+            "TEXCOORD_0": 2,
+            "NORMAL": 3
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "basketball",
+      "scale": [
+        0.36916765570640564,
+        0.36916765570640564,
+        0.36916765570640564
+      ],
+      "mesh": 0
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0,
+  "extensionsUsed": [
+    "EXT_meshopt_compression",
+    "KHR_mesh_quantization"
+  ],
+  "extensionsRequired": [
+    "EXT_meshopt_compression",
+    "KHR_mesh_quantization"
+  ]
+}

@@ -1,0 +1,216 @@
+{
+  "asset": {
+    "generator": "glTF-Transform v4.5.1",
+    "version": "2.0"
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 6858,
+      "normalized": false,
+      "byteOffset": 0,
+      "bufferView": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 3611,
+      "max": [
+        32767,
+        17878,
+        23958
+      ],
+      "min": [
+        -32767,
+        -17878,
+        -23958
+      ],
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 1
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 3611,
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 2
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 3611,
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 3
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 1,
+      "byteOffset": 0,
+      "byteLength": 13716,
+      "target": 34963,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 0,
+          "byteLength": 2349,
+          "mode": "TRIANGLES",
+          "byteStride": 2,
+          "count": 6858
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 13716,
+      "byteLength": 28888,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 2352,
+          "byteLength": 16564,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 3611
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 42604,
+      "byteLength": 14444,
+      "target": 34962,
+      "byteStride": 4,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 18916,
+          "byteLength": 10088,
+          "mode": "ATTRIBUTES",
+          "byteStride": 4,
+          "count": 3611
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 57048,
+      "byteLength": 28888,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 29004,
+          "byteLength": 10751,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 3611
+        }
+      }
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9729,
+      "minFilter": 9987,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "textures": [
+    {
+      "source": 0,
+      "sampler": 0
+    }
+  ],
+  "images": [
+    {
+      "name": "hexagons_medieval",
+      "mimeType": "image/png",
+      "uri": "hexagons_medieval.png"
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "building_market_red.bin",
+      "byteLength": 39756
+    },
+    {
+      "byteLength": 85936,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "fallback": true
+        }
+      }
+    }
+  ],
+  "materials": [
+    {
+      "name": "hexagons_medieval",
+      "pbrMetallicRoughness": {
+        "roughnessFactor": 0.5,
+        "metallicFactor": 0,
+        "baseColorTexture": {
+          "index": 0
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "building_market_red",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 1,
+            "TEXCOORD_0": 2,
+            "NORMAL": 3
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "building_market_red",
+      "translation": [
+        -0.0016903579235076904,
+        0.4851813353598118,
+        -0.05719873309135437
+      ],
+      "scale": [
+        0.8996904194355011,
+        0.8996904194355011,
+        0.8996904194355011
+      ],
+      "mesh": 0
+    }
+  ],
+  "scenes": [
+    {
+      "name": "Scene",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0,
+  "extensionsUsed": [
+    "EXT_meshopt_compression",
+    "KHR_mesh_quantization"
+  ],
+  "extensionsRequired": [
+    "EXT_meshopt_compression",
+    "KHR_mesh_quantization"
+  ]
+}

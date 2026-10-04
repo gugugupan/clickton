@@ -1,7 +1,9 @@
 import "./style.css";
 import { playChime, playPlace, playPop } from "./audio";
 import { decodeCity, encodeCity } from "./core/codec";
-import { DISCARD_EVERY, Game } from "./core/game";
+import { DISCARD_EVERY, Game, INVENTORY_MAX, type QuestDone } from "./core/game";
+import { LANDMARK_EMOJI } from "./core/landmarks";
+import { QUESTS } from "./core/quests";
 import { CHALLENGE_TILES, dayLabel, todayNumber } from "./core/daily";
 import { completedRailLines, completedRoadNetworks } from "./core/networks";
 import { THEMES, moodFor } from "./core/themes";
@@ -58,6 +60,9 @@ world.lakesAround = (x, y) => LAKE_RING.map(([dx, dy]) => !!game.board.get(x + d
 let rot: Rot = 0;
 let hover: { x: number; y: number } | null = null;
 let pending: { x: number; y: number } | null = null;
+let selected: number | null = null;
+let freshQuests = new Set<number>();
+let freshSlot = -1;
 
 async function restore(): Promise<Game> {
   const code = new URLSearchParams(location.hash.slice(1)).get("c");
@@ -180,21 +185,117 @@ function switchLang(l: Lang): void {
   refreshStats();
 }
 
+function activeTile(): number {
+  return selected ?? game.currentTile;
+}
+
+function tileHint(id: number): string {
+  const tile = TILES[id];
+  if (tile.special) return t(`hint_${tile.special}` as Parameters<typeof t>[0]);
+  if (tile.landmark) return t(`bonus_${tile.landmark}` as Parameters<typeof t>[0]);
+  return "";
+}
+
+function refreshShelf(): void {
+  document.body.classList.toggle("no-quests", !game.questsOn);
+  $("shelf").replaceChildren(
+    ...Array.from({ length: INVENTORY_MAX }, (_, i) => {
+      const id = game.inventory[i];
+      const b = document.createElement("button");
+      b.className = "slot";
+      if (id === undefined) {
+        b.disabled = true;
+        return b;
+      }
+      const tile = TILES[id];
+      b.classList.add("filled");
+      b.classList.toggle("active", selected === id);
+      b.classList.toggle("new", i === freshSlot);
+      b.textContent = LANDMARK_EMOJI[tile.landmark!];
+      b.title = `${t(`tile_${tile.key}` as Parameters<typeof t>[0])} · ${tileHint(id)}`;
+      b.addEventListener("click", () => selectLandmark(selected === id ? null : id));
+      return b;
+    }),
+  );
+  freshSlot = -1;
+}
+
+function selectLandmark(id: number | null): void {
+  if (viewing) return;
+  selected = id;
+  rot = 0;
+  playPop();
+  refreshTray();
+  updateGhost();
+}
+
+function refreshQuests(): void {
+  const list = $("quest-list");
+  $("quests-count").textContent = game.questsDone ? `✓ ${game.questsDone}` : "";
+  if (!game.questsOn) {
+    list.replaceChildren();
+    return;
+  }
+  list.replaceChildren(
+    ...game.quests.map((q) => {
+      const li = document.createElement("li");
+      li.className = "quest";
+      li.classList.toggle("fresh", freshQuests.has(q.serial));
+      const landmark = QUESTS[q.kind].landmark;
+      const reward = document.createElement("span");
+      reward.className = "reward";
+      reward.textContent = LANDMARK_EMOJI[landmark];
+      reward.title = t("questReward", t(`tile_lm_${landmark}` as Parameters<typeof t>[0]));
+      const goal = document.createElement("span");
+      goal.className = "goal";
+      goal.textContent = t(`quest_${q.kind}` as Parameters<typeof t>[0], q.target);
+      const count = document.createElement("span");
+      count.className = "count";
+      count.textContent = `${Math.min(q.progress, q.target)}/${q.target}`;
+      const bar = document.createElement("span");
+      bar.className = "bar";
+      const fill = document.createElement("i");
+      fill.style.width = `${Math.min(100, (q.progress / q.target) * 100)}%`;
+      bar.append(fill);
+      li.append(reward, goal, count, bar);
+      li.title = `${reward.title} · ${tileHint(TILES.findIndex((tl) => tl.landmark === landmark))}`;
+      return li;
+    }),
+  );
+  freshQuests = new Set();
+}
+
+function celebrate(done: readonly QuestDone[], x: number, y: number): void {
+  if (!done.length) return;
+  setTimeout(playChime, 350);
+  floatText(x, y, `🎉 ${t("quests")} ✓`, "var(--sage-ink)");
+  const names = done.map((d) => `${LANDMARK_EMOJI[TILES[d.landmark].landmark!]} ${t(`tile_${TILES[d.landmark].key}` as Parameters<typeof t>[0])}`);
+  const stored = done.filter((d) => d.stored);
+  toast(t(stored.length === done.length ? "questDone" : "questDoneNext", names.join("、")), 3600);
+  if (stored.length) freshSlot = game.inventory.lastIndexOf(stored[stored.length - 1].landmark);
+  for (const q of game.quests) if (!previousSerials.has(q.serial)) freshQuests.add(q.serial);
+}
+
+let previousSerials = new Set<number>();
+
 function refreshTray(): void {
-  const tile = TILES[game.currentTile];
+  if (selected !== null && !game.inventory.includes(selected)) selected = null;
+  const id = activeTile();
+  const tile = TILES[id];
   drawTilePreview(preview, tile, rot, world.look);
-  drawTilePreview(nextPreview, TILES[game.nextTile], 0, world.look);
+  drawTilePreview(nextPreview, TILES[selected === null ? game.nextTile : game.currentTile], 0, world.look);
   $("tile-name").textContent = t(`tile_${tile.key}` as Parameters<typeof t>[0]);
-  $("tile-hint").textContent = tile.special ? t(`hint_${tile.special}` as Parameters<typeof t>[0]) : "";
-  const canDiscard = game.discardsAvailable > 0;
+  $("tile-hint").textContent = tileHint(id);
+  refreshShelf();
+  const canDiscard = game.discardsAvailable > 0 && selected === null;
   $("discard").style.display = canDiscard ? "" : "none";
   const progress = $("discard-progress");
-  progress.style.display = canDiscard || game.version < 5 ? "none" : "";
+  progress.style.display = canDiscard || selected !== null || game.version < 5 ? "none" : "";
   progress.textContent = t("discardProgress", DISCARD_EVERY - game.discardProgress);
 }
 
 function discardTile(): void {
-  if (viewing || game.discardsAvailable <= 0) return;
+  if (viewing || game.discardsAvailable <= 0 || selected !== null) return;
   pending = null;
   game.discard();
   rot = 0;
@@ -221,12 +322,14 @@ function refreshStats(): void {
   document.body.classList.toggle("daily", game.challenge && !viewing);
   $("score").textContent = String(game.score);
   $("tiles").textContent = String(game.board.size);
+  refreshQuests();
 }
 
 function describe(s: PlacementScore): string {
   const notes: string[] = [];
   if (s.perfect) notes.push(`${t("perfect")} +${POINTS.perfect}`);
   if (s.railPoints > 0) notes.push(t(s.loopsClosed ? "loopDone" : "lineDone", s.railPoints));
+  if (s.landmarkPoints > 0) notes.push(`${LANDMARK_EMOJI[TILES[activeTile()].landmark!]} +${s.landmarkPoints}`);
   return notes.join(" · ");
 }
 
@@ -241,13 +344,13 @@ function shownCell(): Cell | null {
 function updateGhost(): void {
   $("tray").classList.toggle("pending", !!pending);
   const c = shownCell();
-  const s = c && game.preview(c.x, c.y, rot);
+  const s = c && game.preview(c.x, c.y, rot, activeTile());
   if (!c || !s) {
     world.hideGhost();
     bubble.style.display = "none";
     return;
   }
-  world.showGhost(TILES[game.currentTile], rot, c.x, c.y, !!pending);
+  world.showGhost(TILES[activeTile()], rot, c.x, c.y, !!pending);
   const note = describe(s);
   bubble.className = `bubble ${s.total > 0 ? "good" : s.total < 0 ? "bad" : "zero"}`;
   bubble.innerHTML = `${s.total > 0 ? "+" : ""}${s.total}${note ? `<small>${note}</small>` : ""}`;
@@ -307,7 +410,9 @@ function place(x: number, y: number): void {
     return;
   }
   if (!game.board.canPlace(x, y)) return;
-  const { placed, score } = game.place(x, y, rot);
+  previousSerials = new Set(game.quests.map((q) => q.serial));
+  const { placed, score } = selected === null ? game.place(x, y, rot) : game.placeLandmark(selected, x, y, rot);
+  selected = null;
   world.addTile(placed, true);
   world.setFrontier(game.board.frontier());
   fitTown();
@@ -321,6 +426,7 @@ function place(x: number, y: number): void {
   for (const rd of opened.roads) floatText(rd.x, rd.y, `🚗 ${t("roadOpened")}`, "var(--text)");
   for (const sp of opened.specials) floatText(sp.x, sp.y, t(`open_${sp.kind}` as Parameters<typeof t>[0]), "var(--text)");
   if (opened.specials.length && !opened.trains.length) setTimeout(playChime, 250);
+  celebrate(game.lastDone, x, y);
   rot = 0;
   saveLocal(game);
   refreshStats();
@@ -333,6 +439,7 @@ function place(x: number, y: number): void {
 function switchGame(next: Game): void {
   saveLocal(game);
   game = next;
+  selected = null;
   rot = 0;
   hover = null;
   pending = null;
@@ -517,6 +624,7 @@ function newTown(theme: string | null): void {
   closeResult();
   if (game.challenge) saveLocal(game);
   game = new Game(seedForTheme(theme));
+  selected = null;
   rot = 0;
   hover = null;
   pending = null;
@@ -733,11 +841,24 @@ window.addEventListener("keydown", (e) => {
     e.preventDefault();
     confirmPending();
   }
-  if (e.key === "Escape") cancelPending();
+  if (e.key === "Escape") {
+    if (pending) cancelPending();
+    else if (selected !== null) selectLandmark(null);
+  }
   if (e.key === "x" || e.key === "X") discardTile();
 });
 
 $("discard").addEventListener("click", discardTile);
+const QUESTS_KEY = "clickton.quests";
+try {
+  $("quests").classList.toggle("collapsed", localStorage.getItem(QUESTS_KEY) === "closed");
+} catch {}
+$("quests-head").addEventListener("click", () => {
+  const closed = $("quests").classList.toggle("collapsed");
+  try {
+    localStorage.setItem(QUESTS_KEY, closed ? "closed" : "open");
+  } catch {}
+});
 $("confirm").addEventListener("click", confirmPending);
 $("cancel").addEventListener("click", cancelPending);
 $("menu-toggle").addEventListener("click", () => setMenu(!document.body.classList.contains("menu-open")));

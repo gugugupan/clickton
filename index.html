@@ -50,6 +50,10 @@
           <div><span class="label" data-i18n="tiles"></span><span id="tiles" class="value small">0</span></div>
         </div>
       </header>
+      <section id="quests" class="card quests">
+        <button id="quests-head" class="quests-head"><span data-i18n="quests"></span><span id="quests-count" class="quests-count"></span></button>
+        <ol id="quest-list" class="quest-list"></ol>
+      </section>
       <button id="music" class="card menu-toggle music-toggle">♪</button>
       <button id="menu-toggle" class="card menu-toggle" data-i18n-label="menu">☰</button>
       <nav id="menu" class="card menu">
@@ -65,6 +69,7 @@
       </nav>
       <section id="tray" class="card tray">
         <div class="tray-row">
+          <div id="shelf" class="shelf" data-i18n-label="landmarkHint"></div>
           <div id="tray-tile" class="current">
             <canvas id="preview"></canvas>
             <div>

@@ -1,4 +1,5 @@
 import { Board } from "./board";
+import { landmarkBonus } from "./landmarks";
 import { completedRailLines, type RailLine } from "./networks";
 import { DIRS, DX, DY, TILES, edgeOf, opposite, type Edge, type Rot } from "./tiles";
 
@@ -18,6 +19,7 @@ export interface PlacementScore {
   edgePoints: number;
   perfect: boolean;
   railPoints: number;
+  landmarkPoints: number;
   loopsClosed: number;
   linesClosed: number;
   total: number;
@@ -58,14 +60,20 @@ export function scorePlacement(board: Board, tileId: number, rot: Rot, x: number
   const perfect = neighbours === 4 && mismatches === 0;
   const closed = closedLines(board, tileId, rot, x, y);
   const railPoints = closed.reduce((sum, l) => sum + railBonus(l), 0);
+  let landmarkPoints = 0;
+  if (tile.landmark) {
+    const after = board.clone();
+    landmarkPoints = landmarkBonus(after, after.place(tileId, rot, x, y));
+  }
   return {
     matches,
     mismatches,
     edgePoints,
     perfect,
     railPoints,
+    landmarkPoints,
     loopsClosed: closed.filter((l) => l.loop).length,
     linesClosed: closed.filter((l) => !l.loop).length,
-    total: edgePoints + (perfect ? POINTS.perfect : 0) + railPoints,
+    total: edgePoints + (perfect ? POINTS.perfect : 0) + railPoints + landmarkPoints,
   };
 }

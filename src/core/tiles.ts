@@ -3,6 +3,20 @@ import { SPECIAL_BOOST, themedWeights } from "./themes";
 export type Edge = "grass" | "road" | "rail" | "water" | "city";
 export type Dir = 0 | 1 | 2 | 3;
 export type Special = "zoo" | "farm" | "police" | "beach";
+export type Landmark =
+  | "market"
+  | "xmas"
+  | "garden"
+  | "church"
+  | "lighthouse"
+  | "watermill"
+  | "stage"
+  | "windmill"
+  | "castle"
+  | "sports"
+  | "lumber"
+  | "gingerbread"
+  | "tavern";
 export type Rot = 0 | 1 | 2 | 3;
 
 export const DIRS: readonly Dir[] = [0, 1, 2, 3];
@@ -30,6 +44,7 @@ export interface TileDef {
   pool?: boolean;
   deadEnd?: boolean;
   special?: Special;
+  landmark?: Landmark;
 }
 
 type TileSpec = Omit<TileDef, "id">;
@@ -97,13 +112,27 @@ const SPECS: TileSpec[] = [
     weight: 0,
     station: true,
   },
+  { key: "lm_market", edges: [G, G, R, G], groups: [{ type: R, dirs: [2] }], weight: 0, landmark: "market" },
+  { key: "lm_xmas", edges: [G, G, G, G], groups: [], weight: 0, landmark: "xmas" },
+  { key: "lm_garden", edges: [G, G, G, G], groups: [], weight: 0, landmark: "garden" },
+  { key: "lm_church", edges: [C, C, C, C], groups: [{ type: C, dirs: [0, 1, 2, 3] }], weight: 0, landmark: "church" },
+  { key: "lm_lighthouse", edges: [W, G, G, G], groups: [{ type: W, dirs: [0] }], weight: 0, landmark: "lighthouse" },
+  { key: "lm_watermill", edges: [W, G, W, G], groups: [{ type: W, dirs: [0, 2] }], weight: 0, landmark: "watermill" },
+  { key: "lm_stage", edges: [G, G, R, G], groups: [{ type: R, dirs: [2] }], weight: 0, landmark: "stage" },
+  { key: "lm_windmill", edges: [G, G, G, G], groups: [], weight: 0, landmark: "windmill" },
+  { key: "lm_castle", edges: [C, C, C, C], groups: [{ type: C, dirs: [0, 1, 2, 3] }], weight: 0, landmark: "castle" },
+  { key: "lm_sports", edges: [G, G, R, G], groups: [{ type: R, dirs: [2] }], weight: 0, landmark: "sports" },
+  { key: "lm_lumber", edges: [G, G, G, G], groups: [], weight: 0, landmark: "lumber" },
+  { key: "lm_gingerbread", edges: [G, G, G, G], groups: [], weight: 0, landmark: "gingerbread" },
+  { key: "lm_tavern", edges: [G, G, R, G], groups: [{ type: R, dirs: [2] }], weight: 0, landmark: "tavern" },
 ];
 
 export const TILES: readonly TileDef[] = SPECS.map((s, id) => ({ ...s, id }));
 
-export const RULES_VERSION = 7;
+export const RULES_VERSION = 8;
 
 const LEGACY_WEIGHTS: Record<number, Record<string, number>> = {
+  7: { grass: 6, road_straight: 10, road_curve: 8, road_t: 4, road_cross: 1, rail_straight: 9, rail_curve: 10, station: 1, station_road: 1, station_through: 2, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1, pool: 2, road_end: 4, zoo: 0.6, farm: 0.8, police: 0.6, beach: 0.6, station_plaza: 0 },
   6: { grass: 6, road_straight: 10, road_curve: 8, road_t: 4, road_cross: 1, rail_straight: 9, rail_curve: 10, station: 1, station_road: 1, station_through: 2, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1, pool: 2, road_end: 4, zoo: 0.6, farm: 0.8, police: 0.6, beach: 0.6 },
   5: { grass: 6, road_straight: 10, road_curve: 8, road_t: 4, road_cross: 1, rail_straight: 9, rail_curve: 10, station: 1, station_road: 1, station_through: 2, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1, pool: 2, road_end: 4 },
   4: { grass: 6, road_straight: 10, road_curve: 8, road_t: 6, road_cross: 4, rail_straight: 9, rail_curve: 10, station: 1, station_road: 1, station_through: 2, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1, pool: 2 },

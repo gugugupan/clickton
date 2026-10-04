@@ -116,7 +116,7 @@ export function hasRoad(board: Board, x: number, y: number): boolean {
 }
 
 export function isHome(p: Placed): boolean {
-  return !p.tile.special && (!!p.tile.house || p.tile.edges.includes("city"));
+  return !p.tile.special && !p.tile.landmark && (!!p.tile.house || p.tile.edges.includes("city"));
 }
 
 export function isMeadow(p: Placed): boolean {
@@ -125,6 +125,7 @@ export function isMeadow(p: Placed): boolean {
     !p.tile.house &&
     !p.tile.station &&
     !p.tile.special &&
+    !p.tile.landmark &&
     p.tile.groups.every((g) => g.type === "water")
   );
 }
@@ -178,4 +179,98 @@ export function completedRoadNetworks(board: Board): RoadNetwork[] {
     networks.push({ key: `road:${cells[0].x},${cells[0].y}:${cells.length}`, cells });
   }
   return networks;
+}
+
+export interface Region {
+  key: string;
+  closed: boolean;
+  cells: { x: number; y: number }[];
+}
+
+export function edgeRegions(board: Board, type: "city" | "road" | "water"): Region[] {
+  const seen = new Set<string>();
+  const regions: Region[] = [];
+  const placed = [...board.all()].sort((a, b) => a.y - b.y || a.x - b.x);
+  for (const p of placed) {
+    if (!p.tile.groups.some((g) => g.type === type) || seen.has(`${p.x},${p.y}`)) continue;
+    const cells: { x: number; y: number }[] = [];
+    const stack = [{ x: p.x, y: p.y }];
+    seen.add(`${p.x},${p.y}`);
+    let closed = true;
+    while (stack.length) {
+      const c = stack.pop()!;
+      cells.push(c);
+      const q = board.get(c.x, c.y)!;
+      for (const g of groupsOf(q.tile, q.rot).filter((g) => g.type === type)) {
+        for (const d of g.dirs) {
+          const nx = c.x + DX[d], ny = c.y + DY[d];
+          if (board.edgeAt(nx, ny, opposite(d)) !== type) {
+            closed = false;
+            continue;
+          }
+          const k = `${nx},${ny}`;
+          if (seen.has(k)) continue;
+          seen.add(k);
+          stack.push({ x: nx, y: ny });
+        }
+      }
+    }
+    cells.sort((a, b) => a.y - b.y || a.x - b.x);
+    regions.push({ key: `${type}:${cells[0].x},${cells[0].y}:${cells.length}`, closed, cells });
+  }
+  return regions;
+}
+
+export function regionAt(regions: readonly Region[], x: number, y: number): Region | undefined {
+  return regions.find((r) => r.cells.some((c) => c.x === x && c.y === y));
+}
+
+export function meadowRegions(board: Board): { x: number; y: number }[][] {
+  const seen = new Set<string>();
+  const out: { x: number; y: number }[][] = [];
+  for (const p of board.all()) {
+    if (!isMeadow(p) || seen.has(`${p.x},${p.y}`)) continue;
+    const cells: { x: number; y: number }[] = [];
+    const stack = [{ x: p.x, y: p.y }];
+    seen.add(`${p.x},${p.y}`);
+    while (stack.length) {
+      const c = stack.pop()!;
+      cells.push(c);
+      for (const d of grassExits(board, c.x, c.y)) {
+        const k = `${c.x + DX[d]},${c.y + DY[d]}`;
+        if (seen.has(k)) continue;
+        seen.add(k);
+        stack.push({ x: c.x + DX[d], y: c.y + DY[d] });
+      }
+    }
+    out.push(cells);
+  }
+  return out;
+}
+
+export function isUrban(p: Placed | undefined): boolean {
+  return !!p && (p.tile.edges.includes("city") || !!p.tile.house);
+}
+
+export function isPark(board: Board, p: Placed): boolean {
+  if (!isMeadow(p) || p.tile.edges.some((e) => e !== "grass")) return false;
+  const around = DIRS.map((d) => board.get(p.x + DX[d], p.y + DY[d]));
+  return around.every((n) => n) && around.filter(isUrban).length >= 3;
+}
+
+export function isLinkedBridge(board: Board, p: Placed): boolean {
+  if (!p.tile.key.endsWith("_bridge")) return false;
+  return groupsOf(p.tile, p.rot)
+    .filter((g) => g.type !== "water")
+    .every((g) => g.dirs.every((d) => board.edgeAt(p.x + DX[d], p.y + DY[d], opposite(d)) === g.type));
+}
+
+export function riverReach(board: Board): number {
+  let best = 0;
+  for (const r of edgeRegions(board, "water")) {
+    const tiles = r.cells.map((c) => board.get(c.x, c.y)!);
+    if (!tiles.some((t) => t.tile.key === "lake" || t.tile.landmark === "lighthouse")) continue;
+    best = Math.max(best, tiles.filter((t) => t.tile.groups.some((g) => g.type === "water" && g.dirs.length === 2)).length);
+  }
+  return best;
 }

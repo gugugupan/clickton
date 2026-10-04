@@ -4,6 +4,8 @@ import { scorePlacement, type PlacementScore } from "./scoring";
 import { balancedWeights } from "./balance";
 import { CHALLENGE_TILES, seedForDay } from "./daily";
 import { moodFor, type WorldMood } from "./themes";
+import { landmarkTile } from "./landmarks";
+import { QUESTS, QUEST_SLOTS, advanceQuest, issueQuest, questBias, type Quest, type QuestKind } from "./quests";
 import { RULES_VERSION, TILES, starterFor, weightsFor, type Rot } from "./tiles";
 
 export interface Move {
@@ -12,6 +14,13 @@ export interface Move {
   rot: Rot;
   skip?: boolean;
   tile?: number;
+  landmark?: number;
+}
+
+export interface QuestDone {
+  kind: QuestKind;
+  landmark: number;
+  stored: boolean;
 }
 
 export const EXPLICIT_FLAG = 0x80;
@@ -20,7 +29,10 @@ export const VERSION_MASK = 0x3f;
 
 export const DISCARD_EVERY = 10;
 export const DISCARD_MAX = 1;
+export const QUEST_DISCARD_MAX = 3;
+export const INVENTORY_MAX = 3;
 const QUEUE_VERSION = 5;
+const QUEST_VERSION = 8;
 
 const weightCache = new Map<string, { weights: number[]; total: number }>();
 
@@ -36,10 +48,18 @@ function weightTable(version: number, seed: number): { weights: number[]; total:
   return table;
 }
 
-export function tileForStep(seed: number, step: number, version = RULES_VERSION, board?: Board): number {
+export function tileForStep(
+  seed: number,
+  step: number,
+  version = RULES_VERSION,
+  board?: Board,
+  quests: readonly Quest[] = [],
+  placements = 0,
+): number {
   let { weights, total } = weightTable(version, seed);
   if (board && version >= QUEUE_VERSION) {
     weights = balancedWeights(TILES, weights, board);
+    if (quests.length) weights = questBias(TILES, weights, quests, placements);
     total = weights.reduce((a, b) => a + b, 0);
   }
   let r = mulberry32(hash(seed, step))() * total;
@@ -56,8 +76,15 @@ export class Game {
   score = 0;
   placements = 0;
   discards = 0;
+  readonly quests: Quest[] = [];
+  readonly inventory: number[] = [];
+  questsDone = 0;
+  lastDone: QuestDone[] = [];
   private readonly queue: number[] = [];
+  private cursor = 0;
   private charges = 0;
+  private questSerial = 0;
+  private readonly tiers: Partial<Record<QuestKind, number>> = {};
 
   readonly explicit: boolean;
   readonly challenge: boolean;
@@ -74,7 +101,20 @@ export class Game {
     if (this.explicit) return;
     const starter = starterFor(this.version);
     this.board.place(starter.tile, starter.rot, 0, 0);
-    if (this.queued) this.queue.push(this.draw(0), this.draw(1));
+    if (this.questsOn) while (this.quests.length < QUEST_SLOTS) this.quests.push(this.issue());
+    if (this.queued) this.advance();
+  }
+
+  get questsOn(): boolean {
+    return this.version >= QUEST_VERSION && !this.challenge && !this.explicit;
+  }
+
+  get discardMax(): number {
+    return this.questsOn ? QUEST_DISCARD_MAX : DISCARD_MAX;
+  }
+
+  private issue(): Quest {
+    return issueQuest(this.seed, this.questSerial++, this.board, this.quests, this.tiers, this.placements);
   }
 
   get linkVersion(): number {
@@ -108,6 +148,7 @@ export class Game {
       this.discard();
       return null;
     }
+    if (m.landmark !== undefined) return this.placeLandmark(m.landmark, m.x, m.y, m.rot).placed;
     return m.tile !== undefined ? this.placeTile(m.tile, m.x, m.y, m.rot).placed : this.place(m.x, m.y, m.rot).placed;
   }
 
@@ -127,7 +168,7 @@ export class Game {
   }
 
   private draw(step: number): number {
-    return tileForStep(this.seed, step, this.version, this.board);
+    return tileForStep(this.seed, step, this.version, this.board, this.quests, this.placements);
   }
 
   get step(): number {
@@ -140,12 +181,12 @@ export class Game {
 
   get currentTile(): number {
     if (this.explicit) return 0;
-    return this.queued ? this.queue[this.step] : tileForStep(this.seed, this.step, this.version);
+    return this.queued ? this.queue[this.cursor] : tileForStep(this.seed, this.cursor, this.version);
   }
 
   get nextTile(): number {
     if (this.explicit) return 0;
-    return this.queued ? this.queue[this.step + 1] : tileForStep(this.seed, this.step + 1, this.version);
+    return this.queued ? this.queue[this.cursor + 1] : tileForStep(this.seed, this.cursor + 1, this.version);
   }
 
   get discardsAvailable(): number {
@@ -156,9 +197,9 @@ export class Game {
     return this.placements % DISCARD_EVERY;
   }
 
-  preview(x: number, y: number, rot: Rot): PlacementScore | null {
+  preview(x: number, y: number, rot: Rot, tileId = this.currentTile): PlacementScore | null {
     if (!this.board.canPlace(x, y)) return null;
-    return scorePlacement(this.board, this.currentTile, rot, x, y);
+    return scorePlacement(this.board, tileId, rot, x, y);
   }
 
   place(x: number, y: number, rot: Rot): { placed: Placed; score: PlacementScore } {
@@ -168,11 +209,45 @@ export class Game {
     const score = scorePlacement(this.board, tileId, rot, x, y);
     const placed = this.board.place(tileId, rot, x, y);
     this.moves.push({ x, y, rot });
-    this.score += score.total;
-    this.placements++;
-    if (this.queued && this.placements % DISCARD_EVERY === 0) this.charges = Math.min(DISCARD_MAX, this.charges + 1);
+    this.settle(placed, score);
+    this.cursor++;
     this.advance();
     return { placed, score };
+  }
+
+  placeLandmark(tileId: number, x: number, y: number, rot: Rot): { placed: Placed; score: PlacementScore } {
+    const slot = this.inventory.indexOf(tileId);
+    if (slot < 0) throw new Error(`landmark ${tileId} is not in the inventory`);
+    if (!this.board.canPlace(x, y)) throw new Error(`cannot place at ${x},${y}`);
+    const score = scorePlacement(this.board, tileId, rot, x, y);
+    const placed = this.board.place(tileId, rot, x, y);
+    this.inventory.splice(slot, 1);
+    this.moves.push({ x, y, rot, landmark: tileId });
+    this.settle(placed, score);
+    this.advance();
+    return { placed, score };
+  }
+
+  private settle(placed: Placed, score: PlacementScore): void {
+    this.score += score.total;
+    this.placements++;
+    if (this.queued && this.placements % DISCARD_EVERY === 0) this.charges = Math.min(this.discardMax, this.charges + 1);
+    this.lastDone = [];
+    if (!this.questsOn) return;
+    let forced = 0;
+    this.quests.forEach((q, i) => {
+      advanceQuest(q, this.board, { tile: placed.tile, score });
+      if (q.progress < q.target) return;
+      this.tiers[q.kind] = (this.tiers[q.kind] ?? 0) + 1;
+      this.questsDone++;
+      this.charges = Math.min(this.discardMax, this.charges + 1);
+      const landmark = landmarkTile(QUESTS[q.kind].landmark);
+      const stored = this.inventory.length < INVENTORY_MAX;
+      if (stored) this.inventory.push(landmark);
+      else this.queue.splice(this.cursor + 1 + forced++, 0, landmark);
+      this.lastDone.push({ kind: q.kind, landmark, stored });
+      this.quests[i] = this.issue();
+    });
   }
 
   discard(): void {
@@ -180,10 +255,12 @@ export class Game {
     this.moves.push({ x: 0, y: 0, rot: 0, skip: true });
     this.discards++;
     this.charges--;
+    this.cursor++;
     this.advance();
   }
 
   private advance(): void {
-    if (this.queued) this.queue.push(this.draw(this.step + 1));
+    if (!this.queued) return;
+    while (this.queue.length < this.cursor + 2) this.queue.push(this.draw(this.queue.length));
   }
 }

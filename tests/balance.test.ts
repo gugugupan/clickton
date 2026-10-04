@@ -47,7 +47,7 @@ describe("next tile and discards", () => {
   });
 
   it("one discard per ten placements, stored at most once", () => {
-    const g = new Game(3);
+    const g = new Game(3, 7);
     expect(g.discardsAvailable).toBe(0);
     expect(() => g.discard()).toThrow();
     playN(g, DISCARD_EVERY - 1);

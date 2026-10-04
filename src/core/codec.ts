@@ -1,4 +1,6 @@
-import { CHALLENGE_FLAG, EXPLICIT_FLAG, VERSION_MASK, type Move } from "./game";
+import { CHALLENGE_FLAG, EXPLICIT_FLAG, INVENTORY_MAX, QUEST_DISCARD_MAX, VERSION_MASK, type Move } from "./game";
+import { LANDMARKS, landmarkTile } from "./landmarks";
+import { QUEST_RULES } from "./quests";
 import { BALANCE } from "./balance";
 import { moodFor, SPECIAL_BOOST, THEMES } from "./themes";
 import { RULES_VERSION, TILES, baseWeights, isKnownVersion, starterFor, type Rot } from "./tiles";
@@ -13,6 +15,7 @@ export const TILESET_FINGERPRINTS: Record<number, string> = {
   5: "8358a2ff",
   6: "b916cde5",
   7: "d2368765",
+  8: "b7268fed",
 };
 
 export function tilesetFingerprint(version = CODEC_VERSION): string {
@@ -24,8 +27,12 @@ export function tilesetFingerprint(version = CODEC_VERSION): string {
   const balanced = `${themes}#${JSON.stringify(BALANCE)}`;
   const special = `${balanced}#${JSON.stringify(SPECIAL_BOOST)}`;
   const starter = starterFor(version);
+  const landmarks = LANDMARKS.map((l) => `${l}:${TILES[landmarkTile(l)].edges.join(",")}`).join("|");
+  const quests = `${JSON.stringify(QUEST_RULES)}#${landmarks}#${INVENTORY_MAX}:${QUEST_DISCARD_MAX}`;
   const text =
-    version >= 7
+    version >= 8
+      ? `${special}#${TILES[starter.tile].key}:${TILES[starter.tile].edges.join(",")}:${starter.rot}#${quests}`
+      : version >= 7
       ? `${special}#${TILES[starter.tile].key}:${TILES[starter.tile].edges.join(",")}:${starter.rot}`
       : version >= 6 ? special : version >= 5 ? balanced : version >= 3 ? themes : tiles;
   let h = 0x811c9dc5;
@@ -85,10 +92,21 @@ export function packCity(city: SavedCity): Uint8Array {
   let px = 0, py = 0;
   const explicit = (city.version & EXPLICIT_FLAG) !== 0;
   const flags = (city.version & VERSION_MASK) >= 5;
+  const landmarks = (city.version & VERSION_MASK) >= 8;
   for (const m of city.moves) {
     if (m.skip && !flags) throw new Error("discards need rules v5");
+    if (m.landmark !== undefined && !landmarks) throw new Error("landmarks need rules v8");
     if (m.skip) {
       writeVarint(out, 1 << 2);
+      continue;
+    }
+    if (m.landmark !== undefined) {
+      const index = LANDMARKS.indexOf(TILES[m.landmark].landmark!);
+      writeVarint(out, ((index + 1) << 3) | 4 | m.rot);
+      writeVarint(out, zigzag(m.x - px));
+      writeVarint(out, zigzag(m.y - py));
+      px = m.x;
+      py = m.y;
       continue;
     }
     writeVarint(out, flags ? (zigzag(m.x - px) << 3) | m.rot : (zigzag(m.x - px) << 2) | m.rot);
@@ -111,8 +129,19 @@ export function unpackCity(bytes: Uint8Array): SavedCity {
   const moves: Move[] = [];
   let px = 0, py = 0;
   const flags = (version & VERSION_MASK) >= 5;
+  const landmarks = (version & VERSION_MASK) >= 8;
   for (let i = 0; i < count; i++) {
     const a = r.varint();
+    if (landmarks && a & 4 && a >>> 3) {
+      const l = LANDMARKS[(a >>> 3) - 1];
+      if (!l) throw new Error(`unknown landmark ${(a >>> 3) - 1}`);
+      const x = px + unzigzag(r.varint());
+      const y = py + unzigzag(r.varint());
+      moves.push({ x, y, rot: (a & 3) as Rot, landmark: landmarkTile(l) });
+      px = x;
+      py = y;
+      continue;
+    }
     if (flags && a & 4) {
       moves.push({ x: 0, y: 0, rot: 0, skip: true });
       continue;
