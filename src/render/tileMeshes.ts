@@ -64,12 +64,13 @@ function pathsFor(g: Group): Path[] {
 }
 
 function strip(b: PartBuilder, path: Path, width: number, h: number, y: number, hex: number, offset = 0): void {
-  const n = Math.max(1, Math.round(path.length / 0.08));
-  for (let i = 0; i < n; i++) {
-    const t = (i + 0.5) / n;
-    const p = path.at(t, offset);
-    b.box(width, h, (path.length / n) * 1.08, p.x, y, p.z, hex, path.angle(t));
+  const n = Math.max(1, Math.ceil(path.length / 0.04));
+  const left: Pt[] = [], right: Pt[] = [];
+  for (let i = 0; i <= n; i++) {
+    left.push(path.at(i / n, offset - width / 2));
+    right.push(path.at(i / n, offset + width / 2));
   }
+  b.ribbon(left, right, y, h, hex);
 }
 
 function drawRoad(b: PartBuilder, paths: Path[], hub: boolean, y: number): void {
@@ -99,12 +100,15 @@ function drawRail(b: PartBuilder, paths: Path[], y: number): void {
   }
 }
 
-function drawWater(b: PartBuilder, paths: Path[], hub: boolean, look: Look): void {
+function drawWater(b: PartBuilder, w: PartBuilder, paths: Path[], hub: boolean, look: Look): void {
   for (const p of paths) {
-    strip(b, p, 0.38, 0.014, PLATE_TOP, look.water);
-    strip(b, p, 0.06, 0.004, PLATE_TOP + 0.014, look.waterLight, 0.07);
+    strip(b, p, 0.46, 0.008, PLATE_TOP, PALETTE.bank);
+    strip(w, p, 0.38, 0.014, PLATE_TOP, look.water);
   }
-  if (hub) b.cylinder(0.21, 0.016, 0, PLATE_TOP, 0, look.water, 20);
+  if (hub) {
+    b.cylinder(0.25, 0.008, 0, PLATE_TOP, 0, PALETTE.bank, 28);
+    w.cylinder(0.21, 0.016, 0, PLATE_TOP, 0, look.water, 28);
+  }
 }
 
 function drawBridgeRails(b: PartBuilder, dirs: Dir[], y: number): void {
@@ -334,6 +338,7 @@ function drawLandmark(b: PartBuilder, kind: Landmark, rng: Rng, prop: PropFn, lo
 
 export interface TileBuild {
   base: BufferGeometry;
+  water: BufferGeometry | null;
   props: Prop[];
   lights: { x: number; y: number; z: number }[];
 }
@@ -347,6 +352,7 @@ export function buildTile(
   lakes: readonly boolean[] = [],
 ): TileBuild {
   const b = new PartBuilder();
+  const w = new PartBuilder();
   const props: Prop[] = [];
   const prop = (
     model: ModelKey,
@@ -386,7 +392,7 @@ export function buildTile(
 
   for (const g of tile.groups.filter((g) => g.type === "water")) {
     const paths = pathsFor(g);
-    drawWater(b, paths, g.dirs.length === 1, look);
+    drawWater(b, w, paths, g.dirs.length === 1, look);
     if (hasBridge) continue;
     for (const p of paths) {
       if (rng() > look.lilyChance) continue;
@@ -438,22 +444,21 @@ export function buildTile(
     const orth = (c: number) => lakes[(c + rot) % 4] ?? false;
     const diag = (c: number) => lakes[4 + ((c + rot) % 4)] ?? false;
     b.cylinder(0.27, 0.02, 0, PLATE_TOP, 0, PALETTE.platform, 24);
-    b.cylinder(0.23, 0.026, 0, PLATE_TOP, 0, look.water, 24);
+    w.cylinder(0.23, 0.026, 0, PLATE_TOP, 0, look.water, 28);
     for (const c of DIRS) {
       if (!orth(c)) continue;
       const along = c % 2 === 0;
       const cx = DX[c] * 0.25, cz = DY[c] * 0.25;
       b.box(along ? 0.54 : 0.5, 0.02, along ? 0.5 : 0.54, cx, PLATE_TOP, cz, PALETTE.platform);
-      b.box(along ? 0.46 : 0.5, 0.026, along ? 0.5 : 0.46, cx, PLATE_TOP, cz, look.water);
+      w.box(along ? 0.46 : 0.5, 0.026, along ? 0.5 : 0.46, cx, PLATE_TOP, cz, look.water);
       occupy(DX[c], DY[c]);
       const next = ((c + 1) % 4) as Dir;
       if (orth(next) && diag(c)) {
         const sx = DX[c] + DX[next], sz = DY[c] + DY[next];
-        b.box(0.5, 0.026, 0.5, sx * 0.25, PLATE_TOP, sz * 0.25, look.water);
+        w.box(0.5, 0.026, 0.5, sx * 0.25, PLATE_TOP, sz * 0.25, look.water);
         occupy(sx, sz);
       }
     }
-    b.cylinder(0.08, 0.004, 0.06, PLATE_TOP + 0.026, -0.05, look.waterLight, 12);
     for (let i = 0; i < 2; i++) {
       const a = rng() * Math.PI * 2, r = 0.08 + rng() * 0.1;
       prop(pick(rng, LILIES), Math.cos(a) * r, Math.sin(a) * r, { fit: 0.07, lift: 0.026, rotY: rng() * Math.PI * 2 });
@@ -552,6 +557,7 @@ export function buildTile(
   const angle = (-rot * Math.PI) / 2;
   const base = b.build();
   base.rotateY(angle);
+  const water = w.empty ? null : w.build().rotateY(angle);
   const cos = Math.cos(angle), sin = Math.sin(angle);
   for (const p of props) {
     const x = p.x, z = p.z;
@@ -562,5 +568,5 @@ export function buildTile(
   const lights = props
     .filter((p) => p.model === "streetlight" || p.model === "lantern")
     .map((p) => ({ x: p.x, y: (p.y ?? PLATE_TOP) + (p.height ?? 0.22) * (p.model === "lantern" ? 0.6 : 0.92), z: p.z }));
-  return { base, props, lights };
+  return { base, water, props, lights };
 }

@@ -63,6 +63,36 @@ interface Drop {
 const CHUNK = 8;
 const GLOW_SIZE = 0.3;
 const BASE_PART = "@base";
+const WATER_PART = "@water";
+
+function waterMaterial(time: { value: number }, opacity = 1): MeshStandardMaterial {
+  const m = new MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0, transparent: opacity < 1, opacity, depthWrite: opacity >= 1 });
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.uTime = time;
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vWaterPos;\nvarying float vWaterUp;")
+      .replace(
+        "#include <worldpos_vertex>",
+        "#include <worldpos_vertex>\nvWaterPos = (modelMatrix * vec4(transformed, 1.0)).xyz;\nvWaterUp = normal.y;",
+      );
+    shader.fragmentShader = shader.fragmentShader
+      .replace("#include <common>", "#include <common>\nuniform float uTime;\nvarying vec3 vWaterPos;\nvarying float vWaterUp;")
+      .replace(
+        "#include <color_fragment>",
+        `#include <color_fragment>
+        vec2 wp = vWaterPos.xz;
+        float a = sin(wp.x * 9.0 + sin(wp.y * 3.0) * 1.5 + uTime * 1.2) * sin(wp.y * 8.0 - uTime * 0.9);
+        float b = sin((wp.x - wp.y) * 6.0 + uTime * 0.7) * 0.5 + sin((wp.x + wp.y) * 12.0 - uTime * 1.5) * 0.5;
+        float wave = a * 0.55 + b * 0.45;
+        float up = step(0.5, vWaterUp);
+        float glint = smoothstep(0.35, 0.7, wave) * up;
+        float trough = smoothstep(-0.2, -0.75, wave) * up;
+        diffuseColor.rgb = mix(diffuseColor.rgb * (1.0 - trough * 0.12), vec3(1.0), glint * 0.65);`,
+      );
+  };
+  m.customProgramCacheKey = () => `water-${opacity}`;
+  return m;
+}
 
 function overlay(material: MeshBasicMaterial): MeshBasicMaterial {
   material.transparent = true;
@@ -116,6 +146,9 @@ export class World {
     transparent: true,
     opacity: 0.92,
   });
+  private readonly waterTime = { value: 0 };
+  private readonly waterSolid = waterMaterial(this.waterTime);
+  private readonly waterGhost = waterMaterial(this.waterTime, 0.6);
   private ghostPending = false;
   private viewHeight = MIN_VIEW;
   private targetViewHeight = MIN_VIEW;
@@ -255,10 +288,11 @@ export class World {
   }
 
   private makeMesh(tile: TileDef, rot: Rot, x: number, y: number, mode: MaterialMode): Mesh {
-    const { base, props } = this.build(tile, rot, x, y);
+    const { base, water, props } = this.build(tile, rot, x, y);
     const material = mode === "solid" ? this.tileMaterial : mode === "ghost" ? this.ghostMaterial : this.pendingMaterial;
     const mesh = new Mesh(base, material);
     mesh.position.set(x, 0, y);
+    if (water) mesh.add(new Mesh(water, mode === "ghost" ? this.waterGhost : this.waterSolid));
     for (const child of this.library.buildProps(props, mode)) mesh.add(child);
     return mesh;
   }
@@ -271,12 +305,13 @@ export class World {
   private lastLights: number[] = [];
 
   private tileParts(p: Placed, baseOnly?: Map<string, BufferGeometry>): Map<string, BufferGeometry> {
-    const { base, props, lights } = this.build(p.tile, p.rot, p.x, p.y);
+    const { base, water, props, lights } = this.build(p.tile, p.rot, p.x, p.y);
     this.lastLights = lights.flatMap((l) => [l.x + p.x, l.y, l.z + p.y]);
     base.translate(p.x, 0, p.y);
     const parts = new Map<string, BufferGeometry>([[BASE_PART, base]]);
+    if (water) parts.set(WATER_PART, water.translate(p.x, 0, p.y));
     if (baseOnly) {
-      for (const [k, g] of baseOnly) if (k !== BASE_PART) parts.set(k, g);
+      for (const [k, g] of baseOnly) if (k !== BASE_PART && k !== WATER_PART) parts.set(k, g);
       return parts;
     }
     for (const [pack, g] of this.library.propGeometries(props)) {
@@ -324,8 +359,8 @@ export class World {
           mesh.geometry.dispose();
           mesh.geometry = merged;
         } else {
-          mesh = new Mesh(merged, k === BASE_PART ? this.tileMaterial : this.library.material(k, "solid"));
-          mesh.castShadow = k !== BASE_PART;
+          mesh = new Mesh(merged, k === BASE_PART ? this.tileMaterial : k === WATER_PART ? this.waterSolid : this.library.material(k, "solid"));
+          mesh.castShadow = k !== BASE_PART && k !== WATER_PART;
           mesh.receiveShadow = true;
           chunk.meshes.set(k, mesh);
           this.scene.add(mesh);
@@ -368,6 +403,7 @@ export class World {
       const n = this.tiles.get(`${p.x + dx},${p.y + dy}`);
       if (!n) continue;
       n.parts.get(BASE_PART)?.dispose();
+      n.parts.get(WATER_PART)?.dispose();
       n.parts = this.tileParts(n.placed, n.parts);
       if (n.dropping) {
         n.dropping.geometry.dispose();
@@ -529,6 +565,7 @@ export class World {
   }
 
   render(now: number): void {
+    this.waterTime.value = now / 1000;
     for (let i = this.drops.length - 1; i >= 0; i--) {
       const d = this.drops[i];
       const t = Math.min(1, (now - d.start) / DROP_MS);

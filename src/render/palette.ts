@@ -10,6 +10,7 @@ export const PALETTE = {
   rail: 0x7d7068,
   water: 0x9dbbd1,
   waterLight: 0xb6cede,
+  bank: 0xe4d8c2,
   paving: 0xe6dccf,
   sand: 0xecdcbb,
   hay: 0xe8cf8e,
