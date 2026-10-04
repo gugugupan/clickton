@@ -190,6 +190,76 @@ const STRINGS = {
   landmarks: { en: "Landmarks", zh: "地标", ja: "ランドマーク" },
   landmarkHint: { en: "Tap a landmark to place it now; your tile waits", zh: "点地标可以现在放下，当前地块会保留", ja: "ランドマークをタップで今置ける。いまのタイルはそのまま" },
   landmarkLabel: { en: "Landmark", zh: "地标", ja: "ランドマーク" },
+  questSkip: { en: "1 skip", zh: "1 次放弃", ja: "パス 1 回" },
+  questHowTitle: { en: "How to do it", zh: "怎么完成", ja: "達成のしかた" },
+  questExample: { en: "For example", zh: "示例", ja: "たとえば" },
+  questRewardTitle: { en: "Reward", zh: "奖励", ja: "報酬" },
+  gotIt: { en: "Got it", zh: "知道了", ja: "わかった" },
+  how_road_closed: {
+    en: "Join roads until every end is capped — by a dead end, cottage, town gate or a loop back. The closed network needs at least %d tiles. Only networks finished after the quest appears count.",
+    zh: "把道路连起来，让每个路口都有收尾：尽头路、小房子、城门，或者绕回来连成环。封闭后的道路网至少要 %d 格。只算接到任务之后新修好的。",
+    ja: "道路をつないで、すべての端を行き止まり・小さな家・町の入口でふさぐか、ぐるっとつなげよう。閉じた道路網が %d マス以上で達成。クエストが出てから完成したものだけ数えます。",
+  },
+  how_rail_done: {
+    en: "Lay track with a station at both ends, or close it into a loop. The finished line needs at least %d tiles.",
+    zh: "铺一条两头都是车站的铁路，或者绕成一个环线。完成的线路至少要 %d 格。",
+    ja: "両端が駅の路線か、ぐるっと一周する環状線を作ろう。%d マス以上で達成。",
+  },
+  how_park: {
+    en: "A park is an all-grass tile (meadow or lake) with tiles on all four sides, at least three of them town or cottages. Build %d new one(s).",
+    zh: "公园是一块四条边都是草的地块（草地或湖泊），四个方向都放了地块，而且其中至少 3 块是城市或房屋。需要新建 %d 个。",
+    ja: "公園＝四辺とも草のタイル（草原か湖）。上下左右すべてにタイルがあり、そのうち 3 つ以上が町か家。新しく %d つ作ろう。",
+  },
+  how_city_closed: {
+    en: "Every town edge must meet another town edge, with no gaps, enclosing at least %d tiles.",
+    zh: "城市的每条边都要和城市边接上，不留缺口，围成至少 %d 格的城区。",
+    ja: "町の辺をすべて町の辺とつなげて、すき間なく %d マス以上を囲もう。",
+  },
+  how_river_lake: {
+    en: "Start from a pond (the tile with a single water edge) and connect at least %d river tiles to it — straight, bend and bridges all count. The round lake with grass on every side cannot join a river.",
+    zh: "从池塘（只有一条边是水的地块）出发，沿着水边连起至少 %d 段河流，直河、弯河、桥都算。四面都是草的湖泊接不上河流，不算。",
+    ja: "池（水の辺が 1 つだけのタイル）から、川を %d マス以上つなげよう。まっすぐ・曲がり・橋も数えます。四辺が草の丸い湖は川とつながりません。",
+  },
+  how_bridge: {
+    en: "Place a road or rail bridge and connect road or track to both of its ends. Build %d.",
+    zh: "放一座公路桥或铁路桥，桥两头的道路或铁轨都要接上。需要 %d 座。",
+    ja: "道路橋か鉄橋を置いて、両端に道路か線路をつなげよう。%d 本必要です。",
+  },
+  how_special_on: {
+    en: "Zoo and police: link their road into a closed road network. Farm: put 2+ meadows next to it. Beach: put it next to a pond, lake or river. Get %d new one(s) working.",
+    zh: "动物园、警察局：让它的道路接进一个封闭的道路网；农场：旁边挨着 2 块以上草地；沙滩：挨着池塘、湖泊或河流。需要让 %d 个新的运转起来。",
+    ja: "動物園・警察署：道路を閉じた道路網につなぐ。牧場：草原を 2 つ以上となりに。ビーチ：池・湖・川のとなりに。新しく %d つ稼働させよう。",
+  },
+  how_meadow_size: {
+    en: "Meadows, lakes and ponds join when grass edge meets grass edge. Grow the largest patch to %d tiles.",
+    zh: "草地、湖泊、池塘之间只要草边对着草边就算连在一起。让最大的一片达到 %d 块。",
+    ja: "草原・湖・池は、草の辺どうしが向き合うとつながります。いちばん大きなまとまりを %d マスに。",
+  },
+  how_city_size: {
+    en: "Town tiles join through town edges. Grow one connected town to %d tiles — it doesn't need to be closed.",
+    zh: "城市地块通过城市边相连。让一片相连的城区达到 %d 格，不需要封闭。",
+    ja: "町タイルは町の辺でつながります。ひとつながりの町を %d マスに。閉じなくても OK。",
+  },
+  how_road_size: {
+    en: "Grow one connected road network to %d tiles — it doesn't need to be closed.",
+    zh: "让一个相连的道路网达到 %d 格，不需要封闭。",
+    ja: "ひとつながりの道路網を %d マスに。閉じなくても OK。",
+  },
+  how_forest: {
+    en: "After the quest appears, place %d plain meadow tiles anywhere.",
+    zh: "接到任务后，在任意位置累计放下 %d 块纯草地。",
+    ja: "クエストが出てから、草原タイルをどこでもいいので %d 枚置こう。",
+  },
+  how_clean_streak: {
+    en: "Place %d tiles in a row where every touching edge matches. One mismatch resets the count; skipping doesn't.",
+    zh: "连续 %d 次放置，所有相邻的边都对上。中间有一次错配就从 0 重新数，放弃不影响。",
+    ja: "接する辺がすべてそろう置き方を %d 回連続で。1 回でもズレるとリセット。パスは影響しません。",
+  },
+  how_big_hand: {
+    en: "Score %d points with one placement. Town edges are worth 2, matching all four sides adds a perfect bonus, and finishing a railway adds more.",
+    zh: "一次放置拿到 %d 分。城市边每条 2 分，四边全部对上有完美加成，同时完成铁路或环线还会再加分。",
+    ja: "1 回の配置で %d 点。町の辺は 1 本 2 点、四辺そろうとパーフェクト加点、路線の完成でさらに加点。",
+  },
 } satisfies Record<string, Entry>;
 
 export type StringKey = keyof typeof STRINGS;

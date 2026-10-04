@@ -23,6 +23,7 @@ import { refreshTutorial, startTutorial, tutorialSeen } from "./ui/tutorial";
 import { closeFeedback, openFeedback } from "./ui/feedback";
 import { download, framePhoto, toBlob } from "./ui/photo";
 import { drawTilePreview } from "./ui/tilePreview";
+import { closeQuestDetail, openQuestDetail } from "./ui/questDetail";
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -258,7 +259,7 @@ function refreshQuests(): void {
       fill.style.width = `${Math.min(100, (q.progress / q.target) * 100)}%`;
       bar.append(fill);
       li.append(reward, goal, count, bar);
-      li.title = `${reward.title} · ${tileHint(TILES.findIndex((tl) => tl.landmark === landmark))}`;
+      li.addEventListener("click", () => openQuestDetail(q, world.look));
       return li;
     }),
   );
@@ -822,6 +823,10 @@ window.addEventListener("keydown", (e) => {
     return;
   }
   if ((e.target as HTMLElement).closest("input, textarea")) return;
+  if (e.key === "Escape" && $("quest-detail").classList.contains("open")) {
+    closeQuestDetail();
+    return;
+  }
   if (e.key === "Escape" && document.body.classList.contains("photo")) {
     setPhoto(false);
     return;
@@ -849,6 +854,10 @@ window.addEventListener("keydown", (e) => {
 });
 
 $("discard").addEventListener("click", discardTile);
+$("qd-close").addEventListener("click", closeQuestDetail);
+$("quest-detail").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeQuestDetail();
+});
 const QUESTS_KEY = "clickton.quests";
 try {
   $("quests").classList.toggle("collapsed", localStorage.getItem(QUESTS_KEY) === "closed");
