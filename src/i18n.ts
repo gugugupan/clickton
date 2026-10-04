@@ -34,6 +34,13 @@ const STRINGS = {
   dailyDone: { en: "Daily challenge complete!", zh: "今日挑战完成！", ja: "デイリー達成！" },
   bestToday: { en: "Today's best: %d", zh: "今日最佳：%d", ja: "今日のベスト：%d" },
   playAgain: { en: "Try again", zh: "再挑战一次", ja: "もう一度" },
+  dailyAgainTitle: { en: "Today's challenge is done", zh: "今日挑战已完成", ja: "今日のデイリーは達成済み" },
+  dailyAgainBody: {
+    en: "The daily tiles come in a fixed order, so another run draws exactly the same tiles. Today's best: %d",
+    zh: "每日挑战的地块顺序是固定的，再来一局会抽到完全一样的地块。今日最佳：%d",
+    ja: "デイリーのタイルの順番は固定なので、もう一度遊ぶとまったく同じタイルが出ます。今日のベスト：%d",
+  },
+  dailyAgainNewTown: { en: "New town instead", zh: "开新城镇", ja: "新しい町を始める" },
   shareResult: { en: "Share result", zh: "分享成绩", ja: "結果を共有" },
   photoDaily: { en: "%s daily challenge", zh: "%s 每日挑战", ja: "%s のデイリー" },
   viewingDaily: { en: "Daily challenge · %s", zh: "每日挑战 · %s", ja: "デイリー · %s" },

@@ -16,7 +16,7 @@ import { duckMusic, initMusic, musicEnabled, setAmbience, setMusicDaylight, setM
 import { lookFor } from "./render/looks";
 import { World } from "./render/scene";
 import { Agents } from "./render/agents";
-import { loadLocal, recordScore, saveLocal } from "./save";
+import { bestScore, loadLocal, recordScore, saveLocal } from "./save";
 import { refreshTutorial, startTutorial, tutorialSeen } from "./ui/tutorial";
 import { closeFeedback, openFeedback } from "./ui/feedback";
 import { download, framePhoto, toBlob } from "./ui/photo";
@@ -569,6 +569,10 @@ function closeNewGame(): void {
   $("newgame").classList.remove("open");
 }
 
+function closeDailyAgain(): void {
+  $("daily-again").classList.remove("open");
+}
+
 let snapTargets: Cell[] = [];
 
 function snapCell(clientX: number, clientY: number): Cell | null {
@@ -773,8 +777,27 @@ $("ng-town").addEventListener("click", () => {
 });
 $("ng-daily").addEventListener("click", () => {
   closeNewGame();
+  const best = bestScore(todayNumber());
+  if (best > 0) {
+    $("da-body").textContent = t("dailyAgainBody", best);
+    $("daily-again").classList.add("open");
+    return;
+  }
   closeResult();
   switchGame(game.challenge ? Game.daily(todayNumber()) : loadDaily());
+});
+$("da-replay").addEventListener("click", () => {
+  closeDailyAgain();
+  closeResult();
+  switchGame(Game.daily(todayNumber()));
+});
+$("da-town").addEventListener("click", () => {
+  closeDailyAgain();
+  newTown(null);
+});
+$("da-cancel").addEventListener("click", closeDailyAgain);
+$("daily-again").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeDailyAgain();
 });
 $("ng-cancel").addEventListener("click", closeNewGame);
 $("feedback-btn").addEventListener("click", () => openFeedback(async () => ({ townLink: await townLink(), lang: getLang() })));
