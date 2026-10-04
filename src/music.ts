@@ -28,6 +28,7 @@ let step = 0;
 let next = 0;
 let daylight = 1;
 let enabled = readEnabled();
+let stage = false;
 
 function readEnabled(): boolean {
   try {
@@ -117,10 +118,62 @@ function pad(b: Bus, at: number, chord: number[], len: number, night: boolean): 
   }
 }
 
+function pluck(b: Bus, at: number, midi: number): void {
+  const out = voice(b);
+  out.gain.setValueAtTime(0.0001, at);
+  out.gain.exponentialRampToValueAtTime(0.06, at + 0.01);
+  out.gain.exponentialRampToValueAtTime(0.0001, at + 0.45);
+  const filt = b.ac.createBiquadFilter();
+  filt.type = "lowpass";
+  filt.frequency.setValueAtTime(1600, at);
+  filt.frequency.exponentialRampToValueAtTime(300, at + 0.4);
+  filt.connect(out);
+  const o = b.ac.createOscillator();
+  o.type = "sawtooth";
+  o.frequency.value = hz(midi);
+  o.connect(filt);
+  o.start(at);
+  o.stop(at + 0.5);
+}
+
+function bell(b: Bus, at: number, midi: number): void {
+  const out = voice(b);
+  out.gain.setValueAtTime(0.0001, at);
+  out.gain.exponentialRampToValueAtTime(0.09, at + 0.01);
+  out.gain.exponentialRampToValueAtTime(0.0001, at + 3.2);
+  for (const [mult, amp] of [
+    [0.5, 0.5],
+    [1, 1],
+    [1.19, 0.45],
+    [1.56, 0.3],
+    [2, 0.35],
+    [2.51, 0.15],
+  ]) {
+    const o = b.ac.createOscillator();
+    o.frequency.value = hz(midi) * mult;
+    const g = b.ac.createGain();
+    g.gain.value = amp * 0.4;
+    o.connect(g).connect(out);
+    o.start(at);
+    o.stop(at + 3.3);
+  }
+}
+
+export function ringBell(): void {
+  if (!bus || !timer) return;
+  const at = bus.ac.currentTime + 0.1;
+  [67, 64, 60].forEach((m, i) => bell(bus!, at + i * 1.3, m));
+}
+
+export function setStageMusic(on: boolean): void {
+  stage = on;
+}
+
 function play(b: Bus, at: number, n: number): void {
   const night = daylight < 0.5;
   const chord = CHORDS[Math.floor(n / 16) % CHORDS.length];
   if (n % 16 === 0) pad(b, at, chord, BEAT * 16 * (night ? 1.25 : 1), night);
+  if (stage && night && n % 2 === 0) pluck(b, at, chord[(n / 2) % 4 === 3 ? 2 : (n / 2) % 2] - 12);
   if (n % 2 === 0 && Math.random() < 0.35 + 0.3 * daylight) {
     const midi = Math.random() < 0.55 ? pick(chord) + 12 : 72 + pick(PENTA);
     mallet(b, at, midi - (night ? 12 : 0));

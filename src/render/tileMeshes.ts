@@ -236,6 +236,8 @@ export const LANDMARK_PROPS = {
   windmill: { model: "lm_windmill", x: 0, z: -0.05, rotY: 0, lift: 0, height: 0.6 },
   watermill: { model: "lm_watermill", x: 0.27, z: 0, rotY: -Math.PI / 2, lift: 0, fit: 0.42, maxHeight: 0.42 },
   lighthouse: { model: "lm_tower", x: 0.3, z: 0.3, rotY: 0, lift: 0.04, height: 0.58 },
+  castle: { model: "lm_castle", x: 0, z: 0, rotY: 0, lift: 0, fit: 0.8, maxHeight: 0.8 },
+  church: { model: "lm_church", x: 0, z: 0, rotY: 0, lift: 0, fit: 0.66, maxHeight: 0.7 },
 } satisfies Record<string, LandmarkProp>;
 
 function drawLandmark(b: PartBuilder, kind: Landmark, rng: Rng, prop: PropFn, look: Look): void {
@@ -272,10 +274,10 @@ function drawLandmark(b: PartBuilder, kind: Landmark, rng: Rng, prop: PropFn, lo
       b.box(0.08, 0.06, 0.008, -0.135, PLATE_TOP + 0.08, 0.115, PALETTE.white);
       break;
     case "church":
-      prop("lm_church", 0, 0, { fit: 0.66, maxHeight: 0.7 });
+      prop(LANDMARK_PROPS.church.model, LANDMARK_PROPS.church.x, LANDMARK_PROPS.church.z, LANDMARK_PROPS.church);
       break;
     case "castle":
-      prop("lm_castle", 0, 0, { fit: 0.8, maxHeight: 0.8 });
+      prop(LANDMARK_PROPS.castle.model, LANDMARK_PROPS.castle.x, LANDMARK_PROPS.castle.z, LANDMARK_PROPS.castle);
       break;
     case "lighthouse":
       b.cylinder(0.13, 0.04, 0.3, PLATE_TOP, 0.3, PALETTE.platform, 14);
@@ -307,19 +309,17 @@ function drawLandmark(b: PartBuilder, kind: Landmark, rng: Rng, prop: PropFn, lo
       b.box(0.82, 0.004, 0.015, 0, PLATE_TOP + 0.012, -0.15, PALETTE.white);
       b.cylinder(0.08, 0.004, 0, PLATE_TOP + 0.012, -0.15, PALETTE.white, 16);
       b.cylinder(0.065, 0.006, 0, PLATE_TOP + 0.012, -0.15, 0x8fb584, 16);
-      prop("football", 0.12, -0.08, { fit: 0.05, lift: 0.012 });
       prop("basketball", -0.25, -0.3, { fit: 0.05, lift: 0.012 });
       prop("bench", 0.3, 0.27, { fit: 0.13 });
       break;
     case "lumber":
       prop("lm_lumber", -0.1, -0.12, { fit: 0.48, maxHeight: 0.4 });
       for (let i = 0; i < 3; i++) b.box(0.22, 0.04, 0.04, 0.22, PLATE_TOP + i * 0.035, 0.22 + (i % 2) * 0.05, PALETTE.trunk);
-      prop(pick(rng, TREES), 0.32, -0.3, { fit: 0.22, maxHeight: 0.34 });
-      prop(pick(rng, TREES), -0.32, 0.3, { fit: 0.22, maxHeight: 0.34 });
+      prop("tree_2", -0.32, 0.3, { fit: 0.22, maxHeight: 0.34 });
+      b.cylinder(0.03, 0.02, 0.32, PLATE_TOP, -0.3, PALETTE.trunk, 10);
       break;
     case "gingerbread":
       prop("gingerbread_house", 0, -0.08, { fit: 0.42, maxHeight: 0.4 });
-      prop("gingerbread_man", 0.26, 0.26, { fit: 0.12, rotY: -0.5 });
       flowers(-0.25, 0.27, 6, 0.2);
       break;
     case "tavern":

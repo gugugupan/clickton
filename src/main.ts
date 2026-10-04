@@ -14,7 +14,7 @@ import { Board } from "./core/board";
 import { LANGS, chooseLang, getLang, hasKey, setLang, t, watchLang, type Lang } from "./i18n";
 import { ModelLibrary } from "./render/models";
 import { DayNight, type TimeMode } from "./render/daynight";
-import { duckMusic, initMusic, musicEnabled, setAmbience, setMusicDaylight, setMusicEnabled } from "./music";
+import { duckMusic, initMusic, musicEnabled, ringBell, setAmbience, setMusicDaylight, setMusicEnabled, setStageMusic } from "./music";
 import { lookFor } from "./render/looks";
 import { World } from "./render/scene";
 import { Agents } from "./render/agents";
@@ -1058,16 +1058,29 @@ function landCensus(): { water: number; grass: number } {
 }
 
 let lastFrame = performance.now();
+let lastClock = -1;
+const DAWN = 0.97;
+
+function hasChurch(): boolean {
+  for (const p of game.board.all()) if (p.tile.landmark === "church") return true;
+  return false;
+}
 
 function frame(now: number): void {
   const dt = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
   const sky = dayNight.update(dt);
   setMusicDaylight(sky.daylight);
-  if (++ambienceFrame % 60 === 0) setAmbience({ ...agents.census(), ...landCensus() });
+  if (++ambienceFrame % 60 === 0) {
+    setAmbience({ ...agents.census(), ...landCensus() });
+    setStageMusic(agents.stages > 0);
+  }
+  const clock = dayNight.mode === "auto" ? dayNight.phase : -1;
+  if (lastClock >= 0 && lastClock < DAWN && clock >= DAWN && hasChurch()) ringBell();
+  lastClock = clock;
   tintHud(smooth01((0.62 - sky.daylight) / 0.24));
   world.setSky(sky);
-  agents.update(dt, game.board, { camera: world.camera, pixelsPerUnit: world.pixelsPerUnit() }, 1 - sky.daylight);
+  agents.update(dt, game.board, { camera: world.camera, pixelsPerUnit: world.pixelsPerUnit() }, 1 - sky.daylight, clock);
   world.render(now);
   updateStats(now);
   positionBubble();

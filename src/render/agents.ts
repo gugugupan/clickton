@@ -1,5 +1,9 @@
 import {
   AdditiveBlending,
+  BoxGeometry,
+  MeshBasicMaterial,
+  MeshStandardMaterial,
+  Mesh,
   Box3,
   Camera,
   Frustum,
@@ -20,7 +24,29 @@ import catalog from "./assets.json";
 import { modelUrl, type ModelKey, type ModelLibrary } from "./models";
 import { glowTexture } from "./scene";
 import { LANDMARK_PROPS, PLATE_TOP } from "./tileMeshes";
-import { BEE, Beam, Flyer, Jumper, PARROT, Shuttle, Snow, Spinner, onTile, type Life, type Spot } from "./landmarkLife";
+import {
+  BEE,
+  Beam,
+  Flag,
+  Flyer,
+  Glow,
+  Hopper,
+  Jumper,
+  Lumberjack,
+  Match,
+  PARROT,
+  Parade,
+  Patrol,
+  Performer,
+  Queue,
+  Shuttle,
+  Snow,
+  Spinner,
+  Stagger,
+  onTile,
+  type Life,
+  type Spot,
+} from "./landmarkLife";
 import { Puppet, easeOutBack, moveToward, pointIn, tileArea, type Area, type Rig } from "./puppet";
 
 const PET_HEIGHT: Record<string, number> = {
@@ -58,6 +84,7 @@ const SIDING_OFFSET = 0.2;
 const GIFT_TENDER: ModelKey[] = ["locomotive", "tender_gifts_a", "wagon"];
 const GIFT_TRAIN: ModelKey[] = ["locomotive", "tender_gifts_a", "tender_gifts_b"];
 const GIFT_LOOP_MIN = 8;
+const NOON = 0.3;
 
 function gateOf(farm: Placed, from: Placed): Spot {
   const dx = from.x - farm.x, dz = from.y - farm.y;
@@ -600,6 +627,9 @@ export class Agents {
   private readonly shuttles = new Map<string, Shuttle>();
   private readonly jumpers = new Map<string, Jumper>();
   private readonly snows: Snow[] = [];
+  private readonly guards: { castle: Placed; patrols: Patrol[] }[] = [];
+  private clock = -1;
+  stages = 0;
   private gifts = false;
   private readonly headlight = new SpriteMaterial({
     map: glowTexture(),
@@ -654,6 +684,8 @@ export class Agents {
     this.shuttles.clear();
     this.jumpers.clear();
     this.snows.length = 0;
+    this.guards.length = 0;
+    this.stages = 0;
     this.gifts = false;
   }
 
@@ -774,9 +806,6 @@ export class Agents {
         this.addLife(shuttle);
         break;
       }
-      case "watermill":
-        this.addLife(new Spinner(this.library, LANDMARK_PROPS.watermill, "watermill_wheel", p, -0.8));
-        break;
       case "market": {
         this.addPerson(h(1), p, board, tileArea(p, 0, -0.32, 0.04), "interact-right");
         for (let i = 0; i < 2; i++) this.addPerson(h(2 + i), p, board, tileArea(p, 0, 0.02, 0.14), "idle");
@@ -811,6 +840,131 @@ export class Agents {
         }
         break;
       }
+      case "church": {
+        const rigs = [0, 1, 2, 3, 4].map((i) => this.people[h(10 + i) % this.people.length]).filter(Boolean);
+        const route = () => {
+          const road = this.nearest(board, p, (q) => roadExits(board, q.x, q.y).length > 0);
+          return road ? [spot(0, 0.3), ...this.roadWalk(board, road, h(20) + Math.floor(Math.random() * 1000), 7)] : [];
+        };
+        this.addLife(new Parade(rigs, PERSON_HEIGHT, route, 45));
+        break;
+      }
+      case "castle": {
+        const c = 0.4;
+        const path = [spot(-c, -c), spot(c, -c), spot(c, c), spot(-c, c)];
+        const rig = this.people[OFFICER % this.people.length];
+        if (!rig) break;
+        const patrols = [0, 2].map((i) => new Patrol(rig, PERSON_HEIGHT, path, i));
+        patrols.forEach((pt) => this.addLife(pt));
+        this.guards.push({ castle: p, patrols });
+        const cp = LANDMARK_PROPS.castle;
+        const top = (this.library.size(cp.model)?.y ?? 0.5) * this.library.scaleFor(cp);
+        const at = onTile(p, 0, 0);
+        this.addLife(new Flag(new Vector3(at.x, PLATE_TOP + top - 0.02, at.z), 0xe0a193));
+        break;
+      }
+      case "watermill": {
+        this.addLife(new Spinner(this.library, LANDMARK_PROPS.watermill, "watermill_wheel", p, -0.8));
+        const rod = new Mesh(new BoxGeometry(0.006, 0.006, 0.22), new MeshBasicMaterial({ color: 0x8a7a6c }));
+        rod.position.set(0.03, 0.08, 0.1);
+        rod.rotation.x = -0.5;
+        const bank = spot(-0.22, 0.3);
+        const water = spot(0, 0.3);
+        const rig = this.people[h(30) % this.people.length];
+        if (rig) this.addLife(new Performer(rig, PERSON_HEIGHT, bank, Math.atan2(water.x - bank.x, water.z - bank.z), ["sit"], (n) => n <= 0.7, 0.02, [rod]));
+        const miller = this.people[h(31) % this.people.length];
+        const road = this.nearest(board, p, (q) => hasRoad(board, q.x, q.y));
+        if (miller) {
+          const sack = this.library.buildProps([{ model: "sack", x: 0, z: 0.06, y: 0.07, rotY: 0, fit: 0.07 }], "solid");
+          const shuttle = new Shuttle(miller, PERSON_HEIGHT, spot(0.12, -0.3), road ? gateOf(road, p) : spot(-0.3, -0.3), sack);
+          this.shuttles.set(key, shuttle);
+          this.addLife(shuttle);
+        }
+        break;
+      }
+      case "stage": {
+        this.stages++;
+        const show = (n: number) => n > 0.35;
+        const facing = (at: Spot, look: Spot) => Math.atan2(look.x - at.x, look.z - at.z);
+        const front = spot(0, 0.3);
+        const back = spot(0, -0.5);
+        const acts: [number, string[]][] = [
+          [-0.13, ["emote-yes", "interact-left"]],
+          [0.13, ["holding-both", "emote-yes"]],
+        ];
+        acts.forEach(([x, anims], i) => {
+          const rig = this.people[h(40 + i) % this.people.length];
+          const at = spot(x, -0.22);
+          if (rig) this.addLife(new Performer(rig, PERSON_HEIGHT, at, facing(at, front), anims, show, 0.08));
+        });
+        const cat = this.pets.get("cat");
+        const mid = spot(0, -0.12);
+        if (cat) this.addLife(new Performer(cat, PET_HEIGHT.cat, mid, facing(mid, front), ["dance"], show, 0.08));
+        for (const [i, x] of [-0.28, -0.16, 0.16, 0.28].entries()) {
+          const rig = this.people[h(44 + i) % this.people.length];
+          const at = spot(x, 0.14);
+          if (rig) this.addLife(new Performer(rig, PERSON_HEIGHT, at, facing(at, back), ["sit"], show, 0.03));
+        }
+        break;
+      }
+      case "sports": {
+        const rigs = [0, 1, 2].map((i) => this.people[h(50 + i) % this.people.length]).filter(Boolean);
+        const ball = this.library.solidMesh("football");
+        if (ball) ball.scale.setScalar(this.library.scaleFor({ model: "football", fit: 0.045 }));
+        this.addLife(new Match(rigs, ball, tileArea(p, 0, -0.15, 0.26)));
+        for (const [i, x] of [-0.3, 0.32].entries()) {
+          const rig = this.people[h(55 + i) % this.people.length];
+          const at = spot(x, 0.24);
+          const field = spot(0, -0.15);
+          if (rig) this.addLife(new Performer(rig, PERSON_HEIGHT, at, Math.atan2(field.x - at.x, field.z - at.z), ["idle", "emote-yes"], (n) => n <= 0.5));
+        }
+        break;
+      }
+      case "lumber": {
+        const rig = this.people[h(60) % this.people.length];
+        const tree = this.library.solidMesh("tree_3");
+        if (rig && tree) {
+          const log = new Mesh(new BoxGeometry(0.03, 0.03, 0.16), new MeshStandardMaterial({ color: 0xa08670, roughness: 0.9 }));
+          log.position.set(0.05, 0.1, 0.03);
+          const scale = this.library.scaleFor({ model: "tree_3", fit: 0.24, maxHeight: 0.36 });
+          this.addLife(new Lumberjack(rig, tree, scale, spot(0.32, -0.3), spot(0.05, 0.12), log));
+        }
+        const koala = this.pets.get("koala");
+        const perch = spot(-0.32, 0.3);
+        if (koala) this.addLife(new Performer(koala, 0.06, perch, h(61) % 6, ["idle", "eat"], () => true, 0.31));
+        break;
+      }
+      case "gingerbread": {
+        const man = this.library.solidMesh("gingerbread_man");
+        if (man) {
+          const scale = this.library.scaleFor({ model: "gingerbread_man", fit: 0.09 });
+          const half = (this.library.size("gingerbread_man")?.z ?? 0) / 2;
+          for (let i = 0; i < 2; i++) {
+            const body = man.clone();
+            body.position.y = half;
+            this.addLife(new Hopper(body, scale, { x: p.x, z: p.y, r: 0.4 }));
+          }
+        }
+        const rigs = [0, 1, 2].map((i) => this.people[h(65 + i) % this.people.length]).filter(Boolean);
+        if (rigs.length === 3) this.addLife(new Queue(rigs, spot(0, 0.06), [spot(0, 0.2), spot(0.07, 0.29), spot(0.14, 0.38)]));
+        break;
+      }
+      case "tavern": {
+        const door = spot(0, 0.06);
+        this.addLife(new Glow(new Vector3(door.x, PLATE_TOP + 0.12, door.z), 0.5));
+        const rig = this.people[h(70) % this.people.length];
+        const home = () => {
+          const q = this.nearest(board, p, isHome, 4);
+          return q ? { x: q.x, z: q.y } : null;
+        };
+        if (rig) this.addLife(new Stagger(rig, door, home));
+        for (const [i, kind] of ["cat", "dog"].entries()) {
+          const pet = this.pets.get(kind);
+          const at = spot(i ? 0.14 : -0.14, 0.14);
+          if (pet) this.addLife(new Performer(pet, PET_HEIGHT[kind], at, Math.atan2(door.x - at.x, door.z - at.z) + Math.PI, ["idle", "eat"]));
+        }
+        break;
+      }
       case "xmas": {
         const snow = new Snow({ x: p.x, z: p.y });
         this.snows.push(snow);
@@ -819,6 +973,25 @@ export class Agents {
         break;
       }
     }
+  }
+
+  private roadWalk(board: Board, start: Placed, seed: number, steps: number): Spot[] {
+    const out: Spot[] = [];
+    let cell = { x: start.x, y: start.y };
+    let heading: Dir | null = null;
+    for (let i = 0; i < steps; i++) {
+      const node = nodePosition(board, cell.x, cell.y);
+      out.push({ x: node.x, z: node.z });
+      const exits = roadExits(board, cell.x, cell.y);
+      const back: Dir | null = heading === null ? null : (((heading + 2) % 4) as Dir);
+      const forward: Dir[] = exits.filter((d) => d !== back);
+      const options: Dir[] = forward.length ? forward : exits;
+      if (!options.length) break;
+      const d: Dir = options[hash(seed, i) % options.length];
+      heading = d;
+      cell = { x: cell.x + DX[d], y: cell.y + DY[d] };
+    }
+    return out;
   }
 
   private addAnimal(kind: string, p: Placed, area: Area): void {
@@ -858,7 +1031,14 @@ export class Agents {
     }
   }
 
-  update(dt: number, board: Board, view?: { camera: Camera; pixelsPerUnit: number }, night = 0): void {
+  update(dt: number, board: Board, view?: { camera: Camera; pixelsPerUnit: number }, night = 0, clock = -1): void {
+    if (this.clock >= 0 && clock >= NOON && this.clock < NOON) {
+      for (const g of this.guards) {
+        const gate = onTile(g.castle, 0, 0.44);
+        g.patrols.forEach((pt, i) => pt.gather({ x: gate.x + (i ? 0.07 : -0.07), z: gate.z }, { x: gate.x, z: gate.z }, 5));
+      }
+    }
+    this.clock = clock;
     this.headlight.opacity = night;
     if (view) {
       view.camera.updateMatrixWorld();
