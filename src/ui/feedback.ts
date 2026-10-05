@@ -1,7 +1,7 @@
 import { t } from "../i18n";
 
 const ENDPOINT = "https://api.web3forms.com/submit";
-const FALLBACK_EMAIL = ["guratan.game.asobu", "gmail.com"].join("@");
+const FALLBACK_EMAIL = ["feedback", "gratin-game.com"].join("@");
 const LAST_KEY = "clickton.feedback.last";
 const COOLDOWN_MS = 60_000;
 const SUBJECT = "Clickton feedback";
