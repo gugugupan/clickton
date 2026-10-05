@@ -2,7 +2,9 @@ import { LANDMARK_EMOJI } from "../core/landmarks";
 import { DX, DY, type Rot, type TileDef } from "../core/tiles";
 import { DEFAULT_LOOK, type Look } from "../render/looks";
 import { PALETTE } from "../render/palette";
+import { citySlots } from "../render/tileMeshes";
 
+const CELL = 0.92 / 3;
 const css = (hex: number) => `#${hex.toString(16).padStart(6, "0")}`;
 
 const STRIP: Record<string, { color: number; width: number }> = {
@@ -30,11 +32,7 @@ export function drawTilePreview(canvas: HTMLCanvasElement, tile: TileDef, rot: R
   for (const grp of tile.groups) {
     if (grp.type === "city") {
       g.fillStyle = css(PALETTE.walls[0]);
-      for (const d of grp.dirs) {
-        if (DX[d] === 0) g.fillRect(-0.46, DY[d] < 0 ? -0.46 : 0.16, 0.92, 0.3);
-        else g.fillRect(DX[d] < 0 ? -0.46 : 0.16, -0.46, 0.3, 0.92);
-      }
-      if (grp.dirs.length >= 2) g.fillRect(-0.18, -0.18, 0.36, 0.36);
+      for (const [sx, sy] of citySlots(grp.dirs)) g.fillRect(sx * CELL - CELL / 2 - 0.005, sy * CELL - CELL / 2 - 0.005, CELL + 0.01, CELL + 0.01);
       continue;
     }
     const s = STRIP[grp.type];

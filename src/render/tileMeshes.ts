@@ -119,6 +119,28 @@ function drawBridgeRails(b: PartBuilder, dirs: Dir[], y: number): void {
   }
 }
 
+// A corner city fills only its own 2×2 quadrant so it never reaches the two grass sides.
+export function citySlots(dirs: readonly Dir[]): [number, number][] {
+  if (dirs.length === 2 && (dirs[0] + 2) % 4 !== dirs[1]) {
+    const [a, b] = dirs;
+    return [
+      [DX[a], DY[a]],
+      [DX[a] + DX[b], DY[a] + DY[b]],
+      [DX[b], DY[b]],
+      [0, 0],
+    ];
+  }
+  const slots = new Map<string, [number, number]>();
+  for (const d of dirs) {
+    for (let s = -1; s <= 1; s++) {
+      const slot: [number, number] = [DX[d] !== 0 ? DX[d] : s, DY[d] !== 0 ? DY[d] : s];
+      slots.set(slot.join(","), slot);
+    }
+  }
+  if (dirs.length >= 2) slots.set("0,0", [0, 0]);
+  return [...slots.values()];
+}
+
 function pick<T>(rng: Rng, list: readonly T[]): T {
   return list[Math.floor(rng() * list.length)];
 }
@@ -380,10 +402,7 @@ export function buildTile(
 
   for (const g of tile.groups) {
     if (g.type === "city") {
-      for (const d of g.dirs) {
-        for (let s = -1; s <= 1; s++) occupy(DX[d] !== 0 ? DX[d] : s, DY[d] !== 0 ? DY[d] : s);
-      }
-      if (g.dirs.length >= 2) occupy(0, 0);
+      for (const [sx, sz] of citySlots(g.dirs)) occupy(sx, sz);
       continue;
     }
     for (const d of g.dirs) occupy(DX[d], DY[d]);
@@ -488,13 +507,7 @@ export function buildTile(
   }
 
   for (const g of tile.groups.filter((g) => g.type === "city")) {
-    const slots = new Set<string>();
-    for (const d of g.dirs) {
-      for (let s = -1; s <= 1; s++) slots.add(`${DX[d] !== 0 ? DX[d] : s},${DY[d] !== 0 ? DY[d] : s}`);
-    }
-    if (g.dirs.length >= 2) slots.add("0,0");
-    for (const key of slots) {
-      const [sx, sz] = key.split(",").map(Number);
+    for (const [sx, sz] of citySlots(g.dirs)) {
       b.box(SLOT, 0.01, SLOT, sx * SLOT, PLATE_TOP, sz * SLOT, PALETTE.paving);
       if (tile.landmark) continue;
       const centre = sx === 0 && sz === 0;
