@@ -264,9 +264,11 @@ const STRINGS = {
 
 export type StringKey = keyof typeof STRINGS;
 
-// Shared by every site on gugugupan.github.io so a choice made on one applies to all.
+// Shared by gratin-game.com and its subdomains through a parent-domain cookie; localStorage still holds choices made before the cookie existed.
 const SHARED_KEY = "gratin:lang";
 const LEGACY_KEY = "clickton.lang";
+const COOKIE = "gratin_lang";
+const COOKIE_DOMAIN = "gratin-game.com";
 const FALLBACK: Lang = "ja";
 const HTML_LANG: Record<Lang, string> = { en: "en", zh: "zh-CN", ja: "ja" };
 
@@ -274,7 +276,25 @@ const isLang = (v: unknown): v is Lang => typeof v === "string" && (LANGS as rea
 
 let current: Lang = detect();
 
+function readCookie(): string | null {
+  try {
+    return document.cookie.match(new RegExp(`(?:^|;\\s*)${COOKIE}=([^;]*)`))?.[1] ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCookie(value: string): void {
+  if (typeof document === "undefined") return;
+  const host = location.hostname;
+  const domain = host === COOKIE_DOMAIN || host.endsWith(`.${COOKIE_DOMAIN}`) ? `; domain=${COOKIE_DOMAIN}` : "";
+  const secure = location.protocol === "https:" ? "; secure" : "";
+  document.cookie = `${COOKIE}=${value}; path=/; max-age=31536000; samesite=lax${domain}${secure}`;
+}
+
 function chosen(): string | null {
+  const cookie = readCookie();
+  if (cookie) return cookie;
   try {
     return localStorage.getItem(SHARED_KEY) ?? localStorage.getItem(LEGACY_KEY);
   } catch {
@@ -301,6 +321,7 @@ export function setLang(lang: Lang): void {
 }
 
 export function chooseLang(lang: Lang): void {
+  writeCookie(lang);
   try {
     localStorage.setItem(SHARED_KEY, lang);
   } catch {}
@@ -317,6 +338,12 @@ export function watchLang(onChange: (lang: Lang) => void): void {
   });
   window.addEventListener("languagechange", () => {
     if (!chosen()) update();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) update();
+  });
+  window.addEventListener("pageshow", (e) => {
+    if (e.persisted) update();
   });
 }
 
