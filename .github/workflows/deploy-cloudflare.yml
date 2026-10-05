@@ -28,7 +28,7 @@ jobs:
         env:
           VITE_SITE_URL: ${{ vars.CF_SITE_URL }}
           VITE_GA_ID: G-8J5VSLTX1B
-          VITE_WEB3FORMS_KEY: ${{ vars.VITE_WEB3FORMS_KEY }}
+          VITE_WEB3FORMS_KEY: ${{ secrets.VITE_WEB3FORMS_KEY }}
           VITE_BUILD_SHA: ${{ github.sha }}
       - uses: cloudflare/wrangler-action@v3
         with:
