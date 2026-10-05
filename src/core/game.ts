@@ -5,7 +5,7 @@ import { balancedWeights } from "./balance";
 import { CHALLENGE_TILES, seedForDay } from "./daily";
 import { moodFor, type WorldMood } from "./themes";
 import { landmarkTile } from "./landmarks";
-import { QUESTS, QUEST_SLOTS, advanceQuest, issueQuest, questBias, type Quest, type QuestKind } from "./quests";
+import { QUEST_SLOTS, advanceQuest, issueQuest, questBias, questDef, type Quest, type QuestKind } from "./quests";
 import { RULES_VERSION, TILES, starterFor, weightsFor, type Rot } from "./tiles";
 
 export interface Move {
@@ -58,8 +58,8 @@ export function tileForStep(
 ): number {
   let { weights, total } = weightTable(version, seed);
   if (board && version >= QUEUE_VERSION) {
-    weights = balancedWeights(TILES, weights, board);
-    if (quests.length) weights = questBias(TILES, weights, quests, placements);
+    weights = balancedWeights(TILES, weights, board, version);
+    if (quests.length) weights = questBias(TILES, weights, quests, placements, version);
     total = weights.reduce((a, b) => a + b, 0);
   }
   let r = mulberry32(hash(seed, step))() * total;
@@ -114,7 +114,7 @@ export class Game {
   }
 
   private issue(): Quest {
-    return issueQuest(this.seed, this.questSerial++, this.board, this.quests, this.tiers, this.placements);
+    return issueQuest(this.seed, this.questSerial++, this.board, this.quests, this.tiers, this.placements, this.version);
   }
 
   get linkVersion(): number {
@@ -241,7 +241,7 @@ export class Game {
       this.tiers[q.kind] = (this.tiers[q.kind] ?? 0) + 1;
       this.questsDone++;
       this.charges = Math.min(this.discardMax, this.charges + 1);
-      const landmark = landmarkTile(QUESTS[q.kind].landmark);
+      const landmark = landmarkTile(questDef(q.kind).landmark);
       const stored = this.inventory.length < INVENTORY_MAX;
       if (stored) this.inventory.push(landmark);
       else this.queue.splice(this.cursor + 1 + forced++, 0, landmark);

@@ -23,7 +23,7 @@ import { DIRS, DX, DY, groupsOf, type Dir, type Special } from "../core/tiles";
 import catalog from "./assets.json";
 import { modelUrl, type ModelKey, type ModelLibrary } from "./models";
 import { glowTexture } from "./scene";
-import { LANDMARK_PROPS, PLATE_TOP } from "./tileMeshes";
+import { LANDMARK_PROPS, PLATE_TOP, SLOT, regionSlots } from "./tileMeshes";
 import {
   BEE,
   Beam,
@@ -76,6 +76,7 @@ const PET_HEIGHT: Record<string, number> = {
 const MEADOW_PETS = ["bunny", "chick", "cow", "pig", "deer", "fox", "dog", "cat"];
 const ZOO_PETS = ["lion", "tiger", "elephant", "giraffe", "panda", "monkey"];
 const FARM_PETS = ["cow", "pig", "chick"];
+const FOREST_PETS = ["deer", "fox", "bunny"];
 const OFFICER = 9;
 const PERSON_HEIGHT = 0.15;
 const CAR_SPACING = 0.27;
@@ -624,6 +625,7 @@ export class Agents {
   private readonly specials = new Map<string, number>();
   private readonly lives: Life[] = [];
   private readonly landmarks = new Set<string>();
+  private readonly wilds = new Set<string>();
   private readonly shuttles = new Map<string, Shuttle>();
   private readonly jumpers = new Map<string, Jumper>();
   private readonly snows: Snow[] = [];
@@ -681,6 +683,7 @@ export class Agents {
     this.specials.clear();
     this.lives.length = 0;
     this.landmarks.clear();
+    this.wilds.clear();
     this.shuttles.clear();
     this.jumpers.clear();
     this.snows.length = 0;
@@ -739,6 +742,7 @@ export class Agents {
       }
     }
     this.syncLandmarks(board, seed);
+    this.syncWilds(board, seed);
     for (const p of board.all()) {
       const key = `${p.x},${p.y}`;
       if (isHome(p) && !this.persons.has(key) && this.persons.size < this.cap && this.people.length) {
@@ -758,6 +762,29 @@ export class Agents {
       }
     }
     return { trains: newTrains, roads: newRoads, specials: opened };
+  }
+
+  private syncWilds(board: Board, seed: number): void {
+    for (const type of ["forest", "field"] as const) {
+      for (const region of edgeRegions(board, type)) {
+        if (!region.closed || this.wilds.has(region.key)) continue;
+        this.wilds.add(region.key);
+        const count = Math.max(1, Math.floor(region.cells.length / 2));
+        for (let i = 0; i < count && this.animals.size < this.cap; i++) {
+          const h = hash(seed, region.cells[0].x, region.cells[0].y, 60 + i);
+          const cell = region.cells[h % region.cells.length];
+          const p = board.get(cell.x, cell.y)!;
+          const group = p.tile.groups.find((g) => g.type === type)!;
+          const slots = regionSlots(group.dirs);
+          const cx = (slots.reduce((sum, [x]) => sum + x, 0) / slots.length) * SLOT;
+          const cz = (slots.reduce((sum, [, z]) => sum + z, 0) / slots.length) * SLOT;
+          const area = tileArea(p, cx, cz, slots.length > 4 ? 0.3 : 0.16);
+          if (type === "forest") this.addAnimal(FOREST_PETS[(h >>> 4) % FOREST_PETS.length], p, area);
+          else if (i % 2 === 0) this.addPerson(h >>> 4, p, board, area, "idle");
+          else this.addAnimal("chick", p, area);
+        }
+      }
+    }
   }
 
   private addLife(life: Life): void {

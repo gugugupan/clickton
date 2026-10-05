@@ -2,7 +2,7 @@ import { LANDMARK_EMOJI } from "../core/landmarks";
 import { DX, DY, type Rot, type TileDef } from "../core/tiles";
 import { DEFAULT_LOOK, type Look } from "../render/looks";
 import { PALETTE } from "../render/palette";
-import { citySlots } from "../render/tileMeshes";
+import { regionSlots } from "../render/tileMeshes";
 
 const CELL = 0.92 / 3;
 const css = (hex: number) => `#${hex.toString(16).padStart(6, "0")}`;
@@ -30,9 +30,23 @@ export function drawTilePreview(canvas: HTMLCanvasElement, tile: TileDef, rot: R
   g.clip();
 
   for (const grp of tile.groups) {
-    if (grp.type === "city") {
-      g.fillStyle = css(PALETTE.walls[0]);
-      for (const [sx, sy] of citySlots(grp.dirs)) g.fillRect(sx * CELL - CELL / 2 - 0.005, sy * CELL - CELL / 2 - 0.005, CELL + 0.01, CELL + 0.01);
+    if (grp.type === "city" || grp.type === "forest" || grp.type === "field") {
+      const slots = regionSlots(grp.dirs);
+      g.fillStyle = css(grp.type === "city" ? PALETTE.walls[0] : grp.type === "forest" ? PALETTE.forestIcon : PALETTE.crops[0]);
+      for (const [sx, sy] of slots) g.fillRect(sx * CELL - CELL / 2 - 0.005, sy * CELL - CELL / 2 - 0.005, CELL + 0.01, CELL + 0.01);
+      if (grp.type === "forest") {
+        g.fillStyle = css(PALETTE.foliage[0]);
+        for (const [sx, sy] of slots) {
+          g.beginPath();
+          g.arc(sx * CELL, sy * CELL, CELL * 0.28, 0, Math.PI * 2);
+          g.fill();
+        }
+      } else if (grp.type === "field") {
+        g.fillStyle = css(PALETTE.soil);
+        for (const [sx, sy] of slots) {
+          for (const off of [-0.09, 0.03]) g.fillRect(sx * CELL - CELL / 2, sy * CELL + off, CELL, 0.035);
+        }
+      }
       continue;
     }
     const s = STRIP[grp.type];

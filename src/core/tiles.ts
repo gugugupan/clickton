@@ -1,6 +1,6 @@
 import { SPECIAL_BOOST, themedWeights } from "./themes";
 
-export type Edge = "grass" | "road" | "rail" | "water" | "city";
+export type Edge = "grass" | "road" | "rail" | "water" | "city" | "forest" | "field";
 export type Dir = 0 | 1 | 2 | 3;
 export type Special = "zoo" | "farm" | "police" | "beach";
 export type Landmark =
@@ -49,16 +49,16 @@ export interface TileDef {
 
 type TileSpec = Omit<TileDef, "id">;
 
-const G = "grass", R = "road", L = "rail", W = "water", C = "city";
+const G = "grass", R = "road", L = "rail", W = "water", C = "city", F = "forest", A = "field";
 
 const SPECS: TileSpec[] = [
   { key: "grass", edges: [G, G, G, G], groups: [], weight: 6 },
-  { key: "road_straight", edges: [R, G, R, G], groups: [{ type: R, dirs: [0, 2] }], weight: 10 },
-  { key: "road_curve", edges: [R, R, G, G], groups: [{ type: R, dirs: [0, 1] }], weight: 8 },
-  { key: "road_t", edges: [R, R, R, G], groups: [{ type: R, dirs: [0, 1, 2] }], weight: 4 },
+  { key: "road_straight", edges: [R, G, R, G], groups: [{ type: R, dirs: [0, 2] }], weight: 8 },
+  { key: "road_curve", edges: [R, R, G, G], groups: [{ type: R, dirs: [0, 1] }], weight: 7 },
+  { key: "road_t", edges: [R, R, R, G], groups: [{ type: R, dirs: [0, 1, 2] }], weight: 3 },
   { key: "road_cross", edges: [R, R, R, R], groups: [{ type: R, dirs: [0, 1, 2, 3] }], weight: 1 },
-  { key: "rail_straight", edges: [L, G, L, G], groups: [{ type: L, dirs: [0, 2] }], weight: 9 },
-  { key: "rail_curve", edges: [L, L, G, G], groups: [{ type: L, dirs: [0, 1] }], weight: 10 },
+  { key: "rail_straight", edges: [L, G, L, G], groups: [{ type: L, dirs: [0, 2] }], weight: 8 },
+  { key: "rail_curve", edges: [L, L, G, G], groups: [{ type: L, dirs: [0, 1] }], weight: 8 },
   { key: "station", edges: [L, G, G, G], groups: [{ type: L, dirs: [0] }], weight: 1, station: true },
   {
     key: "station_road",
@@ -68,14 +68,14 @@ const SPECS: TileSpec[] = [
     station: true,
   },
   { key: "station_through", edges: [L, G, L, G], groups: [{ type: L, dirs: [0, 2] }], weight: 2, halt: true },
-  { key: "city_edge", edges: [C, G, G, G], groups: [{ type: C, dirs: [0] }], weight: 8 },
-  { key: "city_corner", edges: [C, C, G, G], groups: [{ type: C, dirs: [0, 1] }], weight: 7 },
-  { key: "city_full", edges: [C, C, C, C], groups: [{ type: C, dirs: [0, 1, 2, 3] }], weight: 5 },
+  { key: "city_edge", edges: [C, G, G, G], groups: [{ type: C, dirs: [0] }], weight: 7 },
+  { key: "city_corner", edges: [C, C, G, G], groups: [{ type: C, dirs: [0, 1] }], weight: 6 },
+  { key: "city_full", edges: [C, C, C, C], groups: [{ type: C, dirs: [0, 1, 2, 3] }], weight: 4 },
   {
     key: "city_road",
     edges: [C, G, R, G],
     groups: [{ type: C, dirs: [0] }, { type: R, dirs: [2] }],
-    weight: 6,
+    weight: 5,
   },
   { key: "house_road", edges: [G, G, R, G], groups: [{ type: R, dirs: [2] }], weight: 6, house: true },
   { key: "river_straight", edges: [W, G, W, G], groups: [{ type: W, dirs: [0, 2] }], weight: 3 },
@@ -125,13 +125,34 @@ const SPECS: TileSpec[] = [
   { key: "lm_lumber", edges: [G, G, G, G], groups: [], weight: 0, landmark: "lumber" },
   { key: "lm_gingerbread", edges: [G, G, G, G], groups: [], weight: 0, landmark: "gingerbread" },
   { key: "lm_tavern", edges: [G, G, R, G], groups: [{ type: R, dirs: [2] }], weight: 0, landmark: "tavern" },
+  { key: "city_street", edges: [C, G, C, G], groups: [{ type: C, dirs: [0, 2] }], weight: 2 },
+  { key: "city_three", edges: [C, C, G, C], groups: [{ type: C, dirs: [0, 1, 3] }], weight: 2 },
+  { key: "forest_edge", edges: [F, G, G, G], groups: [{ type: F, dirs: [0] }], weight: 3 },
+  { key: "forest_corner", edges: [F, F, G, G], groups: [{ type: F, dirs: [0, 1] }], weight: 2.5 },
+  { key: "forest_full", edges: [F, F, F, F], groups: [{ type: F, dirs: [0, 1, 2, 3] }], weight: 1.5 },
+  {
+    key: "forest_road",
+    edges: [F, G, R, G],
+    groups: [{ type: F, dirs: [0] }, { type: R, dirs: [2] }],
+    weight: 1.5,
+  },
+  { key: "field_edge", edges: [A, G, G, G], groups: [{ type: A, dirs: [0] }], weight: 2 },
+  { key: "field_corner", edges: [A, A, G, G], groups: [{ type: A, dirs: [0, 1] }], weight: 1.5 },
+  { key: "field_full", edges: [A, A, A, A], groups: [{ type: A, dirs: [0, 1, 2, 3] }], weight: 1 },
+  {
+    key: "field_road",
+    edges: [A, G, R, G],
+    groups: [{ type: A, dirs: [0] }, { type: R, dirs: [2] }],
+    weight: 1.5,
+  },
 ];
 
 export const TILES: readonly TileDef[] = SPECS.map((s, id) => ({ ...s, id }));
 
-export const RULES_VERSION = 8;
+export const RULES_VERSION = 9;
 
 const LEGACY_WEIGHTS: Record<number, Record<string, number>> = {
+  8: { grass: 6, road_straight: 10, road_curve: 8, road_t: 4, road_cross: 1, rail_straight: 9, rail_curve: 10, station: 1, station_road: 1, station_through: 2, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1, pool: 2, road_end: 4, zoo: 0.6, farm: 0.8, police: 0.6, beach: 0.6, station_plaza: 0 },
   7: { grass: 6, road_straight: 10, road_curve: 8, road_t: 4, road_cross: 1, rail_straight: 9, rail_curve: 10, station: 1, station_road: 1, station_through: 2, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1, pool: 2, road_end: 4, zoo: 0.6, farm: 0.8, police: 0.6, beach: 0.6, station_plaza: 0 },
   6: { grass: 6, road_straight: 10, road_curve: 8, road_t: 4, road_cross: 1, rail_straight: 9, rail_curve: 10, station: 1, station_road: 1, station_through: 2, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1, pool: 2, road_end: 4, zoo: 0.6, farm: 0.8, police: 0.6, beach: 0.6 },
   5: { grass: 6, road_straight: 10, road_curve: 8, road_t: 4, road_cross: 1, rail_straight: 9, rail_curve: 10, station: 1, station_road: 1, station_through: 2, city_edge: 8, city_corner: 7, city_full: 5, city_road: 6, house_road: 6, river_straight: 3, river_curve: 2, lake: 1, level_crossing: 2, road_bridge: 1, rail_bridge: 1, pool: 2, road_end: 4 },

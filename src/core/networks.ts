@@ -187,7 +187,7 @@ export interface Region {
   cells: { x: number; y: number }[];
 }
 
-export function edgeRegions(board: Board, type: "city" | "road" | "water"): Region[] {
+export function edgeRegions(board: Board, type: "city" | "road" | "water" | "forest" | "field"): Region[] {
   const seen = new Set<string>();
   const regions: Region[] = [];
   const placed = [...board.all()].sort((a, b) => a.y - b.y || a.x - b.x);

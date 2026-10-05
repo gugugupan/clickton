@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { balancedWeights, openRoadEnds } from "../src/core/balance";
+import { CROSSING, balancedWeights, crossingWanted, openRoadEnds } from "../src/core/balance";
 import { Board } from "../src/core/board";
 import { CODEC_VERSION, decodeCity, encodeCity } from "../src/core/codec";
 import { DISCARD_EVERY, Game } from "../src/core/game";
@@ -24,7 +24,31 @@ describe("road balance", () => {
   it("no open road ends means no adjustment", () => {
     const b = new Board();
     b.place(id("grass"), 0, 0, 0);
-    expect(balancedWeights(TILES, TILES.map(() => 2), b)).toEqual(TILES.map(() => 2));
+    expect(balancedWeights(TILES, TILES.map(() => 2), b, 8)).toEqual(TILES.map(() => 2));
+  });
+});
+
+describe("level crossings", () => {
+  it("are rare until a road and a railway meet at a gap", () => {
+    const b = new Board();
+    b.place(id("road_straight"), 1, 0, 0);
+    b.place(id("grass"), 0, 0, -1);
+    expect(crossingWanted(b)).toBe(false);
+    const idle = balancedWeights(TILES, TILES.map(() => 1), b);
+    expect(idle[id("level_crossing")]).toBeCloseTo(CROSSING.idle);
+    expect(balancedWeights(TILES, TILES.map(() => 1), b, 8)[id("level_crossing")]).toBe(1);
+
+    b.place(id("rail_straight"), 0, 1, -1);
+    expect(crossingWanted(b)).toBe(true);
+    expect(balancedWeights(TILES, TILES.map(() => 1), b)[id("level_crossing")]).toBe(1);
+  });
+
+  it("a road and a railway facing the gap from the same axis do not count", () => {
+    const b = new Board();
+    b.place(id("road_end"), 1, 0, 0);
+    for (const x of [0, 1, 2]) b.place(id("grass"), 0, x, -1);
+    b.place(id("station"), 3, 2, 0);
+    expect(crossingWanted(b)).toBe(false);
   });
 });
 

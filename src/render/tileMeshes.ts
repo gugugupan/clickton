@@ -9,7 +9,7 @@ import { PALETTE } from "./palette";
 export const PLATE_SIZE = 0.98;
 export const PLATE_TOP = 0.1;
 const HALF = 0.49;
-const SLOT = 0.32;
+export const SLOT = 0.32;
 
 type Pt = { x: number; z: number };
 
@@ -119,16 +119,17 @@ function drawBridgeRails(b: PartBuilder, dirs: Dir[], y: number): void {
   }
 }
 
-// A corner city fills only its own 2×2 quadrant so it never reaches the two grass sides.
-export function citySlots(dirs: readonly Dir[]): [number, number][] {
-  if (dirs.length === 2 && (dirs[0] + 2) % 4 !== dirs[1]) {
-    const [a, b] = dirs;
-    return [
-      [DX[a], DY[a]],
-      [DX[a] + DX[b], DY[a] + DY[b]],
-      [DX[b], DY[b]],
-      [0, 0],
-    ];
+// Regions of two or three sides fill only the cells that touch those sides, so they never reach a grass side.
+export function regionSlots(dirs: readonly Dir[]): [number, number][] {
+  if (dirs.length === 2 || dirs.length === 3) {
+    const out: [number, number][] = [];
+    for (const d of dirs) {
+      out.push([DX[d], DY[d]]);
+      const next = ((d + 1) % 4) as Dir;
+      if (dirs.includes(next)) out.push([DX[d] + DX[next], DY[d] + DY[next]]);
+    }
+    out.push([0, 0]);
+    return out;
   }
   const slots = new Map<string, [number, number]>();
   for (const d of dirs) {
@@ -140,6 +141,8 @@ export function citySlots(dirs: readonly Dir[]): [number, number][] {
   if (dirs.length >= 2) slots.set("0,0", [0, 0]);
   return [...slots.values()];
 }
+
+const AREA_TYPES = new Set(["city", "forest", "field"]);
 
 function pick<T>(rng: Rng, list: readonly T[]): T {
   return list[Math.floor(rng() * list.length)];
@@ -173,6 +176,11 @@ function drawCap(b: PartBuilder, d: Dir, type: Edge, look: Look): void {
     box(0.44, 0.03, 0.09, 0.445, PLATE_TOP, look.grass);
   } else if (type === "city") {
     box(0.94, 0.06, 0.03, 0.475, PLATE_TOP, PALETTE.paving);
+  } else if (type === "forest") {
+    box(0.9, 0.06, 0.05, 0.455, PLATE_TOP, PALETTE.foliage[0]);
+  } else if (type === "field") {
+    for (const side of [-0.4, 0, 0.4]) box(0.025, 0.06, 0.025, 0.46, PLATE_TOP, PALETTE.trunk, side);
+    box(0.84, 0.014, 0.012, 0.46, PLATE_TOP + 0.04, PALETTE.trunk);
   }
 }
 
@@ -401,8 +409,8 @@ export function buildTile(
   const hasBridge = tile.groups.some((g) => g.type === "water") && tile.groups.some((g) => g.type !== "water");
 
   for (const g of tile.groups) {
-    if (g.type === "city") {
-      for (const [sx, sz] of citySlots(g.dirs)) occupy(sx, sz);
+    if (AREA_TYPES.has(g.type)) {
+      for (const [sx, sz] of regionSlots(g.dirs)) occupy(sx, sz);
       continue;
     }
     for (const d of g.dirs) occupy(DX[d], DY[d]);
@@ -507,7 +515,26 @@ export function buildTile(
   }
 
   for (const g of tile.groups.filter((g) => g.type === "city")) {
-    for (const [sx, sz] of citySlots(g.dirs)) {
+    const street = g.dirs.length === 2 && (g.dirs[0] + 2) % 4 === g.dirs[1];
+    if (street && !tile.landmark) {
+      const alongZ = DX[g.dirs[0]] === 0;
+      regionSlots(g.dirs).forEach(([sx, sz], i) => {
+        b.box(SLOT, 0.01, SLOT, sx * SLOT, PLATE_TOP, sz * SLOT, PALETTE.paving);
+        b.box(alongZ ? 0.08 : SLOT, 0.012, alongZ ? SLOT : 0.08, sx * SLOT, PLATE_TOP, sz * SLOT, PALETTE.roadLine);
+        for (const side of [-1, 1]) {
+          const off = side * 0.1, along = (i % 2 === 0 ? 1 : -1) * side * 0.04;
+          prop(pick(rng, SHOPS), sx * SLOT + (alongZ ? off : along), sz * SLOT + (alongZ ? along : off), {
+            variant: Math.floor(rng() * BUILDING_VARIANTS),
+            fit: 0.13,
+            maxHeight: 0.3,
+            lift: 0.01,
+            rotY: alongZ ? (side < 0 ? Math.PI / 2 : -Math.PI / 2) : side < 0 ? 0 : Math.PI,
+          });
+        }
+      });
+      continue;
+    }
+    for (const [sx, sz] of regionSlots(g.dirs)) {
       b.box(SLOT, 0.01, SLOT, sx * SLOT, PLATE_TOP, sz * SLOT, PALETTE.paving);
       if (tile.landmark) continue;
       const centre = sx === 0 && sz === 0;
@@ -527,6 +554,45 @@ export function buildTile(
         lift: 0.01,
         rotY: pick(rng, QUARTERS),
       });
+    }
+  }
+
+  for (const g of tile.groups.filter((g) => g.type === "forest")) {
+    for (const [sx, sz] of regionSlots(g.dirs)) {
+      const x = sx * SLOT, z = sz * SLOT;
+      b.box(SLOT, 0.012, SLOT, x, PLATE_TOP, z, PALETTE.forestFloor);
+      const trees = 1 + (rng() < 0.55 ? 1 : 0);
+      for (let i = 0; i < trees; i++) {
+        const jx = x + (trees === 1 ? (rng() - 0.5) * 0.06 : (i ? 0.07 : -0.07) + (rng() - 0.5) * 0.04);
+        const jz = z + (trees === 1 ? (rng() - 0.5) * 0.06 : (i ? -0.06 : 0.06) + (rng() - 0.5) * 0.04);
+        prop(pick(rng, TREES), jx, jz, { fit: 0.22 + rng() * 0.08, maxHeight: 0.4 + rng() * 0.14, rotY: rng() * Math.PI * 2, lift: 0.012 });
+      }
+      const roll = rng();
+      if (roll < 0.35) prop(pick(rng, BUSHES), x + (rng() - 0.5) * 0.2, z + (rng() - 0.5) * 0.2, { fit: 0.12, rotY: rng() * Math.PI * 2, lift: 0.012 });
+      else if (roll < 0.5) prop(pick(rng, ROCKS), x + (rng() - 0.5) * 0.2, z + (rng() - 0.5) * 0.2, { fit: 0.09, rotY: rng() * Math.PI * 2, lift: 0.012 });
+    }
+  }
+
+  for (const g of tile.groups.filter((g) => g.type === "field")) {
+    const slots = regionSlots(g.dirs);
+    const alongX = rng() < 0.5;
+    for (const [sx, sz] of slots) {
+      const x = sx * SLOT, z = sz * SLOT;
+      b.box(SLOT, 0.012, SLOT, x, PLATE_TOP, z, PALETTE.soil);
+      const crop = pick(rng, PALETTE.crops);
+      for (const off of [-0.1, 0, 0.1]) {
+        if (alongX) b.box(SLOT * 0.86, 0.04, 0.055, x, PLATE_TOP + 0.012, z + off, crop);
+        else b.box(0.055, 0.04, SLOT * 0.86, x + off, PLATE_TOP + 0.012, z, crop);
+      }
+    }
+    if (slots.length >= 3) {
+      const [sx, sz] = slots[slots.length - 1];
+      const x = sx * SLOT + 0.05, z = sz * SLOT + 0.04;
+      b.box(0.018, 0.17, 0.018, x, PLATE_TOP + 0.012, z, PALETTE.trunk);
+      b.box(0.14, 0.016, 0.016, x, PLATE_TOP + 0.13, z, PALETTE.trunk);
+      b.box(0.05, 0.06, 0.035, x, PLATE_TOP + 0.1, z, pick(rng, PALETTE.walls));
+      b.box(0.04, 0.035, 0.04, x, PLATE_TOP + 0.165, z, PALETTE.white);
+      b.box(0.075, 0.012, 0.075, x, PLATE_TOP + 0.2, z, PALETTE.hay);
     }
   }
 

@@ -24,6 +24,7 @@ export type QuestKind =
   | "city_size"
   | "road_size"
   | "forest"
+  | "forest_size"
   | "clean_streak"
   | "big_hand";
 
@@ -35,7 +36,7 @@ interface QuestDef {
   bias: Record<string, number>;
 }
 
-export const QUESTS: Record<QuestKind, QuestDef> = {
+export const QUESTS: Record<Exclude<QuestKind, "forest_size">, QuestDef> = {
   road_closed: { landmark: "market", base: 3, growth: 1, bias: { road_end: 2, house_road: 1.6 } },
   rail_done: { landmark: "xmas", base: 3, growth: 1, bias: { station: 2.5, station_road: 2.5, rail_curve: 1.4, rail_straight: 1.3 } },
   park: { landmark: "garden", base: 1, growth: 1, bias: { city_edge: 1.6, city_corner: 1.6, grass: 1.5 } },
@@ -51,7 +52,34 @@ export const QUESTS: Record<QuestKind, QuestDef> = {
   big_hand: { landmark: "tavern", base: 7, growth: 1, bias: { city_full: 1.6, road_cross: 2 } },
 };
 
+// Rules v9 swaps the grass-counting "forest" quest for a real forest; kept outside QUESTS so v8's fingerprint holds.
+export const QUESTS_V9 = {
+  forest_size: {
+    landmark: "lumber",
+    base: 3,
+    growth: 1,
+    lead: 2,
+    bias: { forest_edge: 2.5, forest_corner: 2.5, forest_full: 2.5, forest_road: 2 },
+  },
+} as const satisfies Record<"forest_size", QuestDef>;
+
+export const TARGETS_V9: Partial<Record<QuestKind, Pick<QuestDef, "base">>> = {
+  clean_streak: { base: 3 },
+  meadow_size: { base: 4 },
+};
+
+export const BIAS_RAMP_V9 = 10;
+
+export function questDef(kind: QuestKind): QuestDef {
+  return kind === "forest_size" ? QUESTS_V9.forest_size : QUESTS[kind];
+}
+
 export const QUEST_KINDS = Object.keys(QUESTS) as QuestKind[];
+export const FOREST_SIZE_VERSION = 9;
+
+export function questKinds(version: number): QuestKind[] {
+  return version >= FOREST_SIZE_VERSION ? QUEST_KINDS.map((k) => (k === "forest" ? "forest_size" : k)) : QUEST_KINDS;
+}
 export const QUEST_SLOTS = 3;
 export const BIAS_MAX = 5;
 export const BIAS_RAMP = 20;
@@ -108,6 +136,8 @@ function metric(kind: QuestKind, board: Board): number {
       return largest(edgeRegions(board, "city").map((r) => r.cells.length));
     case "road_size":
       return largest(edgeRegions(board, "road").map((r) => r.cells.length));
+    case "forest_size":
+      return largest(edgeRegions(board, "forest").map((r) => r.cells.length));
     default:
       return 0;
   }
@@ -139,11 +169,12 @@ export function issueQuest(
   active: readonly Quest[],
   tiers: Partial<Record<QuestKind, number>>,
   since = 0,
+  version = FOREST_SIZE_VERSION,
 ): Quest {
   const taken = new Set(active.map((q) => q.kind));
-  const pool = QUEST_KINDS.filter((k) => !taken.has(k));
+  const pool = questKinds(version).filter((k) => !taken.has(k));
   const kind = pool[Math.floor(mulberry32(hash(seed, 0x9e57 + serial))() * pool.length)];
-  const def = QUESTS[kind];
+  const def = { ...questDef(kind), ...(version >= FOREST_SIZE_VERSION ? TARGETS_V9[kind] : undefined) };
   let target = def.base + def.growth * (tiers[kind] ?? 0);
   if (def.lead) target = Math.max(target, metric(kind, board) + def.lead);
   return { kind, serial, target, progress: 0, since, seen: snapshot(kind, board) };
@@ -175,6 +206,7 @@ export function advanceQuest(q: Quest, board: Board, placed: Placement): void {
     case "meadow_size":
     case "city_size":
     case "road_size":
+    case "forest_size":
       q.progress = metric(q.kind, board);
       break;
     case "forest":
@@ -189,11 +221,18 @@ export function advanceQuest(q: Quest, board: Board, placed: Placement): void {
   }
 }
 
-export function questBias(tiles: readonly TileDef[], weights: readonly number[], quests: readonly Quest[], placements = 0): number[] {
-  const ramp = quests.map((q) => 1 + Math.min(1, Math.max(0, placements - q.since) / BIAS_RAMP));
+export function questBias(
+  tiles: readonly TileDef[],
+  weights: readonly number[],
+  quests: readonly Quest[],
+  placements = 0,
+  version = FOREST_SIZE_VERSION,
+): number[] {
+  const rampLength = version >= FOREST_SIZE_VERSION ? BIAS_RAMP_V9 : BIAS_RAMP;
+  const ramp = quests.map((q) => 1 + Math.min(1, Math.max(0, placements - q.since) / rampLength));
   return tiles.map((t, i) => {
     let m = 1;
-    quests.forEach((q, j) => (m *= (QUESTS[q.kind].bias[t.key] ?? 1) ** ramp[j]));
+    quests.forEach((q, j) => (m *= (questDef(q.kind).bias[t.key] ?? 1) ** ramp[j]));
     return weights[i] * Math.min(BIAS_MAX, m);
   });
 }

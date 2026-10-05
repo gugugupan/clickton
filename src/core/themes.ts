@@ -1,12 +1,14 @@
 import { hash, mulberry32 } from "./rng";
 import type { TileDef } from "./tiles";
 
-export type Category = "city" | "road" | "rail" | "grass" | "water" | "cross";
+export type Category = "city" | "road" | "rail" | "grass" | "water" | "cross" | "forest" | "field";
 
-export const CATEGORIES: readonly Category[] = ["city", "road", "rail", "grass", "water", "cross"];
+export const CATEGORIES: readonly Category[] = ["city", "road", "rail", "grass", "water", "cross", "forest", "field"];
 
 export function categoryOf(tile: TileDef): Category {
   const k = tile.key;
+  if (k.startsWith("forest")) return "forest";
+  if (k.startsWith("field")) return "field";
   if (k.startsWith("city") || k === "house_road") return "city";
   if (k === "level_crossing" || k.endsWith("_bridge")) return "cross";
   if (k.startsWith("road")) return "road";
@@ -62,6 +64,14 @@ export const THEMES: readonly Theme[] = [
   },
 ];
 
+// Kept apart from THEMES so the tile sets of earlier rules versions keep their fingerprints.
+export const THEME_EXTRAS: Record<string, Pick<Theme, "categories" | "tiles">> = {
+  metropolis: { categories: { forest: 0.5, field: 0.3 }, tiles: { city_street: 1.5, city_three: 1.3 } },
+  waterside: { categories: { forest: 1.3 }, tiles: {} },
+  countryside: { categories: { forest: 2, field: 2.5 }, tiles: {} },
+  village: { categories: { forest: 1.3, field: 1.5 }, tiles: {} },
+};
+
 export interface WorldMood {
   theme: Theme;
   jitter: Record<Category, number>;
@@ -93,6 +103,8 @@ export function themedWeights(
   return tiles.map((t, i) => {
     if (t.special) return base[i] * (boost[t.key] ?? 1);
     const c = categoryOf(t);
-    return base[i] * (theme.categories[c] ?? 1) * (theme.tiles[t.key] ?? 1) * jitter[c];
+    const more = THEME_EXTRAS[theme.key];
+    const cat = (theme.categories[c] ?? 1) * (more?.categories[c] ?? 1);
+    return base[i] * cat * (theme.tiles[t.key] ?? 1) * (more?.tiles[t.key] ?? 1) * jitter[c];
   });
 }

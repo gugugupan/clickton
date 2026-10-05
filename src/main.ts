@@ -4,7 +4,7 @@ import { playChime, playPlace, playPop } from "./audio";
 import { decodeCity, encodeCity } from "./core/codec";
 import { DISCARD_EVERY, Game, INVENTORY_MAX, type QuestDone } from "./core/game";
 import { LANDMARK_EMOJI } from "./core/landmarks";
-import { QUESTS } from "./core/quests";
+import { questDef } from "./core/quests";
 import { CHALLENGE_TILES, dayLabel, todayNumber } from "./core/daily";
 import { completedRailLines, completedRoadNetworks } from "./core/networks";
 import { THEMES, moodFor } from "./core/themes";
@@ -243,7 +243,7 @@ function refreshQuests(): void {
       const li = document.createElement("li");
       li.className = "quest";
       li.classList.toggle("fresh", freshQuests.has(q.serial));
-      const landmark = QUESTS[q.kind].landmark;
+      const landmark = questDef(q.kind).landmark;
       const reward = document.createElement("span");
       reward.className = "reward";
       reward.textContent = LANDMARK_EMOJI[landmark];

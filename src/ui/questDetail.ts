@@ -1,5 +1,5 @@
 import { LANDMARK_EMOJI, landmarkTile } from "../core/landmarks";
-import { QUESTS, type Quest, type QuestKind } from "../core/quests";
+import { questDef, type Quest, type QuestKind } from "../core/quests";
 import { TILES, tileByKey, type Rot } from "../core/tiles";
 import { t } from "../i18n";
 import type { Look } from "../render/looks";
@@ -39,6 +39,10 @@ const EXAMPLES: Record<QuestKind, Cell[][]> = {
     [null, ["road_curve", 0], ["road_end", 3]],
   ],
   forest: [[["grass", 0], ["grass", 0], ["grass", 0]]],
+  forest_size: [
+    [["forest_edge", 1], ["forest_full", 0], ["forest_edge", 3]],
+    [null, ["forest_edge", 0], null],
+  ],
   clean_streak: [[["road_straight", 1], ["road_straight", 1], ["road_curve", 2]]],
   big_hand: [
     [null, ["city_edge", 2], null],
@@ -50,7 +54,7 @@ const EXAMPLES: Record<QuestKind, Cell[][]> = {
 const $ = (id: string) => document.getElementById(id)!;
 
 export function openQuestDetail(q: Quest, look: Look): void {
-  const def = QUESTS[q.kind];
+  const def = questDef(q.kind);
   const lmTile = TILES[landmarkTile(def.landmark)];
   $("qd-title").textContent = t(`quest_${q.kind}` as Parameters<typeof t>[0], q.target);
   $("qd-count").textContent = `${Math.min(q.progress, q.target)} / ${q.target}`;

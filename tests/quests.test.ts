@@ -149,3 +149,31 @@ describe("quests in a town", () => {
     expect(r.nextTile).toBe(g.nextTile);
   });
 });
+
+describe("rules v9 forest quest", () => {
+  it("v8 keeps the grass-counting quest, v9 asks for a real forest", async () => {
+    const { questKinds } = await import("../src/core/quests");
+    expect(questKinds(8)).toContain("forest");
+    expect(questKinds(8)).not.toContain("forest_size");
+    expect(questKinds(9)).toContain("forest_size");
+    expect(questKinds(9)).not.toContain("forest");
+    expect(questKinds(9).length).toBe(questKinds(8).length);
+  });
+
+  it("forest_size tracks the biggest forest", async () => {
+    const { issueQuest, advanceQuest } = await import("../src/core/quests");
+    const { scorePlacement } = await import("../src/core/scoring");
+    const b = new Board();
+    const q = { ...issueQuest(1, 0, b, [], {}), kind: "forest_size" as const, target: 3, progress: 0 };
+    const put = (key: string, rot: 0 | 1 | 2 | 3, x: number, y: number) => {
+      const score = scorePlacement(b, id(key), rot, x, y);
+      b.place(id(key), rot, x, y);
+      advanceQuest(q, b, { tile: tileByKey(key), score });
+    };
+    put("forest_edge", 1, 0, 0);
+    put("forest_full", 0, 1, 0);
+    expect(q.progress).toBe(2);
+    put("forest_edge", 3, 2, 0);
+    expect(q.progress).toBe(3);
+  });
+});
