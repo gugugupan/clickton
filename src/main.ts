@@ -1,3 +1,4 @@
+void import("./fonts");
 import "./style.css";
 import { playChime, playPlace, playPop } from "./audio";
 import { decodeCity, encodeCity } from "./core/codec";
