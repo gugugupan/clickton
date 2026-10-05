@@ -115,7 +115,8 @@ button {
 }
 
 #hud > .rot-badge,
-#hud > .bubble {
+#hud > .bubble,
+#hud > .tutorial {
   pointer-events: none;
 }
 
