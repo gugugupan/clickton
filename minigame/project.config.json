@@ -1,0 +1,15 @@
+{
+  "description": "Clickton mini game feasibility spike",
+  "compileType": "game",
+  "appid": "touristappid",
+  "projectname": "clickton",
+  "libVersion": "latest",
+  "setting": {
+    "es6": true,
+    "enhance": true,
+    "minified": false,
+    "postcss": false,
+    "urlCheck": false
+  },
+  "packOptions": { "ignore": [] }
+}

@@ -3,3 +3,6 @@ dist/
 .DS_Store
 assets-raw/
 .env.local
+minigame/game.js
+minigame/models/
+minigame/project.private.config.json

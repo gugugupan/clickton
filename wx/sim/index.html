@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clickton wx sim</title>
+    <style>
+      body { margin: 0; display: flex; gap: 16px; padding: 16px; background: #ddd; font: 12px ui-monospace, monospace; }
+      canvas { width: 390px; height: 844px; background: #000; touch-action: none; flex: none; }
+      pre { flex: 1; white-space: pre-wrap; max-height: 844px; overflow: auto; margin: 0; }
+      .warn { color: #a60; } .error { color: #c00; }
+    </style>
+  </head>
+  <body>
+    <canvas id="screen"></canvas>
+    <pre id="log"></pre>
+    <script>
+      const el = document.getElementById("screen");
+      const out = document.getElementById("log");
+      const worker = new Worker("./worker.js");
+      worker.onmessage = (e) => {
+        if (e.data.type !== "log") return;
+        const line = document.createElement("div");
+        line.className = e.data.level;
+        line.textContent = e.data.text;
+        out.append(line);
+        window.__logs = (window.__logs || []).concat(`[${e.data.level}] ${e.data.text}`);
+      };
+      const offscreen = el.transferControlToOffscreen();
+      worker.postMessage({ type: "init", canvas: offscreen, size: { width: 390, height: 844, dpr: 2 } }, [offscreen]);
+      const touches = new Map();
+      const send = (type, e) => {
+        const r = el.getBoundingClientRect();
+        const t = { identifier: e.pointerId, clientX: e.clientX - r.left, clientY: e.clientY - r.top, pageX: e.clientX - r.left, pageY: e.clientY - r.top };
+        if (type === "start" || type === "move") touches.set(e.pointerId, t);
+        else touches.delete(e.pointerId);
+        worker.postMessage({ type, event: { touches: [...touches.values()], changedTouches: [t], timeStamp: e.timeStamp } });
+      };
+      el.addEventListener("pointerdown", (e) => { el.setPointerCapture(e.pointerId); send("start", e); });
+      el.addEventListener("pointermove", (e) => { if (touches.has(e.pointerId)) send("move", e); });
+      el.addEventListener("pointerup", (e) => send("end", e));
+      el.addEventListener("pointercancel", (e) => send("cancel", e));
+    </script>
+  </body>
+</html>
