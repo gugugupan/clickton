@@ -21,6 +21,7 @@ export const PALETTE = {
   white: 0xfffaf2,
   trunk: 0xa08670,
   forestFloor: 0x8fb07f,
+  forestFloorTones: [0x8fb07f, 0x87a977, 0x99b988],
   forestIcon: 0x7da46d,
   soil: 0xc9a887,
   crops: [0xe8cf8e, 0xb5cc8a, 0xdcbf7c],

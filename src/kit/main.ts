@@ -69,6 +69,31 @@ const ROWS: { title: string; note: string; items: Entry[] }[] = [
     ],
   },
   {
+    title: "森林细化：新树 vs KayKit 树",
+    note: "树冠由多个叶团组成，每个面按朝向和高度取深绿 / 绿 / 嫩黄绿",
+    items: [
+      { path: `${ORIGINAL}nature/leafy_tree_a.glb`, kind: "nature", fresh: true },
+      { path: `${ORIGINAL}nature/leafy_tree_b.glb`, kind: "nature", fresh: true },
+      { path: `${ORIGINAL}nature/leafy_tree_c.glb`, kind: "nature", fresh: true },
+      { path: `${ORIGINAL}nature/pine_tree_a.glb`, kind: "nature", fresh: true },
+      { path: `${FOREST}Tree_1_A_Color1.gltf`, kind: "nature" },
+      { path: `${FOREST}Tree_4_A_Color1.gltf`, kind: "nature" },
+    ],
+  },
+  {
+    title: "林地花草",
+    note: "蕨类、蘑菇、三色花丛",
+    items: [
+      { path: `${ORIGINAL}nature/fern.glb`, kind: "nature", fresh: true },
+      { path: `${ORIGINAL}nature/mushrooms_red.glb`, kind: "nature", fresh: true },
+      { path: `${ORIGINAL}nature/mushrooms_brown.glb`, kind: "nature", fresh: true },
+      { path: `${ORIGINAL}nature/flowers_pink.glb`, kind: "nature", fresh: true },
+      { path: `${ORIGINAL}nature/flowers_yellow.glb`, kind: "nature", fresh: true },
+      { path: `${ORIGINAL}nature/flowers_purple.glb`, kind: "nature", fresh: true },
+      { path: `${FOREST}Bush_1_A_Color1.gltf`, kind: "nature" },
+    ],
+  },
+  {
     title: "凉亭 vs 小型地标与小品",
     note: "Kenney 色板；白色构件 + Kenney 绿屋顶，与郊区房同一套颜色",
     items: [

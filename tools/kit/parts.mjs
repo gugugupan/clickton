@@ -25,7 +25,17 @@ export const TOWN = {
   flower: kenney(6, 1),
 };
 
-export const KAYKIT_PINK = { top: [255, 196, 216], bottom: [196, 84, 128] };
+export const NATURE_EXTRAS = {
+  blossom: { col: 1, row: 0, top: [255, 196, 216], bottom: [196, 84, 128] },
+  leafLight: { col: 2, row: 0, top: [218, 236, 128], bottom: [118, 176, 62] },
+  leafDeep: { col: 3, row: 0, top: [88, 152, 98], bottom: [22, 84, 60] },
+  stem: { col: 4, row: 0, top: [252, 246, 230], bottom: [214, 200, 176] },
+  flowerYellow: { col: 1, row: 1, top: [255, 238, 140], bottom: [232, 170, 50] },
+  flowerWhite: { col: 2, row: 1, top: [255, 255, 255], bottom: [222, 216, 232] },
+  flowerPurple: { col: 3, row: 1, top: [216, 192, 255], bottom: [140, 100, 200] },
+  capRed: { col: 4, row: 1, top: [244, 116, 92], bottom: [178, 58, 48] },
+  capBrown: { col: 5, row: 1, top: [222, 172, 120], bottom: [150, 100, 64] },
+};
 
 const column = (u, v0, v1) => (t) => ({ u, v: v0 + Math.min(0.95, Math.max(0.05, t)) * (v1 - v0) });
 
@@ -33,7 +43,7 @@ export const NATURE = {
   leaf: column(0.0625, 0, 0.25),
   bark: column(0.0625, 0.25, 0.5),
   stone: column(0.0625, 0.5, 0.75),
-  blossom: column(0.1875, 0, 0.25),
+  ...Object.fromEntries(Object.entries(NATURE_EXTRAS).map(([k, e]) => [k, column((e.col * 128 + 64) / 1024, e.row * 0.25, (e.row + 1) * 0.25)])),
 };
 
 const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
@@ -187,6 +197,21 @@ export class Shape {
     const up = cross(side, axis);
     const ring = (c, r) => [[1, 1], [-1, 1], [-1, -1], [1, -1]].map(([a, b]) => [0, 1, 2].map((k) => c[k] + (side[k] * a + up[k] * b) * r));
     return this.hexa([...ring(p0, r0), ...ring(p1, r1)], paint);
+  }
+
+  starCone(n, rOuter, rInner, y0, y1, paint, phase = 0) {
+    const ring = Array.from({ length: n * 2 }, (_, i) => {
+      const a = phase + (i / (n * 2)) * Math.PI * 2;
+      const r = i % 2 ? rInner : rOuter;
+      return [Math.cos(a) * r, y0 - (i % 2 ? 0 : 0.06 * rOuter), Math.sin(a) * r];
+    });
+    const apex = [0, y1, 0], under = [0, y0 + (y1 - y0) * 0.18, 0];
+    for (let i = 0; i < ring.length; i++) {
+      const a = ring[i], b = ring[(i + 1) % ring.length];
+      this.tri(a, b, apex, paint, [0, y0 + (y1 - y0) * 0.3, 0]);
+      this.tri(b, a, under, paint, [0, y1 + 1, 0]);
+    }
+    return this;
   }
 
   quadUp(pts, y, paint) {

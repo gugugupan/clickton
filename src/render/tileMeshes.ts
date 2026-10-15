@@ -152,6 +152,16 @@ const HOUSES = [..."abcdefghijklmnorstu"].map((c) => `house_${c}`) as ModelKey[]
 const SHOPS = [..."abcdefghi"].map((c) => `shop_${c}`) as ModelKey[];
 const TOWERS = [..."abcde"].map((c) => `skyscraper_${c}`) as ModelKey[];
 const TREES: ModelKey[] = ["tree_1", "tree_2", "tree_3", "tree_4", "tree_5"];
+const FOREST_TREES: ModelKey[] = ["leafy_a", "leafy_b", "leafy_c", "leafy_a", "leafy_b", "leafy_c", "pine_a"];
+const UNDERGROWTH: { model: ModelKey; fit: number }[] = [
+  { model: "fern", fit: 0.24 },
+  { model: "fern", fit: 0.2 },
+  { model: "mushrooms_red", fit: 0.13 },
+  { model: "mushrooms_brown", fit: 0.12 },
+  { model: "flowers_pink", fit: 0.16 },
+  { model: "flowers_yellow", fit: 0.16 },
+  { model: "flowers_purple", fit: 0.16 },
+];
 const BUSHES: ModelKey[] = ["bush_1", "bush_2", "bush_3"];
 const ROCKS: ModelKey[] = ["rock_1", "rock_2"];
 const TUFTS: ModelKey[] = ["grass_1", "grass_2"];
@@ -201,6 +211,14 @@ function drawCap(b: PartBuilder, d: Dir, type: Edge, look: Look): void {
   } else if (type === "field") {
     for (const side of [-0.4, 0, 0.4]) box(0.025, 0.06, 0.025, 0.46, PLATE_TOP, PALETTE.trunk, side);
     box(0.84, 0.014, 0.012, 0.46, PLATE_TOP + 0.04, PALETTE.trunk);
+  }
+}
+
+function forestFloor(b: PartBuilder, rng: Rng, x: number, z: number): void {
+  b.box(SLOT, 0.012, SLOT, x, PLATE_TOP, z, pick(rng, PALETTE.forestFloorTones));
+  const dots = Math.floor(rng() * 3);
+  for (let i = 0; i < dots; i++) {
+    b.cylinder(0.024, 0.022, x + (rng() - 0.5) * 0.24, PLATE_TOP + 0.012, z + (rng() - 0.5) * 0.24, pick(rng, PALETTE.flowers), 5);
   }
 }
 
@@ -599,34 +617,44 @@ export function buildTile(
 
   for (const g of tile.groups.filter((g) => g.type === "forest")) {
     const lot = g.dirs.length === 4 ? lotFor(rng) : "full";
+    const undergrowth = (x: number, z: number) => {
+      const u = pick(rng, UNDERGROWTH);
+      prop(u.model, x, z, { fit: u.fit * (0.85 + rng() * 0.3), rotY: rng() * Math.PI * 2, lift: 0.012 });
+    };
     if (lot !== "full") {
-      b.box(PLATE_SIZE - 0.02, 0.012, PLATE_SIZE - 0.02, 0, PLATE_TOP, 0, PALETTE.forestFloor);
+      for (const [sx, sz] of regionSlots(g.dirs)) forestFloor(b, rng, sx * SLOT, sz * SLOT);
       const spots = lot === "big" ? [[0, 0]] : pick(rng, PAIRS).map(([sx, sz]) => [sx * 0.22, sz * 0.22]);
       for (const [x, z] of spots) {
-        prop(pick(rng, TREES), x, z, {
+        prop(pick(rng, FOREST_TREES), x, z, {
           fit: lot === "big" ? 0.72 : 0.5,
           maxHeight: lot === "big" ? 0.95 : 0.72,
           rotY: rng() * Math.PI * 2,
           lift: 0.012,
         });
       }
-      for (const [cx, cz] of pick(rng, DIAGONALS)) {
-        prop(pick(rng, rng() < 0.6 ? BUSHES : ROCKS), cx * 0.36, cz * 0.36, { fit: 0.11, rotY: rng() * Math.PI * 2, lift: 0.012 });
+      const count = 3 + Math.floor(rng() * 3);
+      const start = rng() * Math.PI * 2;
+      for (let i = 0; i < count; i++) {
+        const a = start + (i / count) * Math.PI * 2 + (rng() - 0.5) * 0.5;
+        const r = 0.32 + rng() * 0.1;
+        undergrowth(Math.cos(a) * r, Math.sin(a) * r);
       }
       continue;
     }
     for (const [sx, sz] of regionSlots(g.dirs)) {
       const x = sx * SLOT, z = sz * SLOT;
-      b.box(SLOT, 0.012, SLOT, x, PLATE_TOP, z, PALETTE.forestFloor);
+      forestFloor(b, rng, x, z);
       const trees = 1 + (rng() < 0.55 ? 1 : 0);
       for (let i = 0; i < trees; i++) {
         const jx = x + (trees === 1 ? (rng() - 0.5) * 0.06 : (i ? 0.07 : -0.07) + (rng() - 0.5) * 0.04);
         const jz = z + (trees === 1 ? (rng() - 0.5) * 0.06 : (i ? -0.06 : 0.06) + (rng() - 0.5) * 0.04);
-        prop(pick(rng, TREES), jx, jz, { fit: 0.22 + rng() * 0.08, maxHeight: 0.4 + rng() * 0.14, rotY: rng() * Math.PI * 2, lift: 0.012 });
+        prop(pick(rng, FOREST_TREES), jx, jz, { fit: 0.22 + rng() * 0.08, maxHeight: 0.4 + rng() * 0.14, rotY: rng() * Math.PI * 2, lift: 0.012 });
       }
       const roll = rng();
-      if (roll < 0.35) prop(pick(rng, BUSHES), x + (rng() - 0.5) * 0.2, z + (rng() - 0.5) * 0.2, { fit: 0.12, rotY: rng() * Math.PI * 2, lift: 0.012 });
-      else if (roll < 0.5) prop(pick(rng, ROCKS), x + (rng() - 0.5) * 0.2, z + (rng() - 0.5) * 0.2, { fit: 0.09, rotY: rng() * Math.PI * 2, lift: 0.012 });
+      const ox = x + (rng() - 0.5) * 0.2, oz = z + (rng() - 0.5) * 0.2;
+      if (roll < 0.2) prop(pick(rng, BUSHES), ox, oz, { fit: 0.12, rotY: rng() * Math.PI * 2, lift: 0.012 });
+      else if (roll < 0.3) prop(pick(rng, ROCKS), ox, oz, { fit: 0.09, rotY: rng() * Math.PI * 2, lift: 0.012 });
+      else if (roll < 0.65) undergrowth(ox, oz);
     }
   }
 

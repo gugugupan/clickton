@@ -43,6 +43,11 @@
       "soft": true,
       "variants": true,
       "licenseNote": "Clickton original models, generated from code by tools/kit (npm run kit). Texture: Kenney City Kit colormap (www.kenney.nl), CC0 1.0 Universal."
+    },
+    "original_nature": {
+      "source": "clickton-original/nature",
+      "soft": true,
+      "licenseNote": "Clickton original models, generated from code by tools/kit (npm run kit). Texture: KayKit Forest Nature Pack atlas by Kay Lousberg (www.kaylousberg.com), CC0 1.0 Universal, with extra colour columns painted into its reserved area."
     }
   },
   "models": {
@@ -419,6 +424,46 @@
     "dept_store": {
       "pack": "original",
       "file": "dept_store.glb"
+    },
+    "leafy_a": {
+      "pack": "original_nature",
+      "file": "leafy_tree_a.glb"
+    },
+    "leafy_b": {
+      "pack": "original_nature",
+      "file": "leafy_tree_b.glb"
+    },
+    "leafy_c": {
+      "pack": "original_nature",
+      "file": "leafy_tree_c.glb"
+    },
+    "pine_a": {
+      "pack": "original_nature",
+      "file": "pine_tree_a.glb"
+    },
+    "fern": {
+      "pack": "original_nature",
+      "file": "fern.glb"
+    },
+    "mushrooms_red": {
+      "pack": "original_nature",
+      "file": "mushrooms_red.glb"
+    },
+    "mushrooms_brown": {
+      "pack": "original_nature",
+      "file": "mushrooms_brown.glb"
+    },
+    "flowers_pink": {
+      "pack": "original_nature",
+      "file": "flowers_pink.glb"
+    },
+    "flowers_yellow": {
+      "pack": "original_nature",
+      "file": "flowers_yellow.glb"
+    },
+    "flowers_purple": {
+      "pack": "original_nature",
+      "file": "flowers_purple.glb"
     }
   },
   "agents": {

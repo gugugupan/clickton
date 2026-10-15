@@ -4,14 +4,15 @@ import { fileURLToPath } from "node:url";
 import { NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import { PNG } from "pngjs";
-import { KAYKIT_PINK, Shape } from "./parts.mjs";
+import { NATURE_EXTRAS, Shape } from "./parts.mjs";
 import bakery from "./models/bakery.mjs";
 import { cherryA, cherryB } from "./models/cherry.mjs";
 import gazebo from "./models/gazebo.mjs";
 import school from "./models/school.mjs";
+import * as forest from "./models/forest.mjs";
 import store from "./models/store.mjs";
 
-const RECIPES = [bakery, cherryA, cherryB, gazebo, school, store];
+const RECIPES = [bakery, cherryA, cherryB, gazebo, school, store, ...Object.values(forest)];
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const raw = join(root, "assets-raw");
@@ -19,18 +20,17 @@ const out = join(raw, "clickton-original");
 
 const ATLASES = {
   town: { reference: "city-suburban/Models/GLB format/building-type-a.glb" },
-  nature: { reference: "forest-nature/KayKit_Forest_Nature_Pack_1.0_FREE/Assets/gltf/Tree_1_A_Color1.gltf", paint: addBlossom },
+  nature: { reference: "forest-nature/KayKit_Forest_Nature_Pack_1.0_FREE/Assets/gltf/Tree_1_A_Color1.gltf", paint: addSwatches },
 };
 
-function addBlossom(bytes) {
+function addSwatches(bytes) {
   const png = PNG.sync.read(bytes);
-  const x0 = png.width / 8, x1 = png.width / 4, h = png.height / 4;
-  for (let y = 0; y < h; y++) {
-    const t = y / (h - 1);
-    const c = KAYKIT_PINK.top.map((top, k) => Math.round(top + (KAYKIT_PINK.bottom[k] - top) * t));
-    for (let x = x0; x < x1; x++) {
-      const i = (y * png.width + x) * 4;
-      png.data.set([...c, 255], i);
+  const cw = png.width / 8, rh = png.height / 4;
+  for (const e of Object.values(NATURE_EXTRAS)) {
+    for (let y = 0; y < rh; y++) {
+      const t = y / (rh - 1);
+      const c = e.top.map((top, k) => Math.round(top + (e.bottom[k] - top) * t));
+      for (let x = e.col * cw; x < (e.col + 1) * cw; x++) png.data.set([...c, 255], ((e.row * rh + y) * png.width + x) * 4);
     }
   }
   return PNG.sync.write(png);

@@ -35,7 +35,8 @@ const PACK_TITLES: Record<PackKey, string> = {
   forest: "KayKit Forest Nature（树木与自然）",
   medieval: "KayKit Medieval Hexagon（装饰小品）",
   holiday: "KayKit Holiday Bits（火车与节日）",
-  original: "Clickton 原创（tools/kit 生成）",
+  original: "Clickton 原创建筑（tools/kit 生成）",
+  original_nature: "Clickton 原创树木与花草（tools/kit 生成）",
 };
 
 const AGENT_TITLES: Record<string, string> = {

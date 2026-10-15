@@ -1,0 +1,1 @@
+Clickton original models, generated from code by tools/kit (npm run kit). Texture: KayKit Forest Nature Pack atlas by Kay Lousberg (www.kaylousberg.com), CC0 1.0 Universal, with extra colour columns painted into its reserved area.
