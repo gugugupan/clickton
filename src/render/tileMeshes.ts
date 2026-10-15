@@ -185,9 +185,9 @@ const PAIRS: [number, number][][] = [
 
 type Lot = "big" | "pair" | "full";
 
-function lotFor(rng: Rng): Lot {
+function lotFor(rng: Rng, look: Look): Lot {
   const roll = rng();
-  return roll < 0.25 ? "big" : roll < 0.55 ? "pair" : "full";
+  return roll < look.bigLot ? "big" : roll < look.bigLot + look.pairLot ? "pair" : "full";
 }
 
 function drawCap(b: PartBuilder, d: Dir, type: Edge, look: Look): void {
@@ -366,7 +366,8 @@ function drawLandmark(b: PartBuilder, kind: Landmark, rng: Rng, prop: PropFn, lo
       b.studGrid(0, 0, 0.8, 5, PLATE_TOP, look.grassStud);
       b.cylinder(0.13, 0.02, 0, PLATE_TOP, 0, PALETTE.platform, 20);
       b.cylinder(0.1, 0.026, 0, PLATE_TOP, 0, look.water, 20);
-      for (const [x, z] of [[-0.28, -0.28], [0.28, -0.28], [-0.28, 0.28], [0.28, 0.28]]) flowers(x, z, 7, 0.22);
+      for (const [x, z] of [[-0.28, -0.28], [-0.28, 0.28], [0.28, 0.28]]) flowers(x, z, 7, 0.22);
+      prop("gazebo", 0.27, -0.27, { fit: 0.28, rotY: Math.PI / 6 });
       prop(pick(rng, BUSHES), 0, -0.34, { fit: 0.13 });
       prop(pick(rng, BUSHES), 0, 0.34, { fit: 0.13 });
       prop("bench", -0.3, 0, { fit: 0.13, rotY: Math.PI / 2 });
@@ -610,7 +611,7 @@ export function buildTile(
       });
       continue;
     }
-    const lot = g.dirs.length >= 3 && !tile.landmark && !tile.special ? lotFor(rng) : "full";
+    const lot = g.dirs.length >= 3 && !tile.landmark && !tile.special ? lotFor(rng, look) : "full";
     const open = DIRS.find((d) => !g.dirs.includes(d));
     const shift = open === undefined ? [0, 0] : [-DX[open] * SLOT * 0.5, -DY[open] * SLOT * 0.5];
     for (const [sx, sz] of regionSlots(g.dirs)) {
@@ -659,7 +660,7 @@ export function buildTile(
   }
 
   for (const g of tile.groups.filter((g) => g.type === "forest")) {
-    const lot = g.dirs.length === 4 ? lotFor(rng) : "full";
+    const lot = g.dirs.length === 4 ? lotFor(rng, look) : "full";
     const undergrowth = (x: number, z: number) => {
       const u = pick(rng, UNDERGROWTH);
       prop(u.model, x, z, { fit: u.fit * (0.85 + rng() * 0.3), rotY: rng() * Math.PI * 2, lift: 0.012 });
@@ -717,7 +718,7 @@ export function buildTile(
       b.box(0.04, 0.2, 0.012, 0.36, PLATE_TOP + 0.012, 0.13, PALETTE.trunk);
       continue;
     }
-    const lot = g.dirs.length === 4 ? lotFor(rng) : "full";
+    const lot = g.dirs.length === 4 ? lotFor(rng, look) : "full";
     const alongX = rng() < 0.5;
     for (const [sx, sz] of slots) {
       const x = sx * SLOT, z = sz * SLOT;
@@ -779,7 +780,8 @@ export function buildTile(
       const fur = look.streetFurniture;
       const treeT = look.trees, bushT = treeT + look.bushes, rockT = bushT + 0.06, tuftT = rockT + 0.1;
       if (tile.groups.length === 0 && sx === 0 && sz === 0 && roll < look.landmark) {
-        prop("watertower", x, z, { height: 0.5, rotY: pick(rng, QUARTERS) });
+        if (roll < look.landmark / 2) prop("watertower", x, z, { height: 0.5, rotY: pick(rng, QUARTERS) });
+        else prop("gazebo", x, z, { fit: 0.3, rotY: pick(rng, QUARTERS) });
       } else if (hasRoad && roll < fur) {
         if (roll < fur * 0.55) prop("streetlight", jx, jz, { height: 0.24 });
         else if (roll < fur * 0.85) prop("bench", jx, jz, { fit: 0.12, rotY: pick(rng, QUARTERS) });

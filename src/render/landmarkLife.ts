@@ -776,3 +776,81 @@ export class Rowboat implements Life {
     this.wait = this.out ? 1.5 + Math.random() * 2 : 5 + Math.random() * 6;
   }
 }
+
+export class Dismissal implements Life {
+  readonly root = new Group();
+  private readonly kids: Puppet[];
+  private state: "play" | "line" | "leave" | "gone" = "play";
+  private clock = 0;
+
+  constructor(
+    rigs: Rig[],
+    private readonly match: Match,
+    private readonly yard: Area,
+    private readonly door: Spot,
+    private readonly gate: Spot,
+    private readonly exit: Spot,
+  ) {
+    this.root.add(match.root);
+    this.kids = rigs.map((r) => new Puppet(r, 0.1, r.clips));
+    for (const k of this.kids) {
+      k.root.visible = false;
+      this.root.add(k.root);
+    }
+  }
+
+  private slot(i: number): Spot {
+    const dx = this.gate.x - this.door.x, dz = this.gate.z - this.door.z;
+    const len = Math.hypot(dx, dz) || 1;
+    return { x: this.door.x + (dx / len) * 0.05 * i, z: this.door.z + (dz / len) * 0.05 * i };
+  }
+
+  update(dt: number, night: number): void {
+    if (this.state === "play") {
+      this.match.update(dt, 0);
+      if (night < 0.3) return;
+      this.match.root.visible = false;
+      this.kids.forEach((k) => {
+        pointIn(this.yard, k.root.position);
+        k.root.position.y = PLATE_TOP + 0.02;
+        k.root.visible = true;
+      });
+      this.state = "line";
+      this.clock = 0;
+      return;
+    }
+    if (this.state === "gone") {
+      if (night > 0.15) return;
+      this.match.root.visible = true;
+      this.state = "play";
+      return;
+    }
+    this.clock += dt;
+    let walking = false;
+    this.kids.forEach((k, i) => {
+      if (!k.root.visible) return;
+      k.update(dt);
+      const pos = k.root.position;
+      if (this.state === "line") {
+        if (walkTo(k, pos, this.slot(this.kids.length - 1 - i), 0.12, dt)) {
+          k.play("idle");
+          k.face(this.gate.x - pos.x, this.gate.z - pos.z, dt);
+        } else walking = true;
+        return;
+      }
+      if (this.clock < i * 0.7) return;
+      const leg = k.root.userData.leg ?? 0;
+      const goal = leg === 0 ? this.gate : this.exit;
+      if (walkTo(k, pos, goal, 0.12, dt)) {
+        if (leg === 0) k.root.userData.leg = 1;
+        else k.root.visible = false;
+      }
+    });
+    if (this.state === "line" && !walking && this.clock > 1.5) {
+      this.state = "leave";
+      this.clock = 0;
+      this.kids.forEach((k) => (k.root.userData.leg = 0));
+    }
+    if (this.state === "leave" && this.kids.every((k) => !k.root.visible)) this.state = "gone";
+  }
+}

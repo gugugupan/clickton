@@ -27,6 +27,7 @@ import { LANDMARK_PROPS, PLATE_TOP, SLOT, regionSlots } from "./tileMeshes";
 import {
   BEE,
   Beam,
+  Dismissal,
   Flag,
   Flyer,
   Glow,
@@ -1083,7 +1084,10 @@ export class Agents {
       const rigs = [0, 1, 2].map((i) => this.people[h(30 + i) % this.people.length]).filter(Boolean);
       const ball = this.library.solidMesh("football");
       if (ball) ball.scale.setScalar(this.library.scaleFor({ model: "football", fit: 0.04 }));
-      this.addLife(new Match(rigs, ball, tileArea(p, -0.27, 0.27, 0.1), 0.35));
+      const yard = tileArea(p, -0.27, 0.27, 0.1);
+      const walkers = [0, 1, 2, 3].map((i) => this.people[h(34 + i) % this.people.length]).filter(Boolean);
+      const match = new Match(rigs, ball, yard);
+      this.addLife(new Dismissal(walkers, match, yard, onTile(p, 0, 0.06), onTile(p, 0, 0.3), onTile(p, 0, 0.52)));
     } else if (p.tile.special === "park") {
       for (let i = from; i < to; i++) this.addPerson(h(40 + i), p, board, tileArea(p, 0, 0, 0.34), "idle");
       if (from === 0) this.addPerson(h(48), p, board, tileArea(p, 0, 0, 0.3), "sit");

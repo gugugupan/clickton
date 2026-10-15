@@ -17,6 +17,8 @@ export interface Look {
   bushes: number;
   flowers: number;
   landmark: number;
+  bigLot: number;
+  pairLot: number;
 }
 
 export const DEFAULT_LOOK: Look = {
@@ -36,6 +38,8 @@ export const DEFAULT_LOOK: Look = {
   bushes: 0.12,
   flowers: 0.1,
   landmark: 0.06,
+  bigLot: 0.25,
+  pairLot: 0.3,
 };
 
 const LOOKS: Record<string, Partial<Look>> = {
@@ -51,6 +55,8 @@ const LOOKS: Record<string, Partial<Look>> = {
     streetFurniture: 0.32,
     trees: 0.18,
     flowers: 0.04,
+    bigLot: 0.35,
+    pairLot: 0.35,
   },
   railway: {
     grass: 0xb0c690,
@@ -84,6 +90,7 @@ const LOOKS: Record<string, Partial<Look>> = {
     bushes: 0.16,
     flowers: 0.24,
     landmark: 0.14,
+    bigLot: 0.35,
   },
   crossroads: {
     table: 0xefe9e2,
@@ -101,6 +108,8 @@ const LOOKS: Record<string, Partial<Look>> = {
     flowers: 0.2,
     trees: 0.3,
     landmark: 0.1,
+    bigLot: 0.2,
+    pairLot: 0.35,
   },
 };
 
