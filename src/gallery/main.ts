@@ -6,64 +6,47 @@ import {
   Color,
   DirectionalLight,
   HemisphereLight,
-  Material,
   Mesh,
   MeshStandardMaterial,
   Object3D,
   OrthographicCamera,
   Scene,
-  Texture,
   Vector3,
   WebGLRenderer,
 } from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
+import { hash, mulberry32 } from "../core/rng";
+import { RULES_VERSION, TILES, starterFor, type TileDef } from "../core/tiles";
+import { setLang, t, type StringKey } from "../i18n";
+import catalog from "../render/assets.json";
 import { PartBuilder } from "../render/bricks";
+import { ModelLibrary, modelUrl, type ModelKey, type PackKey } from "../render/models";
 import { PALETTE } from "../render/palette";
-import { soften } from "../render/soften";
+import { buildTile } from "../render/tileMeshes";
 import "./gallery.css";
 
-const files = {
-  ...import.meta.glob("/assets-raw/**/gltf/**/*.gltf", { query: "?url", import: "default", eager: true }),
-  ...import.meta.glob("/assets-raw/**/GLB format/*.glb", { query: "?url", import: "default", eager: true }),
-} as Record<string, string>;
+setLang("zh");
 
-const PACKS: { key: string; title: string; match: string }[] = [
-  { key: "city", title: "City Builder Bits", match: "/city-builder-bits/" },
-  { key: "medieval", title: "Medieval Hexagon（建筑与装饰）", match: "/medieval-hexagon/" },
-  { key: "forest", title: "Forest Nature Pack", match: "/forest-nature/" },
-  { key: "holiday", title: "Holiday Bits", match: "/holiday-bits/" },
-  { key: "suburban", title: "Kenney City Kit (Suburban)", match: "/city-suburban/" },
-  { key: "commercial", title: "Kenney City Kit (Commercial)", match: "/city-commercial/" },
-  { key: "people", title: "Blocky Characters（小人，有动画）", match: "/blocky-characters/" },
-  { key: "pets", title: "Cube Pets（动物，有动画）", match: "/cube-pets/" },
-];
+const PACK_TITLES: Record<PackKey, string> = {
+  suburban: "Kenney City Kit · Suburban（住宅）",
+  commercial: "Kenney City Kit · Commercial（商店与高楼）",
+  city: "KayKit City Builder Bits（车辆与城市小品）",
+  forest: "KayKit Forest Nature（树木与自然）",
+  medieval: "KayKit Medieval Hexagon（装饰小品）",
+  holiday: "KayKit Holiday Bits（火车与节日）",
+};
 
-const ANIMATED = new Set(["people", "pets"]);
+const AGENT_TITLES: Record<string, string> = {
+  people: "Kenney Blocky Characters（小人，有动画）",
+  pets: "Kenney Cube Pets（动物，有动画）",
+};
 
-const COLOR_SUFFIX = /_(blue|red|green|yellow|white|brown|Color\d)$/;
-
-interface Item {
-  pack: string;
-  name: string;
-  url: string;
-}
-
-function collect(): Item[] {
-  const seen = new Set<string>();
-  const items: Item[] = [];
-  for (const [path, url] of Object.entries(files).sort(([a], [b]) => a.localeCompare(b))) {
-    const pack = PACKS.find((p) => path.includes(p.match));
-    if (!pack) continue;
-    if (/\/tiles\//.test(path)) continue;
-    if (/\/buildings\/(green|red|yellow)\//.test(path)) continue;
-    const name = path.split("/").pop()!.replace(/\.(gltf|glb)$/, "");
-    if (/withoutBase|Singlesided|SingleSided|_Mesh$/.test(name)) continue;
-    const key = `${pack.key}:${name.replace(COLOR_SUFFIX, "")}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-    items.push({ pack: pack.key, name, url });
-  }
-  return items;
+interface Card {
+  el: HTMLElement;
+  img: HTMLImageElement;
+  search: string;
+  render: () => Object3D | Promise<Object3D>;
 }
 
 const SIZE = 220;
@@ -93,166 +76,175 @@ const plate = new Mesh(
   new MeshStandardMaterial({ vertexColors: true, roughness: 0.85 }),
 );
 plate.receiveShadow = true;
-scene.add(plate);
 
-const loader = new GLTFLoader();
-function applyPalette(root: Object3D, soft: boolean): void {
+const tileMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.85, metalness: 0 });
+const waterMaterial = new MeshStandardMaterial({ vertexColors: true, roughness: 0.35, metalness: 0 });
+
+const library = new ModelLibrary();
+const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+
+function shadows(root: Object3D): Object3D {
   root.traverse((o) => {
     const m = o as Mesh;
-    if (!m.isMesh) return;
-    m.castShadow = true;
-    const mats = (Array.isArray(m.material) ? m.material : [m.material]) as (Material & {
-      map?: Texture | null;
-      userData: { original?: Texture };
-    })[];
-    for (const mat of mats) {
-      if (!mat.map && !mat.userData.original) continue;
-      mat.userData.original ??= mat.map!;
-      mat.map = soft ? soften(mat.userData.original) : mat.userData.original;
-      mat.needsUpdate = true;
+    if (m.isMesh) {
+      m.castShadow = true;
+      m.receiveShadow = true;
     }
   });
+  return root;
 }
 
-const models = new Map<string, Object3D>();
+function tileObject(tile: TileDef): Object3D {
+  const { base, water, props } = buildTile(tile, 0, mulberry32(hash(7, tile.id, 0)));
+  const mesh = new Mesh(base, tileMaterial);
+  if (water) mesh.add(new Mesh(water, waterMaterial));
+  for (const child of library.buildProps(props, "solid")) mesh.add(child);
+  return shadows(mesh);
+}
 
-async function thumbnail(item: Item, soft: boolean): Promise<string> {
-  let model = models.get(item.url);
-  if (!model) {
-    model = (await loader.loadAsync(item.url)).scene;
-    const box = new Box3().setFromObject(model);
-    const size = box.getSize(new Vector3());
-    const scale = Math.min(0.82 / Math.max(size.x, size.z), 1.1 / size.y);
-    model.scale.setScalar(scale);
-    const fitted = new Box3().setFromObject(model);
-    model.position.set(-(fitted.min.x + fitted.max.x) / 2, 0.1 - fitted.min.y, -(fitted.min.z + fitted.max.z) / 2);
-    models.set(item.url, model);
+function fitOnPlate(root: Object3D): Object3D {
+  const box = new Box3().setFromObject(root);
+  const size = box.getSize(new Vector3());
+  root.scale.setScalar(Math.min(0.82 / Math.max(size.x, size.z), 1.1 / size.y));
+  const fitted = new Box3().setFromObject(root);
+  root.position.set(-(fitted.min.x + fitted.max.x) / 2, 0.1 - fitted.min.y, -(fitted.min.z + fitted.max.z) / 2);
+  const group = new Object3D();
+  group.add(plate.clone(), root);
+  return group;
+}
+
+function modelObject(key: ModelKey): Object3D {
+  const group = new Object3D();
+  for (const mesh of library.buildProps([{ model: key, x: 0, z: 0, rotY: 0, fit: 1 }], "solid")) group.add(mesh);
+  return fitOnPlate(shadows(group));
+}
+
+const agentScenes = new Map<string, Promise<{ scene: Object3D; animations: AnimationClip[] }>>();
+
+function loadAgent(folder: string, file: string) {
+  const url = modelUrl(folder, file);
+  let p = agentScenes.get(url);
+  if (!p) {
+    p = loader.loadAsync(url).then((g) => ({ scene: shadows(g.scene), animations: g.animations }));
+    agentScenes.set(url, p);
   }
-  applyPalette(model, soft && !ANIMATED.has(item.pack));
-  scene.add(model);
-  renderer.render(scene, camera);
-  scene.remove(model);
-  return renderer.domElement.toDataURL("image/png");
-}
-
-const STORE = "clickton.gallery.picked";
-const picked = new Set<string>(loadPicked());
-
-function loadPicked(): string[] {
-  try {
-    return JSON.parse(localStorage.getItem(STORE) ?? "[]");
-  } catch {
-    return [];
-  }
-}
-
-function savePicked(): void {
-  try {
-    localStorage.setItem(STORE, JSON.stringify([...picked]));
-  } catch {}
+  return p;
 }
 
 const $ = (id: string) => document.getElementById(id)!;
-const items = collect();
-const cards = new Map<string, { el: HTMLElement; img: HTMLImageElement; item: Item }>();
-const idOf = (i: Item) => `${i.pack}/${i.name}`;
+const cards: Card[] = [];
 
-function renderPicked(): void {
-  $("count").textContent = String(picked.size);
-  $("picked-list").replaceChildren(
-    ...[...picked].sort().map((id) => {
-      const chip = document.createElement("button");
-      chip.className = "chip";
-      chip.textContent = `${id} ✕`;
-      chip.onclick = () => toggle(id);
-      return chip;
-    }),
-  );
-  for (const [id, c] of cards) c.el.classList.toggle("on", picked.has(id));
+function tileGroup(tile: TileDef): string {
+  if (tile.id === starterFor(RULES_VERSION).tile) return "starter";
+  if (tile.landmark) return "landmark";
+  if (tile.special) return "special";
+  if (tile.weight === 0) return "legacy";
+  return "normal";
 }
 
-function toggle(id: string): void {
-  if (picked.has(id)) picked.delete(id);
-  else picked.add(id);
-  savePicked();
-  renderPicked();
+const TILE_GROUPS: { key: string; title: string }[] = [
+  { key: "normal", title: "普通地块" },
+  { key: "special", title: "稀有特殊地块" },
+  { key: "landmark", title: "地标（任务奖励）" },
+  { key: "starter", title: "起始地块" },
+  { key: "legacy", title: "仅旧版本出现" },
+];
+
+function weightTag(tile: TileDef): string {
+  if (tile.weight > 0) return `v${RULES_VERSION} 权重 ${tile.weight}`;
+  const group = tileGroup(tile);
+  if (group === "landmark") return "权重 0 · 任务奖励";
+  if (group === "starter") return "权重 0 · 开局放置";
+  return "权重 0 · 仅旧版本";
+}
+
+function section(title: string, count: number): HTMLElement {
+  const el = document.createElement("section");
+  el.innerHTML = `<h2>${title} <small>${count}</small></h2>`;
+  const grid = document.createElement("div");
+  grid.className = "grid";
+  el.append(grid);
+  $("packs").append(el);
+  return grid;
+}
+
+function addCard(grid: HTMLElement, title: string, sub: string, render: Card["render"], onPlay?: () => void): void {
+  const el = document.createElement("div");
+  el.className = "card";
+  const img = document.createElement("img");
+  img.width = img.height = SIZE;
+  img.alt = title;
+  const label = document.createElement("span");
+  label.textContent = title;
+  const meta = document.createElement("small");
+  meta.textContent = sub;
+  el.append(img, label, meta);
+  if (onPlay) {
+    const play = document.createElement("button");
+    play.className = "play";
+    play.textContent = "▶ 动画";
+    play.onclick = onPlay;
+    el.append(play);
+  }
+  grid.append(el);
+  cards.push({ el, img, search: `${title} ${sub}`.toLowerCase(), render });
 }
 
 function buildCards(): void {
-  const root = $("packs");
-  for (const pack of PACKS) {
-    const list = items.filter((i) => i.pack === pack.key);
+  const h = document.createElement("h1");
+  h.className = "part";
+  h.textContent = "地块";
+  $("packs").append(h);
+  for (const g of TILE_GROUPS) {
+    const tiles = TILES.filter((tile) => tileGroup(tile) === g.key);
+    if (!tiles.length) continue;
+    const grid = section(g.title, tiles.length);
+    for (const tile of tiles) addCard(grid, t(`tile_${tile.key}` as StringKey), `${tile.key} · ${weightTag(tile)}`, () => tileObject(tile));
+  }
+
+  const models = document.createElement("h1");
+  models.className = "part";
+  models.textContent = "模型";
+  $("packs").append(models);
+  const entries = Object.entries(catalog.models) as [ModelKey, { pack: PackKey; file: string }][];
+  for (const pack of Object.keys(PACK_TITLES) as PackKey[]) {
+    const list = entries.filter(([, def]) => def.pack === pack);
     if (!list.length) continue;
-    const section = document.createElement("section");
-    section.innerHTML = `<h2>${pack.title} <small>${list.length}</small></h2>`;
-    const grid = document.createElement("div");
-    grid.className = "grid";
-    for (const item of list) {
-      const el = document.createElement("button");
-      el.className = "card";
-      const img = document.createElement("img");
-      img.width = img.height = SIZE;
-      img.alt = item.name;
-      const label = document.createElement("span");
-      label.textContent = item.name;
-      el.append(img, label);
-      if (ANIMATED.has(item.pack)) {
-        const play = document.createElement("span");
-        play.className = "play";
-        play.textContent = "▶ 动画";
-        play.onclick = (e) => {
-          e.stopPropagation();
-          void openViewer(item);
-        };
-        el.append(play);
-      }
-      el.onclick = () => toggle(idOf(item));
-      grid.append(el);
-      cards.set(idOf(item), { el, img, item });
+    const grid = section(PACK_TITLES[pack], list.length);
+    for (const [key, def] of list) addCard(grid, key, def.file.replace(/\.(gltf|glb)$/, ""), () => modelObject(key));
+  }
+
+  for (const [folder, group] of Object.entries(catalog.agents)) {
+    const grid = section(AGENT_TITLES[folder] ?? folder, group.files.length);
+    for (const file of group.files) {
+      const name = file.replace(/\.(gltf|glb)$/, "");
+      addCard(grid, name, folder, async () => fitOnPlate((await loadAgent(folder, file)).scene.clone(true)), () => void openViewer(folder, file));
     }
-    section.append(grid);
-    root.append(section);
   }
 }
-
-let renderToken = 0;
 
 async function renderAll(): Promise<void> {
-  const token = ++renderToken;
-  const soft = ($("soft") as HTMLInputElement).checked;
   let done = 0;
-  for (const c of cards.values()) {
-    if (token !== renderToken) return;
+  for (const c of cards) {
     try {
-      c.img.src = await thumbnail(c.item, soft);
+      const obj = await c.render();
+      scene.add(obj);
+      renderer.shadowMap.needsUpdate = true;
+      renderer.render(scene, camera);
+      scene.remove(obj);
+      c.img.src = renderer.domElement.toDataURL("image/png");
     } catch (e) {
       c.el.classList.add("broken");
-      console.warn("failed", c.item.url, e);
+      console.warn("failed", c.search, e);
     }
     done++;
-    if (done % 8 === 0 || done === cards.size) $("status").textContent = `已渲染 ${done} / ${cards.size} 个模型`;
+    if (done % 8 === 0 || done === cards.length) $("status").textContent = `已渲染 ${done} / ${cards.length}（地块 ${TILES.length}，规则 v${RULES_VERSION}）`;
   }
 }
 
-$("soft").addEventListener("change", () => void renderAll());
 $("filter").addEventListener("input", (e) => {
   const q = (e.target as HTMLInputElement).value.trim().toLowerCase();
-  for (const [id, c] of cards) c.el.style.display = !q || id.toLowerCase().includes(q) ? "" : "none";
-});
-$("copy").addEventListener("click", async () => {
-  const text = [...picked].sort().join("\n");
-  try {
-    await navigator.clipboard.writeText(text);
-    $("copy").textContent = "已复制";
-  } catch {
-    window.prompt("复制下面的清单", text);
-  }
-  setTimeout(() => ($("copy").textContent = "复制清单"), 1500);
-});
-$("clear").addEventListener("click", () => {
-  picked.clear();
-  savePicked();
-  renderPicked();
+  for (const c of cards) c.el.style.display = !q || c.search.includes(q) ? "" : "none";
 });
 
 const viewer = new WebGLRenderer({ antialias: true });
@@ -265,23 +257,16 @@ let mixer: AnimationMixer | null = null;
 let clips: AnimationClip[] = [];
 const clock = new Clock();
 
-async function openViewer(item: Item): Promise<void> {
-  const gltf = await loader.loadAsync(item.url);
-  if (viewerModel) scene.remove(viewerModel);
-  viewerModel = gltf.scene;
-  const box = new Box3().setFromObject(viewerModel);
-  const size = box.getSize(new Vector3());
-  viewerModel.scale.setScalar(Math.min(0.82 / Math.max(size.x, size.z), 1.1 / size.y));
-  const fitted = new Box3().setFromObject(viewerModel);
-  viewerModel.position.set(-(fitted.min.x + fitted.max.x) / 2, 0.1 - fitted.min.y, -(fitted.min.z + fitted.max.z) / 2);
-  applyPalette(viewerModel, ($("soft") as HTMLInputElement).checked && !ANIMATED.has(item.pack));
-  mixer = new AnimationMixer(viewerModel);
+async function openViewer(folder: string, file: string): Promise<void> {
+  const gltf = await loadAgent(folder, file);
+  viewerModel = fitOnPlate(gltf.scene.clone(true));
+  mixer = new AnimationMixer(viewerModel.children[1]);
   clips = gltf.animations;
   const select = $("clip") as HTMLSelectElement;
   select.replaceChildren(...clips.map((c) => new Option(c.name, c.name)));
   select.value = clips.find((c) => c.name === "walk")?.name ?? clips[0]?.name ?? "";
   playClip(select.value);
-  $("viewer-name").textContent = item.name;
+  $("viewer-name").textContent = file.replace(/\.(gltf|glb)$/, "");
   $("viewer").classList.add("open");
 }
 
@@ -301,11 +286,11 @@ function animate(): void {
   mixer?.update(clock.getDelta());
   viewerModel.rotation.y += 0.004;
   scene.add(viewerModel);
+  renderer.shadowMap.needsUpdate = true;
   viewer.render(scene, camera);
   scene.remove(viewerModel);
 }
 animate();
 
 buildCards();
-renderPicked();
-void renderAll();
+void library.load((done, total) => ($("status").textContent = `加载模型 ${done} / ${total}…`)).then(renderAll);
