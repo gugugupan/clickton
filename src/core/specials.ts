@@ -1,5 +1,5 @@
 import type { Board, Placed } from "./board";
-import { completedRoadNetworks, isHome, isMeadow } from "./networks";
+import { completedRoadNetworks, edgeRegions, isHome, isMeadow, regionAt } from "./networks";
 import { DIRS, DX, DY } from "./tiles";
 
 export interface SpecialStatus {
@@ -26,6 +26,10 @@ export function specialStatus(board: Board, p: Placed, roadCells?: Set<string>):
     case "beach": {
       const water = neighbours.filter((n) => n && WATERY.has(n.tile.key)).length;
       return { active: water > 0, count: water > 0 ? 1 + water : 0 };
+    }
+    case "shrine": {
+      const active = !!regionAt(edgeRegions(board, "forest"), p.x, p.y)?.closed;
+      return { active, count: active ? 1 : 0 };
     }
     case "park": {
       const homes = neighbours.filter((n) => n && isHome(n)).length;

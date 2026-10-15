@@ -1088,6 +1088,10 @@ export class Agents {
       const walkers = [0, 1, 2, 3].map((i) => this.people[h(34 + i) % this.people.length]).filter(Boolean);
       const match = new Match(rigs, ball, yard);
       this.addLife(new Dismissal(walkers, match, yard, onTile(p, 0, 0.06), onTile(p, 0, 0.3), onTile(p, 0, 0.52)));
+    } else if (p.tile.special === "shrine" && from === 0) {
+      const rig = this.people[h(60) % this.people.length];
+      if (rig) this.addLife(new Shuttle(rig, PERSON_HEIGHT, onTile(p, 0, -0.06), onTile(p, 0, 0.46), [], 0.5));
+      this.addAnimal("fox", p, tileArea(p, 0.32, -0.1, 0.1));
     } else if (p.tile.special === "park") {
       for (let i = from; i < to; i++) this.addPerson(h(40 + i), p, board, tileArea(p, 0, 0, 0.34), "idle");
       if (from === 0) this.addPerson(h(48), p, board, tileArea(p, 0, 0, 0.3), "sit");

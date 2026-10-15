@@ -116,6 +116,18 @@ export function drawTilePreview(canvas: HTMLCanvasElement, tile: TileDef, rot: R
     g.fillStyle = css(PALETTE.bufferStop);
     g.fillRect(0.24, 0.1, 0.1, 0.06);
   }
+  if (tile.special === "shrine") {
+    g.fillStyle = css(PALETTE.yard);
+    g.fillRect(-0.07, -0.2, 0.14, 0.46);
+    g.fillStyle = css(PALETTE.roofs[1]);
+    g.fillRect(-0.2, -0.42, 0.4, 0.22);
+    g.fillStyle = css(PALETTE.bufferStop);
+    for (const y of [0.0, 0.16]) {
+      g.fillRect(-0.15, y, 0.3, 0.035);
+      g.fillRect(-0.12, y, 0.03, 0.08);
+      g.fillRect(0.09, y, 0.03, 0.08);
+    }
+  }
   if (tile.special === "park") {
     g.fillStyle = css(PALETTE.paving);
     g.fillRect(-0.46, -0.05, 0.92, 0.1);

@@ -69,6 +69,15 @@ const ROWS: { title: string; note: string; items: Entry[] }[] = [
     ],
   },
   {
+    title: "神社",
+    note: "鸟居、正殿、石灯笼（灯窗用玻璃色，夜里会亮）",
+    items: [
+      { path: `${ORIGINAL}town/torii.glb`, kind: "town", fresh: true },
+      { path: `${ORIGINAL}town/shrine_hall.glb`, kind: "town", fresh: true },
+      { path: `${ORIGINAL}town/stone_lantern.glb`, kind: "town", fresh: true },
+    ],
+  },
+  {
     title: "第三批：农场、市政、果树、小船",
     note: "农舍 / 谷仓 / 粮仓、市政厅、图书馆、苹果树、橘子树、小船",
     items: [

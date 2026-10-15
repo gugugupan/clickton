@@ -13,8 +13,9 @@ import * as forest from "./models/forest.mjs";
 import store from "./models/store.mjs";
 import * as farm from "./models/farm.mjs";
 import * as civic from "./models/civic.mjs";
+import * as shrine from "./models/shrine.mjs";
 
-const RECIPES = [bakery, cherryA, cherryB, gazebo, school, store, ...Object.values(forest), ...Object.values(farm), ...Object.values(civic)];
+const RECIPES = [bakery, cherryA, cherryB, gazebo, school, store, ...Object.values(forest), ...Object.values(farm), ...Object.values(civic), ...Object.values(shrine)];
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const raw = join(root, "assets-raw");

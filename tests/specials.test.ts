@@ -49,6 +49,28 @@ describe("special tiles", () => {
     const two = board([["park", 0, 0, 0], ["city_full", 0, 1, 0], ["city_edge", 0, -1, 0], ["road_end", 0, 0, 1]]);
     expect(specialStatus(two, two.get(0, 0)!)).toEqual({ active: true, count: 2 });
   });
+
+  it("a shrine opens once its forest is closed", () => {
+    const open = board([["shrine", 0, 0, 0], ["road_end", 0, 0, 1]]);
+    expect(specialStatus(open, open.get(0, 0)!).active).toBe(false);
+    const closed = board([
+      ["shrine", 0, 0, 0],
+      ["road_end", 0, 0, 1],
+      ["forest_edge", 2, 0, -1],
+      ["forest_edge", 3, 1, 0],
+      ["forest_edge", 1, -1, 0],
+    ]);
+    expect(specialStatus(closed, closed.get(0, 0)!).active).toBe(true);
+  });
+});
+
+describe("rules v11 tiles", () => {
+  it("the shrine never appears before v11", async () => {
+    const { baseWeights, TILES } = await import("../src/core/tiles");
+    const t = TILES.find((x) => x.key === "shrine")!;
+    expect(baseWeights(10)[t.id]).toBe(0);
+    expect(baseWeights(11)[t.id]).toBeGreaterThan(0);
+  });
 });
 
 describe("rules v10 tiles", () => {

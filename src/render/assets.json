@@ -512,6 +512,18 @@
     "orange_tree": {
       "pack": "original_nature",
       "file": "orange_tree.glb"
+    },
+    "torii": {
+      "pack": "original",
+      "file": "torii.glb"
+    },
+    "shrine_hall": {
+      "pack": "original",
+      "file": "shrine_hall.glb"
+    },
+    "stone_lantern": {
+      "pack": "original",
+      "file": "stone_lantern.glb"
     }
   },
   "agents": {

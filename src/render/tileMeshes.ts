@@ -291,6 +291,12 @@ function drawSpecial(b: PartBuilder, kind: Special, rng: Rng, prop: PropFn, look
     b.box(0.07, 0.045, 0.006, 0.338, PLATE_TOP + 0.2, 0.24, PALETTE.bufferStop);
     prop("bench", 0.3, 0.38, { fit: 0.12, rotY: Math.PI });
     prop(pick(rng, TREES), 0.38, 0.1, { fit: 0.14, maxHeight: 0.2, rotY: rng() * 6 });
+  } else if (kind === "shrine") {
+    b.box(0.14, 0.012, 0.5, 0, PLATE_TOP, 0.02, PALETTE.yard);
+    b.box(0.5, 0.03, 0.3, 0, PLATE_TOP, -0.26, PALETTE.platform);
+    prop("shrine_hall", 0, -0.27, { fit: 0.38, maxHeight: 0.32, lift: 0.03 });
+    for (const z of [0.2, 0.04]) prop("torii", 0, z, { fit: 0.22, maxHeight: 0.18, lift: 0.012 });
+    for (const x of [-0.12, 0.12]) prop("stone_lantern", x, -0.06, { height: 0.13, lift: 0.012 });
   } else if (kind === "park") {
     b.box(0.94, 0.012, 0.11, 0, PLATE_TOP, 0, PALETTE.paving);
     b.box(0.11, 0.012, 0.94, 0, PLATE_TOP, 0, PALETTE.paving);
@@ -660,6 +666,14 @@ export function buildTile(
   }
 
   for (const g of tile.groups.filter((g) => g.type === "forest")) {
+    if (tile.special) {
+      for (const [sx, sz] of regionSlots(g.dirs)) {
+        if (sx === 0) continue;
+        forestFloor(b, rng, sx * SLOT, sz * SLOT);
+        prop(pick(rng, FOREST_TREES), sx * SLOT, sz * SLOT, { fit: 0.24, maxHeight: 0.42, rotY: rng() * Math.PI * 2, lift: 0.012 });
+      }
+      continue;
+    }
     const lot = g.dirs.length === 4 ? lotFor(rng, look) : "full";
     const undergrowth = (x: number, z: number) => {
       const u = pick(rng, UNDERGROWTH);
