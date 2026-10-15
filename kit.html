@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Clickton model kit</title>
+  </head>
+  <body>
+    <header class="bar">
+      <div>
+        <h1>Clickton 原创模型对比</h1>
+        <p id="status">加载中…</p>
+      </div>
+      <div class="controls">
+        <label class="toggle"><input type="checkbox" id="night" /> 夜晚</label>
+        <label class="toggle">换色 <select id="variant"></select></label>
+        <label class="toggle"><input type="checkbox" id="wire" /> 线框</label>
+        <label class="toggle"><input type="checkbox" id="silhouette" /> 剪影</label>
+      </div>
+    </header>
+    <main id="rows"></main>
+    <div id="zoom" class="zoom">
+      <div class="zoom-box">
+        <strong id="zoom-name"></strong>
+        <div id="zoom-stage"></div>
+        <button id="zoom-turn">转 90°</button>
+        <small>点空白处关闭</small>
+      </div>
+    </div>
+    <script type="module" src="/src/kit/main.ts"></script>
+  </body>
+</html>
