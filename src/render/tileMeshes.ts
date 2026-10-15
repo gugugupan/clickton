@@ -157,6 +157,26 @@ const ROCKS: ModelKey[] = ["rock_1", "rock_2"];
 const TUFTS: ModelKey[] = ["grass_1", "grass_2"];
 const LILIES: ModelKey[] = ["lily_a", "lily_b"];
 const QUARTERS = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
+const BIG_LOTS: { model: ModelKey; fit: number; maxHeight: number }[] = [
+  { model: "school", fit: 0.72, maxHeight: 0.5 },
+  { model: "dept_store", fit: 0.58, maxHeight: 0.56 },
+];
+const DIAGONALS: [number, number][][] = [
+  [[-1, -1], [1, 1]],
+  [[-1, 1], [1, -1]],
+];
+// Pairs sit side by side along an axis; on a diagonal the isometric camera lines them up and one hides the other.
+const PAIRS: [number, number][][] = [
+  [[-1, 0], [1, 0]],
+  [[0, -1], [0, 1]],
+];
+
+type Lot = "big" | "pair" | "full";
+
+function lotFor(rng: Rng): Lot {
+  const roll = rng();
+  return roll < 0.25 ? "big" : roll < 0.55 ? "pair" : "full";
+}
 
 function drawCap(b: PartBuilder, d: Dir, type: Edge, look: Look): void {
   const along = d % 2 === 0;
@@ -534,9 +554,10 @@ export function buildTile(
       });
       continue;
     }
+    const lot = g.dirs.length === 4 && !tile.landmark ? lotFor(rng) : "full";
     for (const [sx, sz] of regionSlots(g.dirs)) {
       b.box(SLOT, 0.01, SLOT, sx * SLOT, PLATE_TOP, sz * SLOT, PALETTE.paving);
-      if (tile.landmark) continue;
+      if (tile.landmark || lot !== "full") continue;
       const centre = sx === 0 && sz === 0;
       const downtown = g.dirs.length === 4;
       const pool = downtown
@@ -555,9 +576,45 @@ export function buildTile(
         rotY: pick(rng, QUARTERS),
       });
     }
+    if (lot === "big") {
+      const big = pick(rng, BIG_LOTS);
+      prop(big.model, 0, 0, { fit: big.fit, maxHeight: big.maxHeight, variant: Math.floor(rng() * BUILDING_VARIANTS), lift: 0.01, rotY: pick(rng, QUARTERS) });
+      for (const [sx, sz] of pick(rng, DIAGONALS)) prop("streetlight", sx * 0.4, sz * 0.4, { height: 0.24 });
+    } else if (lot === "pair") {
+      const tall = rng() < look.towerChance * 0.5;
+      const pair = pick(rng, PAIRS);
+      for (const [sx, sz] of pair) {
+        prop(pick(rng, tall ? TOWERS : SHOPS), sx * 0.22, sz * 0.22, {
+          variant: Math.floor(rng() * BUILDING_VARIANTS),
+          fit: 0.36,
+          maxHeight: tall ? 0.8 : 0.5,
+          lift: 0.01,
+          rotY: pick(rng, QUARTERS),
+        });
+      }
+      const side = rng() < 0.5 ? -1 : 1;
+      prop(pick(rng, TREES), pair[0][1] * 0.36 * side, pair[0][0] * 0.36 * side, { fit: 0.16, maxHeight: 0.22, rotY: rng() * Math.PI * 2, lift: 0.01 });
+    }
   }
 
   for (const g of tile.groups.filter((g) => g.type === "forest")) {
+    const lot = g.dirs.length === 4 ? lotFor(rng) : "full";
+    if (lot !== "full") {
+      b.box(PLATE_SIZE - 0.02, 0.012, PLATE_SIZE - 0.02, 0, PLATE_TOP, 0, PALETTE.forestFloor);
+      const spots = lot === "big" ? [[0, 0]] : pick(rng, PAIRS).map(([sx, sz]) => [sx * 0.22, sz * 0.22]);
+      for (const [x, z] of spots) {
+        prop(pick(rng, TREES), x, z, {
+          fit: lot === "big" ? 0.72 : 0.5,
+          maxHeight: lot === "big" ? 0.95 : 0.72,
+          rotY: rng() * Math.PI * 2,
+          lift: 0.012,
+        });
+      }
+      for (const [cx, cz] of pick(rng, DIAGONALS)) {
+        prop(pick(rng, rng() < 0.6 ? BUSHES : ROCKS), cx * 0.36, cz * 0.36, { fit: 0.11, rotY: rng() * Math.PI * 2, lift: 0.012 });
+      }
+      continue;
+    }
     for (const [sx, sz] of regionSlots(g.dirs)) {
       const x = sx * SLOT, z = sz * SLOT;
       b.box(SLOT, 0.012, SLOT, x, PLATE_TOP, z, PALETTE.forestFloor);

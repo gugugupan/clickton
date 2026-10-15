@@ -8,8 +8,10 @@ import { KAYKIT_PINK, Shape } from "./parts.mjs";
 import bakery from "./models/bakery.mjs";
 import { cherryA, cherryB } from "./models/cherry.mjs";
 import gazebo from "./models/gazebo.mjs";
+import school from "./models/school.mjs";
+import store from "./models/store.mjs";
 
-const RECIPES = [bakery, cherryA, cherryB, gazebo];
+const RECIPES = [bakery, cherryA, cherryB, gazebo, school, store];
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const raw = join(root, "assets-raw");

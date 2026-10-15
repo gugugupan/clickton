@@ -10,6 +10,7 @@ export const TOWN = {
   white: kenney(7, 2, 0.15),
   whiteShade: kenney(7, 2, 0.7),
   roof: kenney(1, 1, 0.2),
+  flatRoof: kenney(1, 2, 0.75),
   roofLight: kenney(0, 1),
   trim: kenney(3, 2, 0.6),
   glass: kenney(11, 1, 0.75),

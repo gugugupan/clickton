@@ -1,0 +1,1 @@
+Clickton original models, generated from code by tools/kit (npm run kit). Texture: Kenney City Kit colormap (www.kenney.nl), CC0 1.0 Universal.

@@ -35,6 +35,7 @@ const PACK_TITLES: Record<PackKey, string> = {
   forest: "KayKit Forest Nature（树木与自然）",
   medieval: "KayKit Medieval Hexagon（装饰小品）",
   holiday: "KayKit Holiday Bits（火车与节日）",
+  original: "Clickton 原创（tools/kit 生成）",
 };
 
 const AGENT_TITLES: Record<string, string> = {
@@ -94,8 +95,8 @@ function shadows(root: Object3D): Object3D {
   return root;
 }
 
-function tileObject(tile: TileDef): Object3D {
-  const { base, water, props } = buildTile(tile, 0, mulberry32(hash(7, tile.id, 0)));
+function tileObject(tile: TileDef, seed = 7): Object3D {
+  const { base, water, props } = buildTile(tile, 0, mulberry32(hash(seed, tile.id, 0)));
   const mesh = new Mesh(base, tileMaterial);
   if (water) mesh.add(new Mesh(water, waterMaterial));
   for (const child of library.buildProps(props, "solid")) mesh.add(child);
@@ -200,6 +201,14 @@ function buildCards(): void {
     if (!tiles.length) continue;
     const grid = section(g.title, tiles.length);
     for (const tile of tiles) addCard(grid, t(`tile_${tile.key}` as StringKey), `${tile.key} · ${weightTag(tile)}`, () => tileObject(tile));
+  }
+
+  const LAYOUT_TILES = ["city_full", "forest_full"];
+  const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
+  const layouts = section("整块地块的布局变化（同一地块，不同随机种子）", LAYOUT_TILES.length * SEEDS.length);
+  for (const key of LAYOUT_TILES) {
+    const tile = TILES.find((x) => x.key === key)!;
+    for (const seed of SEEDS) addCard(layouts, t(`tile_${key}` as StringKey), `${key} · 种子 ${seed}`, () => tileObject(tile, seed));
   }
 
   const models = document.createElement("h1");

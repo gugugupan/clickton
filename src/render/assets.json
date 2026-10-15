@@ -37,6 +37,12 @@
       "texture": "Textures/colormap.png",
       "soft": true,
       "variants": true
+    },
+    "original": {
+      "source": "clickton-original/town",
+      "soft": true,
+      "variants": true,
+      "licenseNote": "Clickton original models, generated from code by tools/kit (npm run kit). Texture: Kenney City Kit colormap (www.kenney.nl), CC0 1.0 Universal."
     }
   },
   "models": {
@@ -405,6 +411,14 @@
     "tender_gifts_b": {
       "pack": "holiday",
       "file": "train_tender_presents_B.gltf"
+    },
+    "school": {
+      "pack": "original",
+      "file": "school.glb"
+    },
+    "dept_store": {
+      "pack": "original",
+      "file": "dept_store.glb"
     }
   },
   "agents": {

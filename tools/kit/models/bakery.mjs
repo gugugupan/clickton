@@ -1,29 +1,5 @@
 import { TOWN as C } from "../parts.mjs";
-
-const STRIPES = 6;
-
-function window2(s, w, h, { box = false } = {}) {
-  s.box(-w / 2 - 0.02, -0.02, 0, w / 2 + 0.02, h + 0.02, 0.016, C.trim, []);
-  s.box(-w / 2, 0, 0.006, w / 2, h, 0.026, C.glass, []);
-  s.box(-0.009, 0, 0.006, 0.009, h, 0.03, C.trim, []);
-  s.box(-w / 2, h / 2 - 0.009, 0.006, w / 2, h / 2 + 0.009, 0.03, C.trim, []);
-  if (!box) return;
-  s.box(-w / 2 - 0.03, -0.055, 0, w / 2 + 0.03, -0.02, 0.06, C.woodDark, []);
-  for (let i = 0; i < 4; i++) {
-    const x = -w / 2 + (i + 0.5) * (w / 4);
-    s.box(x - 0.022, -0.02, 0.012, x + 0.022, 0.012, 0.052, i % 2 ? C.leaf : C.flower, []);
-  }
-}
-
-function awning(s, x0, x1, y, depth, drop) {
-  const step = (x1 - x0) / STRIPES;
-  for (let i = 0; i < STRIPES; i++) {
-    const a = x0 + i * step, b = a + step;
-    const paint = i % 2 ? C.white : C.awning;
-    s.slab([a, y, 0], [a, y - drop, depth], [b, y - drop, depth], [b, y, 0], 0.014, paint);
-    s.box(a, y - drop - 0.055, depth - 0.012, b, y - drop + 0.004, depth + 0.004, paint, []);
-  }
-}
+import { awning, window2 } from "./common.mjs";
 
 export default {
   name: "bakery",

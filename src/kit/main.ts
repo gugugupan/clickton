@@ -44,10 +44,12 @@ const ORIGINAL = "/clickton-original/";
 
 const ROWS: { title: string; note: string; items: Entry[] }[] = [
   {
-    title: "面包房 vs Kenney 房子与商店",
+    title: "面包房、学校、百货 vs Kenney 房子与商店",
     note: "同一张 colormap，暗色部分会跟着 6 种换色走；夜晚只有玻璃发光",
     items: [
       { path: `${ORIGINAL}town/bakery.glb`, kind: "town", fresh: true },
+      { path: `${ORIGINAL}town/school.glb`, kind: "town", fresh: true },
+      { path: `${ORIGINAL}town/dept_store.glb`, kind: "town", fresh: true },
       { path: `${KENNEY_S}building-type-a.glb`, kind: "town" },
       { path: `${KENNEY_S}building-type-f.glb`, kind: "town" },
       { path: `${KENNEY_C}building-a.glb`, kind: "town" },
