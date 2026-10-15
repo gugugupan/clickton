@@ -464,6 +464,54 @@
     "flowers_purple": {
       "pack": "original_nature",
       "file": "flowers_purple.glb"
+    },
+    "town_hall": {
+      "pack": "original",
+      "file": "town_hall.glb"
+    },
+    "library": {
+      "pack": "original",
+      "file": "library.glb"
+    },
+    "farmhouse": {
+      "pack": "original",
+      "file": "farmhouse.glb"
+    },
+    "barn": {
+      "pack": "original",
+      "file": "barn.glb"
+    },
+    "silo": {
+      "pack": "original",
+      "file": "silo.glb"
+    },
+    "bakery": {
+      "pack": "original",
+      "file": "bakery.glb"
+    },
+    "gazebo": {
+      "pack": "original",
+      "file": "gazebo.glb"
+    },
+    "boat": {
+      "pack": "original",
+      "file": "boat.glb"
+    },
+    "cherry_a": {
+      "pack": "original_nature",
+      "file": "cherry_tree_a.glb"
+    },
+    "cherry_b": {
+      "pack": "original_nature",
+      "file": "cherry_tree_b.glb"
+    },
+    "apple_tree": {
+      "pack": "original_nature",
+      "file": "apple_tree.glb"
+    },
+    "orange_tree": {
+      "pack": "original_nature",
+      "file": "orange_tree.glb"
     }
   },
   "agents": {

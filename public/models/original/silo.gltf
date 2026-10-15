@@ -1,0 +1,222 @@
+{
+  "asset": {
+    "generator": "glTF-Transform v4.5.1",
+    "version": "2.0"
+  },
+  "accessors": [
+    {
+      "type": "SCALAR",
+      "componentType": 5123,
+      "count": 966,
+      "normalized": false,
+      "byteOffset": 0,
+      "bufferView": 0
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 705,
+      "max": [
+        13629,
+        32767,
+        13089
+      ],
+      "min": [
+        -13629,
+        -32767,
+        -13089
+      ],
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 1
+    },
+    {
+      "type": "VEC3",
+      "componentType": 5122,
+      "count": 705,
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 2
+    },
+    {
+      "type": "VEC2",
+      "componentType": 5123,
+      "count": 705,
+      "normalized": true,
+      "byteOffset": 0,
+      "bufferView": 3
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 1,
+      "byteOffset": 0,
+      "byteLength": 1932,
+      "target": 34963,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 0,
+          "byteLength": 342,
+          "mode": "TRIANGLES",
+          "byteStride": 2,
+          "count": 966
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 1932,
+      "byteLength": 5640,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 344,
+          "byteLength": 3349,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 705
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 7572,
+      "byteLength": 5640,
+      "target": 34962,
+      "byteStride": 8,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 3696,
+          "byteLength": 1464,
+          "mode": "ATTRIBUTES",
+          "byteStride": 8,
+          "count": 705
+        }
+      }
+    },
+    {
+      "buffer": 1,
+      "byteOffset": 13212,
+      "byteLength": 2820,
+      "target": 34962,
+      "byteStride": 4,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "buffer": 0,
+          "byteOffset": 5160,
+          "byteLength": 151,
+          "mode": "ATTRIBUTES",
+          "byteStride": 4,
+          "count": 705
+        }
+      }
+    }
+  ],
+  "samplers": [
+    {
+      "magFilter": 9728,
+      "minFilter": 9984,
+      "wrapS": 10497,
+      "wrapT": 10497
+    }
+  ],
+  "textures": [
+    {
+      "source": 0,
+      "sampler": 0
+    }
+  ],
+  "images": [
+    {
+      "name": "colormap",
+      "mimeType": "image/png",
+      "uri": "baseColor.png"
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "silo.bin",
+      "byteLength": 5312
+    },
+    {
+      "byteLength": 16032,
+      "extensions": {
+        "EXT_meshopt_compression": {
+          "fallback": true
+        }
+      }
+    }
+  ],
+  "materials": [
+    {
+      "name": "colormap",
+      "doubleSided": true,
+      "pbrMetallicRoughness": {
+        "metallicFactor": 0,
+        "baseColorTexture": {
+          "index": 0,
+          "extensions": {
+            "KHR_texture_transform": {
+              "texCoord": 0
+            }
+          }
+        }
+      }
+    }
+  ],
+  "meshes": [
+    {
+      "name": "silo",
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 1,
+            "NORMAL": 2,
+            "TEXCOORD_0": 3
+          },
+          "mode": 4,
+          "material": 0,
+          "indices": 0
+        }
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "name": "silo",
+      "translation": [
+        0,
+        0.625,
+        0.002362653613090515
+      ],
+      "scale": [
+        0.625,
+        0.625,
+        0.625
+      ],
+      "mesh": 0
+    }
+  ],
+  "scenes": [
+    {
+      "name": "building-type-a",
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "scene": 0,
+  "extensionsUsed": [
+    "EXT_meshopt_compression",
+    "KHR_mesh_quantization",
+    "KHR_texture_transform"
+  ],
+  "extensionsRequired": [
+    "EXT_meshopt_compression",
+    "KHR_mesh_quantization"
+  ]
+}

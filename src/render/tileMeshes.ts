@@ -149,10 +149,10 @@ function pick<T>(rng: Rng, list: readonly T[]): T {
 }
 
 const HOUSES = [..."abcdefghijklmnorstu"].map((c) => `house_${c}`) as ModelKey[];
-const SHOPS = [..."abcdefghi"].map((c) => `shop_${c}`) as ModelKey[];
+const SHOPS = [...[..."abcdefghi"].map((c) => `shop_${c}`), "bakery"] as ModelKey[];
 const TOWERS = [..."abcde"].map((c) => `skyscraper_${c}`) as ModelKey[];
-const TREES: ModelKey[] = ["tree_1", "tree_2", "tree_3", "tree_4", "tree_5"];
-const FOREST_TREES: ModelKey[] = ["leafy_a", "leafy_b", "leafy_c", "leafy_a", "leafy_b", "leafy_c", "pine_a"];
+const TREES: ModelKey[] = ["leafy_a", "leafy_b", "leafy_c", "leafy_a", "leafy_b", "leafy_c", "pine_a", "cherry_a"];
+const FOREST_TREES: ModelKey[] = ["leafy_a", "leafy_b", "leafy_c", "leafy_a", "leafy_b", "leafy_c", "pine_a", "pine_a", "cherry_b"];
 const UNDERGROWTH: { model: ModelKey; fit: number }[] = [
   { model: "fern", fit: 0.24 },
   { model: "fern", fit: 0.2 },
@@ -170,6 +170,8 @@ const QUARTERS = [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2];
 const BIG_LOTS: { model: ModelKey; fit: number; maxHeight: number }[] = [
   { model: "school", fit: 0.72, maxHeight: 0.5 },
   { model: "dept_store", fit: 0.58, maxHeight: 0.56 },
+  { model: "town_hall", fit: 0.7, maxHeight: 0.6 },
+  { model: "library", fit: 0.62, maxHeight: 0.42 },
 ];
 const DIAGONALS: [number, number][][] = [
   [[-1, -1], [1, 1]],
@@ -572,7 +574,9 @@ export function buildTile(
       });
       continue;
     }
-    const lot = g.dirs.length === 4 && !tile.landmark ? lotFor(rng) : "full";
+    const lot = g.dirs.length >= 3 && !tile.landmark ? lotFor(rng) : "full";
+    const open = DIRS.find((d) => !g.dirs.includes(d));
+    const shift = open === undefined ? [0, 0] : [-DX[open] * SLOT * 0.5, -DY[open] * SLOT * 0.5];
     for (const [sx, sz] of regionSlots(g.dirs)) {
       b.box(SLOT, 0.01, SLOT, sx * SLOT, PLATE_TOP, sz * SLOT, PALETTE.paving);
       if (tile.landmark || lot !== "full") continue;
@@ -594,15 +598,17 @@ export function buildTile(
         rotY: pick(rng, QUARTERS),
       });
     }
+    const narrow = open !== undefined;
     if (lot === "big") {
       const big = pick(rng, BIG_LOTS);
-      prop(big.model, 0, 0, { fit: big.fit, maxHeight: big.maxHeight, variant: Math.floor(rng() * BUILDING_VARIANTS), lift: 0.01, rotY: pick(rng, QUARTERS) });
-      for (const [sx, sz] of pick(rng, DIAGONALS)) prop("streetlight", sx * 0.4, sz * 0.4, { height: 0.24 });
+      const facing = narrow ? Math.atan2(DX[open], DY[open]) : pick(rng, QUARTERS);
+      prop(big.model, shift[0], shift[1], { fit: big.fit * (narrow ? 0.85 : 1), maxHeight: big.maxHeight, variant: Math.floor(rng() * BUILDING_VARIANTS), lift: 0.01, rotY: facing });
+      if (!narrow) for (const [sx, sz] of pick(rng, DIAGONALS)) prop("streetlight", sx * 0.4, sz * 0.4, { height: 0.24 });
     } else if (lot === "pair") {
       const tall = rng() < look.towerChance * 0.5;
-      const pair = pick(rng, PAIRS);
+      const pair = narrow ? (DX[open] === 0 ? PAIRS[0] : PAIRS[1]) : pick(rng, PAIRS);
       for (const [sx, sz] of pair) {
-        prop(pick(rng, tall ? TOWERS : SHOPS), sx * 0.22, sz * 0.22, {
+        prop(pick(rng, tall ? TOWERS : SHOPS), sx * 0.22 + shift[0], sz * 0.22 + shift[1], {
           variant: Math.floor(rng() * BUILDING_VARIANTS),
           fit: 0.36,
           maxHeight: tall ? 0.8 : 0.5,
@@ -610,8 +616,9 @@ export function buildTile(
           rotY: pick(rng, QUARTERS),
         });
       }
-      const side = rng() < 0.5 ? -1 : 1;
-      prop(pick(rng, TREES), pair[0][1] * 0.36 * side, pair[0][0] * 0.36 * side, { fit: 0.16, maxHeight: 0.22, rotY: rng() * Math.PI * 2, lift: 0.01 });
+      const side = narrow ? -1 : rng() < 0.5 ? -1 : 1;
+      const tx = narrow ? DX[open] * 0.1 : pair[0][1] * 0.36 * side, tz = narrow ? DY[open] * 0.1 : pair[0][0] * 0.36 * side;
+      prop(pick(rng, TREES), tx, tz, { fit: 0.16, maxHeight: 0.22, rotY: rng() * Math.PI * 2, lift: 0.01 });
     }
   }
 
@@ -660,6 +667,7 @@ export function buildTile(
 
   for (const g of tile.groups.filter((g) => g.type === "field")) {
     const slots = regionSlots(g.dirs);
+    const lot = g.dirs.length === 4 ? lotFor(rng) : "full";
     const alongX = rng() < 0.5;
     for (const [sx, sz] of slots) {
       const x = sx * SLOT, z = sz * SLOT;
@@ -670,7 +678,27 @@ export function buildTile(
         else b.box(0.055, 0.04, SLOT * 0.86, x + off, PLATE_TOP + 0.012, z, crop);
       }
     }
-    if (slots.length >= 3) {
+    if (lot !== "full") {
+      b.box(0.6, 0.05, 0.6, 0, PLATE_TOP + 0.008, 0, PALETTE.yard);
+      const turn = pick(rng, QUARTERS);
+      const at = (x: number, z: number): [number, number] => [x * Math.cos(turn) + z * Math.sin(turn), -x * Math.sin(turn) + z * Math.cos(turn)];
+      const place = (model: ModelKey, x: number, z: number, o: { fit?: number; height?: number }) => {
+        const [px, pz] = at(x, z);
+        prop(model, px, pz, { ...o, lift: 0.058, rotY: turn, variant: Math.floor(rng() * BUILDING_VARIANTS) });
+      };
+      if (lot === "big") {
+        place("farmhouse", -0.13, -0.1, { fit: 0.28 });
+        place("barn", 0.12, 0.14, { fit: 0.3 });
+        place("silo", 0.21, -0.17, { height: 0.34 });
+      } else {
+        place("barn", -0.05, 0.08, { fit: 0.34 });
+        place("silo", 0.2, -0.16, { height: 0.36 });
+      }
+      for (let i = 0; i < 2; i++) {
+        const [hx, hz] = at(-0.2 + i * 0.08, 0.22);
+        b.cylinder(0.035, 0.05, hx, PLATE_TOP + 0.058, hz, PALETTE.hay, 8);
+      }
+    } else if (slots.length >= 3) {
       const [sx, sz] = slots[slots.length - 1];
       const x = sx * SLOT + 0.05, z = sz * SLOT + 0.04;
       b.box(0.018, 0.17, 0.018, x, PLATE_TOP + 0.012, z, PALETTE.trunk);

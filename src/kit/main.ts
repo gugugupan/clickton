@@ -69,6 +69,20 @@ const ROWS: { title: string; note: string; items: Entry[] }[] = [
     ],
   },
   {
+    title: "第三批：农场、市政、果树、小船",
+    note: "农舍 / 谷仓 / 粮仓、市政厅、图书馆、苹果树、橘子树、小船",
+    items: [
+      { path: `${ORIGINAL}town/farmhouse.glb`, kind: "town", fresh: true },
+      { path: `${ORIGINAL}town/barn.glb`, kind: "town", fresh: true },
+      { path: `${ORIGINAL}town/silo.glb`, kind: "town", fresh: true },
+      { path: `${ORIGINAL}town/town_hall.glb`, kind: "town", fresh: true },
+      { path: `${ORIGINAL}town/library.glb`, kind: "town", fresh: true },
+      { path: `${ORIGINAL}nature/apple_tree.glb`, kind: "nature", fresh: true },
+      { path: `${ORIGINAL}nature/orange_tree.glb`, kind: "nature", fresh: true },
+      { path: `${ORIGINAL}town/boat.glb`, kind: "town", fresh: true },
+    ],
+  },
+  {
     title: "森林细化：新树 vs KayKit 树",
     note: "树冠由多个叶团组成，每个面按朝向和高度取深绿 / 绿 / 嫩黄绿",
     items: [

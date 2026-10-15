@@ -17,7 +17,7 @@ function foliage(level, top, bottom) {
 
 const bark = (top) => (p) => NATURE.bark(0.25 + 0.6 * (1 - p[1] / top));
 
-function leafy(s, { seed, height, lean, crown, clusters, size }) {
+function leafy(s, { seed, height, lean, crown, clusters, size, fruit }) {
   const rand = rng(seed);
   const [cx, cy, cz, rx, ry] = crown;
   const top = cy + ry + size, bottom = cy - ry - size;
@@ -35,6 +35,14 @@ function leafy(s, { seed, height, lean, crown, clusters, size }) {
     const size_i = size * (0.75 + rand() * 0.5);
     if (i % 3 === 0 && d[1] < 0.4) s.limb([tip[0], height * 0.85, tip[2]], [at[0] * 0.75, at[1] - size_i * 0.5, at[2] * 0.75], 0.08, 0.04, bark(top));
     s.at(at[0], at[1], at[2], rand() * Math.PI, () => s.blob(size_i, 0.85, seed * 31 + i, foliage(d[1], top, bottom), 0.26));
+    if (!fruit) continue;
+    for (let k = 0; k < 3; k++) {
+      const fa = rand() * Math.PI * 2, fy = -0.2 + rand() * 0.7;
+      const fr = Math.sqrt(1 - fy * fy) * size_i * 0.98;
+      const f = [at[0] + Math.cos(fa) * fr, at[1] + fy * size_i * 0.85, at[2] + Math.sin(fa) * fr];
+      if (Math.hypot(f[0] - cx, f[2] - cz) < rx * 0.45 && f[1] < cy + ry * 0.4) continue;
+      s.at(f[0], f[1], f[2], fa, () => s.frustum(6, fruit.r, fruit.r * 0.8, -fruit.r * 0.7, fruit.r * 0.7, fruit.paint(0.35)));
+    }
   }
 }
 
@@ -173,5 +181,21 @@ export const flowersPurple = {
   atlas: "nature",
   build(s) {
     flowers(s, 13, [NATURE.flowerPurple, NATURE.flowerPurple, NATURE.flowerWhite]);
+  },
+};
+
+export const appleTree = {
+  name: "apple_tree",
+  atlas: "nature",
+  build(s) {
+    leafy(s, { seed: 41, height: 1.1, lean: [0.05, 0], crown: [0, 1.95, 0, 1.05, 0.8], clusters: 10, size: 0.42, fruit: { r: 0.17, paint: NATURE.capRed } });
+  },
+};
+
+export const orangeTree = {
+  name: "orange_tree",
+  atlas: "nature",
+  build(s) {
+    leafy(s, { seed: 47, height: 1.0, lean: [-0.05, 0.05], crown: [0, 1.85, 0, 0.95, 0.85], clusters: 10, size: 0.4, fruit: { r: 0.16, paint: NATURE.fruitOrange } });
   },
 };

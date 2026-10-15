@@ -53,7 +53,7 @@ interface Card {
 
 const SIZE = 220;
 const renderer = new WebGLRenderer({ antialias: true, preserveDrawingBuffer: true, alpha: true });
-renderer.setPixelRatio(1);
+renderer.setPixelRatio(2);
 renderer.setSize(SIZE, SIZE);
 renderer.shadowMap.enabled = true;
 
@@ -181,6 +181,12 @@ function addCard(grid: HTMLElement, title: string, sub: string, render: Card["re
   const meta = document.createElement("small");
   meta.textContent = sub;
   el.append(img, label, meta);
+  img.onclick = () => {
+    if (!img.src) return;
+    ($("zoom-img") as HTMLImageElement).src = img.src;
+    $("zoom-name").textContent = `${title} · ${sub}`;
+    $("zoom").classList.add("open");
+  };
   if (onPlay) {
     const play = document.createElement("button");
     play.className = "play";
@@ -204,7 +210,7 @@ function buildCards(): void {
     for (const tile of tiles) addCard(grid, t(`tile_${tile.key}` as StringKey), `${tile.key} · ${weightTag(tile)}`, () => tileObject(tile));
   }
 
-  const LAYOUT_TILES = ["city_full", "forest_full"];
+  const LAYOUT_TILES = ["city_full", "city_three", "forest_full", "field_full"];
   const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];
   const layouts = section("整块地块的布局变化（同一地块，不同随机种子）", LAYOUT_TILES.length * SEEDS.length);
   for (const key of LAYOUT_TILES) {
@@ -287,6 +293,7 @@ function playClip(name: string): void {
   if (clip) mixer.clipAction(clip).play();
 }
 
+$("zoom").addEventListener("click", () => $("zoom").classList.remove("open"));
 $("clip").addEventListener("change", (e) => playClip((e.target as HTMLSelectElement).value));
 $("viewer-close").addEventListener("click", () => $("viewer").classList.remove("open"));
 

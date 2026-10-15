@@ -23,6 +23,10 @@ export const TOWN = {
   crust: kenney(5, 1, 0.7),
   leaf: kenney(3, 3, 0.4),
   flower: kenney(6, 1),
+  red: kenney(6, 1),
+  redShade: kenney(7, 1, 0.8),
+  stone: kenney(4, 2),
+  stoneShade: kenney(5, 2, 0.7),
 };
 
 export const NATURE_EXTRAS = {
@@ -30,6 +34,7 @@ export const NATURE_EXTRAS = {
   leafLight: { col: 2, row: 0, top: [218, 236, 128], bottom: [118, 176, 62] },
   leafDeep: { col: 3, row: 0, top: [88, 152, 98], bottom: [22, 84, 60] },
   stem: { col: 4, row: 0, top: [252, 246, 230], bottom: [214, 200, 176] },
+  fruitOrange: { col: 5, row: 0, top: [255, 196, 96], bottom: [228, 120, 40] },
   flowerYellow: { col: 1, row: 1, top: [255, 238, 140], bottom: [232, 170, 50] },
   flowerWhite: { col: 2, row: 1, top: [255, 255, 255], bottom: [222, 216, 232] },
   flowerPurple: { col: 3, row: 1, top: [216, 192, 255], bottom: [140, 100, 200] },
