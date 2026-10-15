@@ -282,6 +282,33 @@ function drawSpecial(b: PartBuilder, kind: Special, rng: Rng, prop: PropFn, look
     prop("streetlight", -0.27, 0.24, { height: 0.22 });
     b.box(0.015, 0.2, 0.015, -0.3, PLATE_TOP, -0.38, PALETTE.trunk);
     b.box(0.08, 0.05, 0.005, -0.26, PLATE_TOP + 0.15, -0.38, PALETTE.walls[2]);
+  } else if (kind === "school") {
+    prop("school", 0, -0.17, { fit: 0.66, maxHeight: 0.42, variant: 1 + Math.floor(rng() * (BUILDING_VARIANTS - 1)) });
+    b.box(0.32, 0.012, 0.3, -0.27, PLATE_TOP, 0.27, PALETTE.schoolyard);
+    for (const z of [0.16, 0.38]) b.box(0.26, 0.004, 0.012, -0.27, PLATE_TOP + 0.012, z, PALETTE.white);
+    b.box(0.012, 0.004, 0.22, -0.27, PLATE_TOP + 0.012, 0.27, PALETTE.white);
+    b.box(0.014, 0.26, 0.014, 0.3, PLATE_TOP, 0.24, PALETTE.white);
+    b.box(0.07, 0.045, 0.006, 0.338, PLATE_TOP + 0.2, 0.24, PALETTE.bufferStop);
+    prop("bench", 0.3, 0.38, { fit: 0.12, rotY: Math.PI });
+    prop(pick(rng, TREES), 0.38, 0.1, { fit: 0.14, maxHeight: 0.2, rotY: rng() * 6 });
+  } else if (kind === "park") {
+    b.box(0.94, 0.012, 0.11, 0, PLATE_TOP, 0, PALETTE.paving);
+    b.box(0.11, 0.012, 0.94, 0, PLATE_TOP, 0, PALETTE.paving);
+    b.cylinder(0.2, 0.014, 0, PLATE_TOP, 0, PALETTE.paving, 18);
+    prop("gazebo", 0, 0, { fit: 0.3, lift: 0.014, rotY: pick(rng, [0, Math.PI / 3]) });
+    const quads: [number, number][] = [[-1, -1], [1, -1], [1, 1], [-1, 1]];
+    const turn = Math.floor(rng() * 4);
+    quads.forEach(([qx, qz], i) => {
+      const k = (i + turn) % 4;
+      const x = qx * 0.27, z = qz * 0.27;
+      if (k === 0 || k === 2) prop(k === 0 ? "cherry_a" : "cherry_b", x, z, { fit: 0.26, maxHeight: 0.34, rotY: rng() * 6 });
+      else {
+        prop("bench", x * 0.75, z * 0.75, { fit: 0.12, rotY: Math.atan2(-qx, -qz) });
+        for (let f = 0; f < 4; f++) {
+          b.cylinder(0.026, 0.03, x + 0.08 * qx + (rng() - 0.5) * 0.12, PLATE_TOP + 0.01, z + 0.08 * qz + (rng() - 0.5) * 0.12, pick(rng, PALETTE.flowers), 6);
+        }
+      }
+    });
   } else if (kind === "beach") {
     b.box(0.94, 0.014, 0.94, 0, PLATE_TOP, 0, PALETTE.sand);
     prop("parasol_a", -0.18, -0.16, { fit: 0.2, lift: 0.014, rotY: rng() * 6 });
@@ -446,7 +473,7 @@ export function buildTile(
 
   const occupied = new Set<string>();
   const occupy = (sx: number, sz: number) => occupied.add(`${sx},${sz}`);
-  const hasBridge = tile.groups.some((g) => g.type === "water") && tile.groups.some((g) => g.type !== "water");
+  const hasBridge = !tile.pier && tile.groups.some((g) => g.type === "water") && tile.groups.some((g) => g.type !== "water");
 
   for (const g of tile.groups) {
     if (AREA_TYPES.has(g.type)) {
@@ -460,7 +487,7 @@ export function buildTile(
   for (const g of tile.groups.filter((g) => g.type === "water")) {
     const paths = pathsFor(g);
     drawWater(b, w, paths, g.dirs.length === 1, look);
-    if (hasBridge) continue;
+    if (hasBridge || tile.pier) continue;
     for (const p of paths) {
       if (rng() > look.lilyChance) continue;
       const q = p.at(0.25 + rng() * 0.5, (rng() - 0.5) * 0.18);
@@ -474,7 +501,8 @@ export function buildTile(
     if (tile.station && g.type === "rail") paths = [linePath(edgeMid(g.dirs[0]), { x: 0, z: -0.02 })];
     if (tile.station && g.type === "road") paths = [linePath(edgeMid(g.dirs[0]), { x: 0, z: 0.36 })];
     if ((tile.special || tile.landmark) && g.type === "road") paths = [linePath(edgeMid(g.dirs[0]), { x: 0, z: 0.26 })];
-    if (g.type === "road") drawRoad(b, paths, g.dirs.length !== 2 && !tile.station && !tile.special && !tile.landmark, y);
+    if (tile.pier && g.type === "road") paths = [linePath(edgeMid(g.dirs[0]), { x: 0, z: 0.22 })];
+    if (g.type === "road") drawRoad(b, paths, g.dirs.length !== 2 && !tile.station && !tile.special && !tile.landmark && !tile.pier, y);
     if (g.type === "rail") drawRail(b, paths, y + (tile.groups.some((o) => o.type === "road") ? 0.004 : 0));
     if (hasBridge && g.type !== "water") drawBridgeRails(b, g.dirs, y + 0.02);
   }
@@ -532,6 +560,14 @@ export function buildTile(
     }
     occupy(0, 0);
   }
+  if (tile.pier) {
+    b.box(0.13, 0.025, 0.46, 0, PLATE_TOP + 0.02, -0.01, PALETTE.plank);
+    for (let i = 0; i < 7; i++) b.box(0.13, 0.004, 0.012, 0, PLATE_TOP + 0.045, -0.22 + i * 0.07, PALETTE.trunk);
+    for (const [px, pz] of [[-0.07, -0.22], [0.07, -0.22], [-0.07, 0.02], [0.07, 0.02]]) b.box(0.022, 0.07, 0.022, px, PLATE_TOP, pz, PALETTE.trunk);
+    prop("crate", -0.04, 0.12, { fit: 0.05, lift: 0.045 });
+    prop("barrel", 0.16, 0.3, { fit: 0.05 });
+    prop("streetlight", -0.17, 0.32, { height: 0.22 });
+  }
   if (tile.halt) {
     b.box(0.14, 0.05, 0.92, -0.24, PLATE_TOP, 0, PALETTE.platform);
     prop("canopy_wide", -0.25, 0, { size: { x: 0.88, y: 0.2, z: 0.16 }, rotY: Math.PI / 2, lift: 0.05 });
@@ -574,12 +610,12 @@ export function buildTile(
       });
       continue;
     }
-    const lot = g.dirs.length >= 3 && !tile.landmark ? lotFor(rng) : "full";
+    const lot = g.dirs.length >= 3 && !tile.landmark && !tile.special ? lotFor(rng) : "full";
     const open = DIRS.find((d) => !g.dirs.includes(d));
     const shift = open === undefined ? [0, 0] : [-DX[open] * SLOT * 0.5, -DY[open] * SLOT * 0.5];
     for (const [sx, sz] of regionSlots(g.dirs)) {
       b.box(SLOT, 0.01, SLOT, sx * SLOT, PLATE_TOP, sz * SLOT, PALETTE.paving);
-      if (tile.landmark || lot !== "full") continue;
+      if (tile.landmark || tile.special || lot !== "full") continue;
       const centre = sx === 0 && sz === 0;
       const downtown = g.dirs.length === 4;
       const pool = downtown
@@ -667,6 +703,20 @@ export function buildTile(
 
   for (const g of tile.groups.filter((g) => g.type === "field")) {
     const slots = regionSlots(g.dirs);
+    if (tile.orchard) {
+      b.box(PLATE_SIZE - 0.02, 0.012, PLATE_SIZE - 0.02, 0, PLATE_TOP, 0, PALETTE.forestFloorTones[2]);
+      const fruit = pick(rng, [["apple_tree", "orange_tree"], ["orange_tree", "apple_tree"]] as ModelKey[][]);
+      for (const [row, z] of [-0.22, 0.22].entries()) {
+        b.box(0.9, 0.014, 0.14, 0, PLATE_TOP, z, PALETTE.soil);
+        for (const x of [-0.3, 0, 0.3]) {
+          prop(fruit[row], x + (rng() - 0.5) * 0.03, z + (rng() - 0.5) * 0.03, { fit: 0.2, maxHeight: 0.28, rotY: rng() * Math.PI * 2, lift: 0.014 });
+        }
+      }
+      prop("crate", 0.16, 0.02, { fit: 0.06, lift: 0.012, rotY: 0.4 });
+      prop("crate", -0.12, -0.02, { fit: 0.05, lift: 0.012, rotY: -0.3 });
+      b.box(0.04, 0.2, 0.012, 0.36, PLATE_TOP + 0.012, 0.13, PALETTE.trunk);
+      continue;
+    }
     const lot = g.dirs.length === 4 ? lotFor(rng) : "full";
     const alongX = rng() < 0.5;
     for (const [sx, sz] of slots) {

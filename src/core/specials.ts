@@ -1,5 +1,5 @@
 import type { Board, Placed } from "./board";
-import { completedRoadNetworks, isMeadow } from "./networks";
+import { completedRoadNetworks, isHome, isMeadow } from "./networks";
 import { DIRS, DX, DY } from "./tiles";
 
 export interface SpecialStatus {
@@ -13,7 +13,8 @@ export function specialStatus(board: Board, p: Placed, roadCells?: Set<string>):
   const neighbours = DIRS.map((d) => board.get(p.x + DX[d], p.y + DY[d]));
   switch (p.tile.special) {
     case "zoo":
-    case "police": {
+    case "police":
+    case "school": {
       const cells = roadCells ?? completedRoadCells(board);
       const active = cells.has(`${p.x},${p.y}`);
       return { active, count: active ? 1 : 0 };
@@ -25,6 +26,10 @@ export function specialStatus(board: Board, p: Placed, roadCells?: Set<string>):
     case "beach": {
       const water = neighbours.filter((n) => n && WATERY.has(n.tile.key)).length;
       return { active: water > 0, count: water > 0 ? 1 + water : 0 };
+    }
+    case "park": {
+      const homes = neighbours.filter((n) => n && isHome(n)).length;
+      return { active: homes >= 2, count: homes >= 2 ? homes : 0 };
     }
     default:
       return { active: false, count: 0 };

@@ -39,6 +39,7 @@ import {
   Patrol,
   Performer,
   Queue,
+  Rowboat,
   Shuttle,
   Snow,
   Spinner,
@@ -626,6 +627,7 @@ export class Agents {
   private readonly lives: Life[] = [];
   private readonly landmarks = new Set<string>();
   private readonly wilds = new Set<string>();
+  private readonly piers = new Set<string>();
   private readonly shuttles = new Map<string, Shuttle>();
   private readonly jumpers = new Map<string, Jumper>();
   private readonly snows: Snow[] = [];
@@ -684,6 +686,7 @@ export class Agents {
     this.lives.length = 0;
     this.landmarks.clear();
     this.wilds.clear();
+    this.piers.clear();
     this.shuttles.clear();
     this.jumpers.clear();
     this.snows.length = 0;
@@ -743,6 +746,7 @@ export class Agents {
     }
     this.syncLandmarks(board, seed);
     this.syncWilds(board, seed);
+    this.syncPiers(board, seed);
     for (const p of board.all()) {
       const key = `${p.x},${p.y}`;
       if (isHome(p) && !this.persons.has(key) && this.persons.size < this.cap && this.people.length) {
@@ -779,11 +783,35 @@ export class Agents {
           const cx = (slots.reduce((sum, [x]) => sum + x, 0) / slots.length) * SLOT;
           const cz = (slots.reduce((sum, [, z]) => sum + z, 0) / slots.length) * SLOT;
           const area = tileArea(p, cx, cz, slots.length > 4 ? 0.3 : 0.16);
+          if (type === "field" && i === 0) {
+            for (const c of region.cells) {
+              const q = board.get(c.x, c.y)!;
+              if (q.tile.orchard) this.addPerson(hash(seed, c.x, c.y, 66), q, board, tileArea(q, 0, 0, 0.3), "interact-right");
+            }
+          }
           if (type === "forest") this.addAnimal(FOREST_PETS[(h >>> 4) % FOREST_PETS.length], p, area);
           else if (i % 2 === 0) this.addPerson(h >>> 4, p, board, area, "idle");
           else this.addAnimal("chick", p, area);
         }
       }
+    }
+  }
+
+  private syncPiers(board: Board, seed: number): void {
+    for (const p of board.all()) {
+      const key = `${p.x},${p.y}`;
+      if (!p.tile.pier || this.piers.has(key)) continue;
+      this.piers.add(key);
+      const at = (x: number, z: number): Spot => onTile(p, x, z);
+      const boat = this.library.buildProps([{ model: "boat", x: 0, z: 0, y: 0, rotY: 0, fit: 0.16 }], "solid");
+      this.addLife(new Rowboat(boat, at(0.17, -0.08), at(0.17, -0.44)));
+      const rig = this.people[hash(seed, p.x, p.y, 67) % this.people.length];
+      if (!rig) continue;
+      const rod = new Mesh(new BoxGeometry(0.006, 0.006, 0.22), new MeshBasicMaterial({ color: 0x8a7a6c }));
+      rod.position.set(0.03, 0.08, 0.1);
+      rod.rotation.x = -0.5;
+      const seat = onTile(p, -0.03, -0.2, Math.PI);
+      this.addLife(new Performer(rig, PERSON_HEIGHT, seat, seat.yaw, ["sit"], (n) => n <= 0.7, 0.045, [rod]));
     }
   }
 
@@ -1051,6 +1079,14 @@ export class Agents {
       const car = new Car(this.library, { x: p.x, y: p.y }, "car_police", this.headlight);
       this.cars.push(car);
       this.root.add(car.root);
+    } else if (p.tile.special === "school" && from === 0) {
+      const rigs = [0, 1, 2].map((i) => this.people[h(30 + i) % this.people.length]).filter(Boolean);
+      const ball = this.library.solidMesh("football");
+      if (ball) ball.scale.setScalar(this.library.scaleFor({ model: "football", fit: 0.04 }));
+      this.addLife(new Match(rigs, ball, tileArea(p, -0.27, 0.27, 0.1), 0.35));
+    } else if (p.tile.special === "park") {
+      for (let i = from; i < to; i++) this.addPerson(h(40 + i), p, board, tileArea(p, 0, 0, 0.34), "idle");
+      if (from === 0) this.addPerson(h(48), p, board, tileArea(p, 0, 0, 0.3), "sit");
     } else if (p.tile.special === "beach") {
       const sand = tileArea(p, 0, 0, 0.32);
       for (let i = from; i < to; i++) this.addAnimal(i === 0 ? "penguin" : "crab", p, sand);

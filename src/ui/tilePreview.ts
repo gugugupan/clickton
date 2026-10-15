@@ -106,6 +106,60 @@ export function drawTilePreview(canvas: HTMLCanvasElement, tile: TileDef, rot: R
     g.fillStyle = css(PALETTE.paving);
     g.fillRect(0.14, 0.12, 0.18, 0.1);
   }
+  if (tile.special === "school") {
+    g.fillStyle = css(PALETTE.walls[1]);
+    g.fillRect(-0.3, -0.4, 0.6, 0.3);
+    g.fillStyle = css(PALETTE.roofs[0]);
+    g.fillRect(-0.3, -0.4, 0.6, 0.08);
+    g.fillStyle = css(PALETTE.schoolyard);
+    g.fillRect(-0.42, 0.08, 0.3, 0.32);
+    g.fillStyle = css(PALETTE.bufferStop);
+    g.fillRect(0.24, 0.1, 0.1, 0.06);
+  }
+  if (tile.special === "park") {
+    g.fillStyle = css(PALETTE.paving);
+    g.fillRect(-0.46, -0.05, 0.92, 0.1);
+    g.fillRect(-0.05, -0.46, 0.1, 0.92);
+    g.beginPath();
+    g.arc(0, 0, 0.13, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = css(PALETTE.white);
+    g.beginPath();
+    g.arc(0, 0, 0.07, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = css(PALETTE.flowers[0]);
+    for (const [x, y] of [[-0.25, -0.25], [0.25, 0.25]]) {
+      g.beginPath();
+      g.arc(x, y, 0.12, 0, Math.PI * 2);
+      g.fill();
+    }
+  }
+  if (tile.orchard) {
+    g.fillStyle = css(PALETTE.forestFloorTones[2]);
+    g.fillRect(-0.46, -0.46, 0.92, 0.92);
+    for (const y of [-0.2, 0.2]) {
+      g.fillStyle = css(PALETTE.soil);
+      g.fillRect(-0.46, y - 0.06, 0.92, 0.12);
+      for (const x of [-0.28, 0, 0.28]) {
+        g.fillStyle = css(PALETTE.foliage[0]);
+        g.beginPath();
+        g.arc(x, y, 0.1, 0, Math.PI * 2);
+        g.fill();
+        g.fillStyle = css(y < 0 ? PALETTE.bufferStop : PALETTE.hay);
+        g.beginPath();
+        g.arc(x + 0.04, y - 0.03, 0.03, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+  }
+  if (tile.pier) {
+    g.fillStyle = css(PALETTE.plank);
+    g.fillRect(-0.06, -0.24, 0.12, 0.48);
+    g.fillStyle = css(PALETTE.walls[0]);
+    g.beginPath();
+    g.ellipse(0.16, -0.12, 0.09, 0.045, 0, 0, Math.PI * 2);
+    g.fill();
+  }
   if (tile.special === "beach") {
     g.fillStyle = css(PALETTE.sand);
     g.fillRect(-0.46, -0.46, 0.92, 0.92);

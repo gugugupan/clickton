@@ -742,3 +742,37 @@ export class Flag implements Life {
     this.cloth.rotation.y = Math.sin(this.t * 2.4) * 0.5 + 0.4;
   }
 }
+
+export class Rowboat implements Life {
+  readonly root = new Group();
+  private readonly boat = new Group();
+  private readonly target = new Vector3();
+  private clock = Math.random() * 5;
+  private wait = 3 + Math.random() * 5;
+  private out = false;
+
+  constructor(meshes: Mesh[], private readonly dock: Spot, private readonly far: Spot) {
+    for (const m of meshes) {
+      m.castShadow = false;
+      this.boat.add(m);
+    }
+    this.root.add(this.boat);
+    this.root.position.set(dock.x, PLATE_TOP + 0.014, dock.z);
+    this.root.rotation.y = Math.atan2(-(far.z - dock.z), far.x - dock.x);
+    this.target.copy(this.root.position);
+  }
+
+  update(dt: number, night: number): void {
+    this.clock += dt;
+    this.boat.position.y = Math.sin(this.clock * 2.2) * 0.004;
+    this.boat.rotation.x = Math.sin(this.clock * 1.7) * 0.05;
+    const pos = this.root.position;
+    if (!moveToward(pos, this.target, dt * 0.05)) return;
+    if ((this.wait -= dt) > 0 || (night > 0.5 && !this.out)) return;
+    this.out = !this.out;
+    const to = this.out ? this.far : this.dock;
+    this.target.set(to.x, pos.y, to.z);
+    this.root.rotation.y = Math.atan2(-(to.z - pos.z), to.x - pos.x);
+    this.wait = this.out ? 1.5 + Math.random() * 2 : 5 + Math.random() * 6;
+  }
+}

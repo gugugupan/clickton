@@ -35,6 +35,32 @@ describe("special tiles", () => {
     const wet = board([["beach", 0, 0, 0], ["pool", 0, 1, 0]]);
     expect(specialStatus(wet, wet.get(0, 0)!).active).toBe(true);
   });
+
+  it("a school opens once its road joins a finished road network", () => {
+    const open = board([["school", 0, 0, 0], ["road_straight", 0, 0, 1]]);
+    expect(specialStatus(open, open.get(0, 0)!).active).toBe(false);
+    const done = board([["school", 0, 0, 0], ["road_straight", 0, 0, 1], ["house_road", 2, 0, 2]]);
+    expect(specialStatus(done, done.get(0, 0)!).active).toBe(true);
+  });
+
+  it("a park needs town on two sides", () => {
+    const one = board([["park", 0, 0, 0], ["city_full", 0, 1, 0], ["grass", 0, 0, 1]]);
+    expect(specialStatus(one, one.get(0, 0)!).active).toBe(false);
+    const two = board([["park", 0, 0, 0], ["city_full", 0, 1, 0], ["city_edge", 0, -1, 0], ["road_end", 0, 0, 1]]);
+    expect(specialStatus(two, two.get(0, 0)!)).toEqual({ active: true, count: 2 });
+  });
+});
+
+describe("rules v10 tiles", () => {
+  it("never appear in v9 draws", async () => {
+    const { baseWeights, TILES } = await import("../src/core/tiles");
+    const v9 = baseWeights(9);
+    for (const key of ["school", "park", "field_orchard", "pier"]) {
+      const t = TILES.find((x) => x.key === key)!;
+      expect(v9[t.id], key).toBe(0);
+      expect(baseWeights(10)[t.id], key).toBeGreaterThan(0);
+    }
+  });
 });
 
 describe("meadows", () => {

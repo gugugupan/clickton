@@ -9,7 +9,8 @@ export function categoryOf(tile: TileDef): Category {
   const k = tile.key;
   if (k.startsWith("forest")) return "forest";
   if (k.startsWith("field")) return "field";
-  if (k.startsWith("city") || k === "house_road") return "city";
+  if (k.startsWith("city") || k === "house_road" || k === "school") return "city";
+  if (k === "park") return "grass";
   if (k === "level_crossing" || k.endsWith("_bridge")) return "cross";
   if (k.startsWith("road")) return "road";
   if (k.startsWith("rail") || k.startsWith("station")) return "rail";
@@ -91,6 +92,16 @@ export const SPECIAL_BOOST: Record<string, Record<string, number>> = {
   village: { farm: 1.3 },
   crossroads: { police: 1.5 },
 };
+
+const V10_BOOSTS: Record<string, Record<string, number>> = {
+  metropolis: { school: 1.5 },
+  village: { park: 1.3 },
+  waterside: { pier: 1.5 },
+};
+
+export const SPECIAL_BOOST_V10: Record<string, Record<string, number>> = Object.fromEntries(
+  [...new Set([...Object.keys(SPECIAL_BOOST), ...Object.keys(V10_BOOSTS)])].map((k) => [k, { ...SPECIAL_BOOST[k], ...V10_BOOSTS[k] }]),
+);
 
 export function themedWeights(
   tiles: readonly TileDef[],
