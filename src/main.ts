@@ -1,12 +1,14 @@
 void import("./fonts");
 import "./style.css";
-import { playChime, playPlace, playPop } from "./audio";
+import { playChime, playFirework, playPlace, playPop, playPopper } from "./audio";
 import { decodeCity, encodeCity } from "./core/codec";
 import { DISCARD_EVERY, Game, INVENTORY_MAX, type QuestDone } from "./core/game";
 import { LANDMARK_EMOJI } from "./core/landmarks";
 import { questDef } from "./core/quests";
 import { CHALLENGE_TILES, dayLabel, todayNumber } from "./core/daily";
 import { completedRailLines, completedRoadNetworks } from "./core/networks";
+import { cheerTier, closedRegionsAt, matchedEdges } from "./core/cheer";
+import { EDGE_SPARK, Fireworks, celebrate as fireworksFor, popperPair, type CelebrationTier } from "./render/fireworks";
 import { THEMES, moodFor } from "./core/themes";
 import { mulberry32, randomSeed } from "./core/rng";
 import { POINTS, type PlacementScore } from "./core/scoring";
@@ -42,6 +44,7 @@ const library = new ModelLibrary();
 setLang(getLang());
 $("loading-text").textContent = t("loading");
 const agents = new Agents(library, coarse);
+const fireworks = new Fireworks(coarse ? 900 : 2000);
 const progress = (offset: number, share: number) => (done: number, total: number) =>
   ($("loading-bar").style.width = `${Math.round((offset + (done / total) * share) * 100)}%`);
 try {
@@ -53,7 +56,19 @@ try {
 $("loading").classList.add("done");
 const world = new World(canvas, game.seed, library);
 world.add(agents.root);
-if (import.meta.env.DEV) Object.assign(window, { __clickton: { agents, world, getGame: () => game, Board, tileByKey } });
+world.add(fireworks.points);
+fireworks.camera = world.camera;
+const lastBurst = { shell: 0, popper: 0 };
+fireworks.onBurst = (kind, strength) => {
+  const now = performance.now();
+  if (now - lastBurst[kind] < 90) return;
+  lastBurst[kind] = now;
+  if (kind === "shell") playFirework(strength);
+  else playPopper(strength);
+};
+const calmMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+let nightNow = 0;
+if (import.meta.env.DEV) Object.assign(window, { __clickton: { agents, world, getGame: () => game, Board, tileByKey, place: (x: number, y: number) => place(x, y) } });
 world.edgesAround = (x, y) => DIRS.map((d) => game.board.edgeAt(x + DX[d], y + DY[d], opposite(d)));
 const LAKE_RING = [
   [0, -1], [1, 0], [0, 1], [-1, 0], [1, -1], [1, 1], [-1, 1], [-1, -1],
@@ -429,6 +444,7 @@ function place(x: number, y: number): void {
   for (const sp of opened.specials) floatText(sp.x, sp.y, t(`open_${sp.kind}` as Parameters<typeof t>[0]), "var(--text)");
   if (opened.specials.length && !opened.trains.length) setTimeout(playChime, 250);
   celebrate(game.lastDone, x, y);
+  cheer(placed.tile, placed.rot, x, y, score, opened);
   rot = 0;
   saveLocal(game);
   refreshStats();
@@ -485,6 +501,32 @@ function popBrandScore(total: number): void {
     void el.offsetWidth;
     el.classList.add(cls);
   }
+}
+
+function cheer(
+  tile: (typeof TILES)[number],
+  tileRot: Rot,
+  x: number,
+  y: number,
+  score: PlacementScore,
+  opened: ReturnType<Agents["sync"]>,
+): void {
+  const night = nightNow > 0.5;
+  const sparks = matchedEdges(game.board, tile, tileRot, x, y).map((e) => (e ? EDGE_SPARK[e] : null));
+  if (sparks.some((c) => c !== null)) fireworksFor(fireworks, 1, x, y, sparks, undefined, night);
+  if (calmMotion?.matches) return;
+  const tier = cheerTier(
+    {
+      questsDone: game.lastDone.length,
+      loopsClosed: score.loopsClosed,
+      linesClosed: score.linesClosed,
+      opened: opened.roads.length + opened.trains.length + opened.specials.length,
+    },
+    closedRegionsAt(game.board, x, y),
+  );
+  if (!tier) return;
+  const view = world.controls.target;
+  fireworksFor(fireworks, tier, x, y, undefined, { x: view.x, z: view.z }, night);
 }
 
 function closeResult(): void {
@@ -1082,6 +1124,8 @@ function frame(now: number): void {
   tintHud(smooth01((0.62 - sky.daylight) / 0.24));
   world.setSky(sky);
   agents.update(dt, game.board, { camera: world.camera, pixelsPerUnit: world.pixelsPerUnit() }, 1 - sky.daylight, clock);
+  nightNow = 1 - sky.daylight;
+  fireworks.update(dt, world.pixelsPerUnit() * world.renderer.getPixelRatio(), nightNow, world.renderer.getPixelRatio());
   world.render(now);
   updateStats(now);
   positionBubble();
@@ -1089,3 +1133,38 @@ function frame(now: number): void {
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
+
+if (import.meta.env.DEV && new URLSearchParams(location.search).has("fx")) {
+  const panel = document.createElement("div");
+  panel.className = "fx-demo";
+  const tiles = () => [...game.board.all()];
+  const centre = () => {
+    const all = tiles();
+    return { x: all.reduce((s, p) => s + p.x, 0) / all.length, z: all.reduce((s, p) => s + p.y, 0) / all.length };
+  };
+  const labels: [CelebrationTier, string][] = [[1, "① 边匹配 1s"], [2, "② 修通 2s"], [3, "③ 环线 3s"], [4, "④ 任务 5s"]];
+  for (const [tier, label] of labels) {
+    const b = document.createElement("button");
+    b.textContent = label;
+    b.onclick = () => {
+      const c = centre();
+      const near = tiles().sort((a, b2) => Math.hypot(a.x - c.x, a.y - c.z) - Math.hypot(b2.x - c.x, b2.y - c.z))[0];
+      fireworksFor(fireworks, tier, near.x, near.y, undefined, c, dayNight.mode === "night");
+    };
+    panel.append(b);
+  }
+  const pop = document.createElement("button");
+  pop.textContent = "🎉 拉炮";
+  pop.onclick = () => {
+    const c = centre();
+    const near = tiles().sort((a, b2) => Math.hypot(a.x - c.x, a.y - c.z) - Math.hypot(b2.x - c.x, b2.y - c.z))[0];
+    popperPair(fireworks, near.x, near.y);
+  };
+  panel.append(pop);
+  const time = document.createElement("button");
+  time.textContent = "☀/🌙";
+  time.onclick = () => (dayNight.mode = dayNight.mode === "night" ? "day" : "night");
+  panel.append(time);
+  document.body.append(panel);
+  Object.assign((window as unknown as { __clickton: object }).__clickton, { fireworks, fireworksFor, popperPair });
+}
