@@ -7,7 +7,7 @@
     {
       "type": "SCALAR",
       "componentType": 5123,
-      "count": 612,
+      "count": 480,
       "normalized": false,
       "byteOffset": 0,
       "bufferView": 0
@@ -15,16 +15,16 @@
     {
       "type": "VEC3",
       "componentType": 5122,
-      "count": 524,
+      "count": 342,
       "max": [
-        11897,
         32767,
-        13729
+        24675,
+        3220
       ],
       "min": [
-        -11897,
         -32767,
-        -13729
+        -24675,
+        -3220
       ],
       "normalized": true,
       "byteOffset": 0,
@@ -33,7 +33,7 @@
     {
       "type": "VEC3",
       "componentType": 5122,
-      "count": 524,
+      "count": 342,
       "normalized": true,
       "byteOffset": 0,
       "bufferView": 2
@@ -41,7 +41,7 @@
     {
       "type": "VEC2",
       "componentType": 5123,
-      "count": 524,
+      "count": 342,
       "normalized": true,
       "byteOffset": 0,
       "bufferView": 3
@@ -51,67 +51,67 @@
     {
       "buffer": 1,
       "byteOffset": 0,
-      "byteLength": 1224,
+      "byteLength": 960,
       "target": 34963,
       "extensions": {
         "EXT_meshopt_compression": {
           "buffer": 0,
           "byteOffset": 0,
-          "byteLength": 225,
+          "byteLength": 179,
           "mode": "TRIANGLES",
           "byteStride": 2,
-          "count": 612
+          "count": 480
         }
       }
     },
     {
       "buffer": 1,
-      "byteOffset": 1224,
-      "byteLength": 4192,
+      "byteOffset": 960,
+      "byteLength": 2736,
       "target": 34962,
       "byteStride": 8,
       "extensions": {
         "EXT_meshopt_compression": {
           "buffer": 0,
-          "byteOffset": 228,
-          "byteLength": 2701,
+          "byteOffset": 180,
+          "byteLength": 1808,
           "mode": "ATTRIBUTES",
           "byteStride": 8,
-          "count": 524
+          "count": 342
         }
       }
     },
     {
       "buffer": 1,
-      "byteOffset": 5416,
-      "byteLength": 4192,
+      "byteOffset": 3696,
+      "byteLength": 2736,
       "target": 34962,
       "byteStride": 8,
       "extensions": {
         "EXT_meshopt_compression": {
           "buffer": 0,
-          "byteOffset": 2932,
-          "byteLength": 1441,
+          "byteOffset": 1988,
+          "byteLength": 787,
           "mode": "ATTRIBUTES",
           "byteStride": 8,
-          "count": 524
+          "count": 342
         }
       }
     },
     {
       "buffer": 1,
-      "byteOffset": 9608,
-      "byteLength": 2096,
+      "byteOffset": 6432,
+      "byteLength": 1368,
       "target": 34962,
       "byteStride": 4,
       "extensions": {
         "EXT_meshopt_compression": {
           "buffer": 0,
-          "byteOffset": 4376,
-          "byteLength": 185,
+          "byteOffset": 2776,
+          "byteLength": 175,
           "mode": "ATTRIBUTES",
           "byteStride": 4,
-          "count": 524
+          "count": 342
         }
       }
     }
@@ -139,11 +139,11 @@
   ],
   "buffers": [
     {
-      "uri": "stone_lantern.bin",
-      "byteLength": 4564
+      "uri": "torii_gate.bin",
+      "byteLength": 2952
     },
     {
-      "byteLength": 11704,
+      "byteLength": 7800,
       "extensions": {
         "EXT_meshopt_compression": {
           "fallback": true
@@ -170,7 +170,7 @@
   ],
   "meshes": [
     {
-      "name": "stone_lantern",
+      "name": "torii_gate",
       "primitives": [
         {
           "attributes": {
@@ -187,16 +187,16 @@
   ],
   "nodes": [
     {
-      "name": "stone_lantern",
+      "name": "torii_gate",
       "translation": [
         0,
-        0.3580000102519989,
+        0.46000000834465027,
         0
       ],
       "scale": [
-        0.3580000102519989,
-        0.3580000102519989,
-        0.3580000102519989
+        0.6108465194702148,
+        0.6108465194702148,
+        0.6108465194702148
       ],
       "mesh": 0
     }

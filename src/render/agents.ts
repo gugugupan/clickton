@@ -661,7 +661,14 @@ export class Agents {
     let done = 0;
     await Promise.all(
       jobs.map(async ([group, file], i) => {
-        const gltf = await loader.loadAsync(modelUrl(group, file));
+        const gltf = await loader.loadAsync(modelUrl(group, file)).catch((e) => {
+          console.warn("agent skipped", file, e);
+          return null;
+        });
+        if (!gltf) {
+          onProgress(++done, jobs.length);
+          return;
+        }
         const box = new Box3().setFromObject(gltf.scene);
         const rig: Rig = { scene: gltf.scene, clips: gltf.animations, height: box.max.y - box.min.y, minY: box.min.y };
         if (group === "people") this.people[i] = rig;

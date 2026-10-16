@@ -74,7 +74,14 @@ export class ModelLibrary {
     await Promise.all(
       entries.map(async ([key, def]) => {
         const url = modelUrl(def.pack, def.file);
-        const gltf = await loader.loadAsync(url);
+        const gltf = await loader.loadAsync(url).catch((e) => {
+          console.warn("model skipped", key, e);
+          return null;
+        });
+        if (!gltf) {
+          onProgress(++done, entries.length);
+          return;
+        }
         gltf.scene.updateMatrixWorld(true);
         const group = def.tint ? `${def.pack}${def.tint}` : def.pack;
         const parts: BufferGeometry[] = [];

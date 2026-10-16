@@ -515,7 +515,7 @@
     },
     "torii": {
       "pack": "original",
-      "file": "torii.glb"
+      "file": "torii_gate.glb"
     },
     "shrine_hall": {
       "pack": "original",
@@ -523,7 +523,7 @@
     },
     "stone_lantern": {
       "pack": "original",
-      "file": "stone_lantern.glb"
+      "file": "shrine_lantern.glb"
     }
   },
   "agents": {

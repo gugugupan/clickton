@@ -72,9 +72,9 @@ const ROWS: { title: string; note: string; items: Entry[] }[] = [
     title: "神社",
     note: "鸟居、正殿、石灯笼（灯窗用玻璃色，夜里会亮）",
     items: [
-      { path: `${ORIGINAL}town/torii.glb`, kind: "town", fresh: true },
+      { path: `${ORIGINAL}town/torii_gate.glb`, kind: "town", fresh: true },
       { path: `${ORIGINAL}town/shrine_hall.glb`, kind: "town", fresh: true },
-      { path: `${ORIGINAL}town/stone_lantern.glb`, kind: "town", fresh: true },
+      { path: `${ORIGINAL}town/shrine_lantern.glb`, kind: "town", fresh: true },
     ],
   },
   {

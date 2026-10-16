@@ -7,7 +7,7 @@ function curvedBeam(s, half, y, depth, thick, rise, paint) {
 }
 
 export const torii = {
-  name: "torii",
+  name: "torii_gate",
   atlas: "town",
   build(s) {
     for (const x of [-0.32, 0.32]) {
@@ -25,7 +25,7 @@ export const torii = {
 };
 
 export const stoneLantern = {
-  name: "stone_lantern",
+  name: "shrine_lantern",
   atlas: "town",
   build(s) {
     s.frustum(6, 0.13, 0.11, 0, 0.05, C.stoneShade);
