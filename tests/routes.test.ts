@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { Board } from "../src/core/board";
-import { accessCell, destinationsOf, findRoute, pickRole, rolesAvailable, strollRoute } from "../src/core/routes";
+import { accessCell, crossingClosed, destinationsOf, findRoute, lineStations, pickRole, rolesAvailable, strollRoute } from "../src/core/routes";
+import { completedRailLines } from "../src/core/networks";
 import { tileByKey, type Rot } from "../src/core/tiles";
 
 function board(spec: [string, Rot, number, number][]): Board {
@@ -52,4 +53,23 @@ describe("routes", () => {
     expect(pickRole(0, [])).toBeNull();
     for (const roll of [0, 0.3, 0.6, 0.99]) expect(["commuter", "shopper", "stroller"]).toContain(pickRole(roll, dests));
   });
+
+  it("lists the stations a rail line stops at", () => {
+    const rail = board([
+      ["station", 2, 0, 0],
+      ["rail_straight", 0, 0, 1],
+      ["station_through", 0, 0, 2],
+      ["rail_straight", 0, 0, 3],
+      ["station", 0, 0, 4],
+    ]);
+    const [line] = completedRailLines(rail);
+    expect(line.loop).toBe(false);
+    expect(lineStations(rail, line).map((c) => `${c.x},${c.y}`).sort()).toEqual(["0,0", "0,2", "0,4"]);
+  });
+
+  it("closes a crossing only while a train car is near", () => {
+    expect(crossingClosed({ x: 3, y: 2 }, [{ x: 3.4, z: 2.3 }])).toBe(true);
+    expect(crossingClosed({ x: 3, y: 2 }, [{ x: 4, z: 2 }, { x: 3, z: 3.1 }])).toBe(false);
+  });
 });
+

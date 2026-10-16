@@ -19,7 +19,7 @@ import type { Board, Placed } from "../core/board";
 import { completedRoadCells, specialStatus } from "../core/specials";
 import { completedRailLines, completedRoadNetworks, edgeRegions, grassExits, hasRoad, isHome, isMeadow, isPond, regionAt, roadExits, type RailLine } from "../core/networks";
 import { hash, mulberry32 } from "../core/rng";
-import { ROLE_ERRANDS, accessCell, destinationsOf, findRoute, pickRole, strollRoute, type Cell, type Destination, type Errand, type Role } from "../core/routes";
+import { ROLE_ERRANDS, accessCell, crossingClosed, destinationsOf, findRoute, lineStations, pickRole, strollRoute, type Cell, type Destination, type Errand, type Role } from "../core/routes";
 import { DIRS, DX, DY, groupsOf, type Dir, type Special } from "../core/tiles";
 import catalog from "./assets.json";
 import { loadModel, modelUrl, type ModelKey, type ModelLibrary } from "./models";
@@ -111,6 +111,7 @@ class Person implements Walker {
     private readonly home: { x: number; y: number },
     board: Board,
     private readonly stay?: { area: Area; idle: string },
+    private readonly town?: Town,
   ) {
     this.puppet = new Puppet(rig, PERSON_HEIGHT, rig.clips);
     this.cell = !stay && hasRoad(board, home.x, home.y) ? { ...home } : null;
@@ -131,6 +132,10 @@ class Person implements Walker {
     if (this.wait > 0) {
       this.wait -= dt;
       this.puppet.play(this.stay?.idle ?? "idle");
+      return;
+    }
+    if (this.town && this.cell && blocked(this.town, this.cell, this.pos)) {
+      this.puppet.play("idle");
       return;
     }
     const dx = this.target.x - this.pos.x, dz = this.target.z - this.pos.z;
@@ -182,13 +187,29 @@ const BUSY: Record<Errand, { anim: string; min: number; max: number }> = {
   farm: { anim: "pick-up", min: 5, max: 9 },
   visit: { anim: "emote-yes", min: 3, max: 6 },
   stroll: { anim: "idle", min: 2, max: 4 },
+  station: { anim: "idle", min: 3, max: 6 },
 };
+const WAIT_FOR_TRAIN = 30;
+const TRAIN_SEATS = 4;
+const cellKey = (c: Cell) => `${c.x},${c.y}`;
 const BAG_COLORS = [0xe0a193, 0xedd39b, 0x9dbbd1, 0xa9c89b, 0xc9b8d6];
+
+interface Transit {
+  stops: Map<string, Train>;
+  closed: Set<string>;
+  trains: Set<Train>;
+}
 
 interface Town {
   board: Board;
   dests: Destination[];
   homes: Cell[];
+  crossings: Cell[];
+  transit: Transit;
+}
+
+function blocked(town: Town, cell: Cell, pos: Vector3): boolean {
+  return town.transit.closed.has(cellKey(cell)) && Math.hypot(pos.x - cell.x, pos.z - cell.y) > 0.36;
 }
 
 interface Walker {
@@ -213,12 +234,15 @@ class Resident implements Walker {
   private readonly side = (Math.random() < 0.5 ? -1 : 1) * (0.05 + Math.random() * 0.04);
   private readonly rand: () => number;
   private readonly bag: Mesh;
-  private state: "home" | "walk" | "enter" | "busy" | "leave" = "home";
+  private state: "home" | "walk" | "enter" | "busy" | "leave" | "wait" | "board" | "ride" | "abroad" = "home";
   private timer: number;
   private route: Cell[] = [];
   private step = 0;
   private stop: Stop | null = null;
   private legs = 0;
+  private train: Train | null = null;
+  private boarded: Cell | null = null;
+  private returning = false;
 
   constructor(
     rig: Rig,
@@ -281,7 +305,14 @@ class Resident implements Walker {
     return { x: n.x - dy * this.side, z: n.z + dx * this.side };
   }
 
+  private platform(cell: Cell): { x: number; z: number } {
+    const p = this.town.board.get(cell.x, cell.y)!;
+    const along = p.tile.halt ? (this.rand() - 0.5) * 0.6 : -0.24 + (this.rand() - 0.5) * 0.3;
+    return onTile(p, -0.19, along);
+  }
+
   private door(stop: Stop): { x: number; z: number } {
+    if (stop.errand === "station") return this.platform(stop.cell);
     const a = nodePosition(this.town.board, stop.access.x, stop.access.y);
     if (stop.access.x === stop.cell.x && stop.access.y === stop.cell.y) {
       return { x: a.x + (this.rand() - 0.5) * 0.3, z: a.z + (this.rand() - 0.5) * 0.3 };
@@ -317,8 +348,86 @@ class Resident implements Walker {
     this.target.set(n.x, this.pos.y, n.z);
   }
 
+  private alight(cell: Cell): void {
+    if (this.train) this.train.riders--;
+    this.train = null;
+    this.inside = false;
+    const spot = this.platform(cell);
+    this.pos.set(spot.x, PLATE_TOP + 0.02, spot.z);
+    this.target.copy(this.pos);
+    this.puppet.root.position.copy(this.pos);
+    this.stop = { cell, access: accessCell(this.town.board, cell.x, cell.y) ?? cell, errand: "station" };
+    if (this.returning) {
+      this.returning = false;
+      this.legs = 2;
+      this.state = "leave";
+      const a = nodePosition(this.town.board, this.stop.access.x, this.stop.access.y);
+      this.target.set(a.x, this.pos.y, a.z);
+      return;
+    }
+    this.state = "abroad";
+    this.timer = 3 + this.rand() * 3;
+  }
+
+  private travel(dt: number): boolean {
+    if (this.state === "wait") {
+      this.puppet.play("idle");
+      const train = this.town.transit.stops.get(cellKey(this.stop!.cell));
+      if (train && train.riders < TRAIN_SEATS) {
+        this.train = train;
+        train.riders++;
+        this.boarded = this.stop!.cell;
+        const near = train.carPositions.reduce((a, b) => (a.distanceTo(this.pos) < b.distanceTo(this.pos) ? a : b));
+        this.target.set(near.x, this.pos.y, near.z);
+        this.state = "board";
+        this.timer = 0.9;
+        return true;
+      }
+      if ((this.timer -= dt) > 0) return true;
+      this.returning = false;
+      this.legs = 2;
+      this.state = "leave";
+      const a = nodePosition(this.town.board, this.stop!.access.x, this.stop!.access.y);
+      this.target.set(a.x, this.pos.y, a.z);
+      return true;
+    }
+    if (this.state === "board") {
+      const arrived = moveToward(this.pos, this.target, dt * 0.3);
+      this.puppet.play("walk");
+      this.puppet.face(this.target.x - this.pos.x, this.target.z - this.pos.z, dt);
+      this.puppet.root.position.copy(this.pos);
+      if (!arrived && (this.timer -= dt) > 0) return true;
+      this.inside = true;
+      this.state = "ride";
+      return true;
+    }
+    if (this.state === "ride") {
+      const train = this.train;
+      if (!train || !this.town.transit.trains.has(train)) {
+        this.alight(this.boarded!);
+        return true;
+      }
+      const lead = train.carPositions[0];
+      this.pos.set(lead.x, this.pos.y, lead.z);
+      this.puppet.root.position.copy(this.pos);
+      const at = train.stoppedAt;
+      if (at && cellKey(at) !== cellKey(this.boarded!)) this.alight(at);
+      return true;
+    }
+    if (this.state === "abroad") {
+      this.puppet.play(this.timer > 1.5 ? "idle" : "emote-yes");
+      if ((this.timer -= dt) > 0) return true;
+      this.returning = true;
+      this.state = "wait";
+      this.timer = WAIT_FOR_TRAIN;
+      return true;
+    }
+    return false;
+  }
+
   update(dt: number): void {
     this.puppet.update(dt);
+    if (this.travel(dt)) return;
     if (this.state === "home") {
       this.inside = true;
       if ((this.timer -= dt) > 0) return;
@@ -334,6 +443,10 @@ class Resident implements Walker {
       this.state = "leave";
       const a = nodePosition(this.town.board, this.stop!.access.x, this.stop!.access.y);
       this.target.set(a.x, this.pos.y, a.z);
+      return;
+    }
+    if (this.state === "walk" && blocked(this.town, this.route[this.step], this.pos)) {
+      this.puppet.play("idle");
       return;
     }
     const dx = this.target.x - this.pos.x, dz = this.target.z - this.pos.z;
@@ -365,6 +478,11 @@ class Resident implements Walker {
       this.timer = 3 + this.rand() * 4;
       return;
     }
+    if (this.stop!.errand === "station" && this.role === "traveler") {
+      this.state = "wait";
+      this.timer = WAIT_FOR_TRAIN;
+      return;
+    }
     const busy = BUSY[this.stop!.errand];
     this.state = "busy";
     this.timer = busy.min + this.rand() * (busy.max - busy.min);
@@ -394,7 +512,13 @@ class Car {
   private grow = 0;
   private readonly speed = 0.38 + Math.random() * 0.14;
 
-  constructor(library: ModelLibrary, start: { x: number; y: number }, model: ModelKey, light?: SpriteMaterial) {
+  constructor(
+    library: ModelLibrary,
+    start: { x: number; y: number },
+    model: ModelKey,
+    light?: SpriteMaterial,
+    private readonly town?: Town,
+  ) {
     const size = library.size(model);
     if (light) {
       const lamp = new Sprite(light);
@@ -419,6 +543,7 @@ class Car {
       this.grow = Math.min(1, this.grow + dt * 3);
       this.root.scale.setScalar(easeOutBack(this.grow));
     }
+    if (this.town && blocked(this.town, this.cell, this.pos)) return;
     const dx = this.target.x - this.pos.x, dz = this.target.z - this.pos.z;
     if (!moveToward(this.pos, this.target, dt * this.speed)) {
       const want = Math.atan2(dx, dz);
@@ -586,6 +711,9 @@ class Train {
   private readonly stops: number[] = [];
   private nextStop = 0;
   private served: number | null = null;
+  private readonly stopCells: Cell[] = [];
+  private stopCell: Cell | null = null;
+  riders = 0;
   private turnPending = false;
   private runaround: Runaround | null = null;
 
@@ -605,6 +733,7 @@ class Train {
       const start = this.points[Math.min(marks[i], this.points.length - 1)].s;
       const end = i + 1 < marks.length ? this.points[Math.min(marks[i + 1], this.points.length - 1)].s : this.length;
       this.stops.push((start + end) / 2);
+      this.stopCells.push({ x: line.steps[i].x, y: line.steps[i].y });
     });
     const maxCars = line.loop
       ? Math.floor((this.length - 0.3) / CAR_SPACING)
@@ -746,6 +875,14 @@ class Train {
     this.place();
   }
 
+  get stoppedAt(): Cell | null {
+    return this.runaround ? null : this.stopCell;
+  }
+
+  get carPositions(): Vector3[] {
+    return this.cars.map((c) => c.position);
+  }
+
   get start(): { x: number; y: number } {
     return { x: this.line.steps[0].x, y: this.line.steps[0].y };
   }
@@ -762,6 +899,7 @@ class Train {
     }
     if (this.dwell > 0) {
       this.dwell -= dt;
+      if (this.dwell <= 0) this.stopCell = null;
       if (this.dwell <= 0 && this.turnPending) {
         this.turnPending = false;
         this.startRunaround();
@@ -785,6 +923,7 @@ class Train {
         if (ahead <= step) {
           this.head += ahead;
           this.dwell = 2;
+          this.stopCell = this.stopCells[this.nextStop % this.stops.length];
           this.served = stop;
           this.nextStop++;
         } else {
@@ -812,6 +951,8 @@ class Train {
         this.dwell = halt ? 2 : 1.4;
         this.turnPending = !halt;
         this.served = halt ? this.stops.find((st) => Math.abs(st + this.dir * half - target) < 1e-6) ?? null : null;
+        const last = this.line.steps[this.dir > 0 ? this.line.steps.length - 1 : 0];
+        this.stopCell = halt && this.served !== null ? this.stopCells[this.stops.indexOf(this.served)] : { x: last.x, y: last.y };
       }
     }
     this.place();
@@ -824,7 +965,16 @@ export class Agents {
   private readonly pets = new Map<string, Rig>();
   private readonly trains = new Map<string, Train>();
   private readonly persons = new Map<string, Walker>();
-  private readonly town: Town = { board: null as unknown as Board, dests: [], homes: [] };
+  private readonly town: Town = {
+    board: null as unknown as Board,
+    dests: [],
+    homes: [],
+    crossings: [],
+    transit: { stops: new Map(), closed: new Set(), trains: new Set() },
+  };
+  private readonly crossingLights = new Map<string, Sprite[]>();
+  private readonly redLight = new SpriteMaterial({ map: glowTexture(), color: 0xff5a4a, transparent: true, depthWrite: false, blending: AdditiveBlending });
+  private blink = 0;
   private readonly animals = new Map<string, Animal>();
   private readonly cars: Car[] = [];
   private readonly roads = new Set<string>();
@@ -909,6 +1059,7 @@ export class Agents {
     this.landmarks.clear();
     this.wilds.clear();
     this.piers.clear();
+    this.crossingLights.clear();
     this.shuttles.clear();
     this.jumpers.clear();
     this.snows.length = 0;
@@ -923,8 +1074,8 @@ export class Agents {
   ): { trains: { x: number; y: number }[]; roads: { x: number; y: number }[]; specials: { kind: Special; x: number; y: number }[] } {
     const opened: { kind: Special; x: number; y: number }[] = [];
     this.town.board = board;
-    this.town.dests = destinationsOf(board);
     this.town.homes = [...board.all()].filter(isHome).map((p) => ({ x: p.x, y: p.y }));
+    this.town.crossings = [...board.all()].filter((p) => p.tile.key === "level_crossing").map((p) => ({ x: p.x, y: p.y }));
     const roadCells = completedRoadCells(board);
     for (const p of board.all()) {
       if (!p.tile.special) continue;
@@ -945,7 +1096,7 @@ export class Agents {
       const count = Math.max(1, Math.floor(net.cells.length / 4));
       for (let i = 0; i < count && this.cars.length < this.cap / 4; i++) {
         const h = hash(seed, net.cells[0].x, net.cells[0].y, 3 + i);
-        const car = new Car(this.library, net.cells[h % net.cells.length], CAR_MODELS[(h >>> 8) % CAR_MODELS.length], this.headlight);
+        const car = new Car(this.library, net.cells[h % net.cells.length], CAR_MODELS[(h >>> 8) % CAR_MODELS.length], this.headlight, this.town);
         this.cars.push(car);
         this.root.add(car.root);
       }
@@ -969,6 +1120,23 @@ export class Agents {
         this.root.add(extra.root);
       }
     }
+    const served = new Set<string>();
+    for (const line of completedRailLines(board)) if (!line.loop || line.halts > 0) for (const c of lineStations(board, line)) served.add(cellKey(c));
+    this.town.dests = destinationsOf(board).filter((d) => d.errand !== "station" || served.has(cellKey(d)));
+    this.town.transit.trains = new Set(this.trains.values());
+    for (const c of this.town.crossings) {
+      const key = cellKey(c);
+      if (this.crossingLights.has(key)) continue;
+      const lights = [-1, 1].map((k) => {
+        const light = new Sprite(this.redLight);
+        light.position.set(c.x + k * 0.3, PLATE_TOP + 0.16, c.y + k * 0.3);
+        light.scale.setScalar(0.12);
+        light.visible = false;
+        this.root.add(light);
+        return light;
+      });
+      this.crossingLights.set(key, lights);
+    }
     this.syncLandmarks(board, seed);
     this.syncWilds(board, seed);
     this.syncPiers(board, seed);
@@ -980,7 +1148,7 @@ export class Agents {
         const person: Walker =
           (h % 1000) / 1000 < RESIDENT_SHARE && accessCell(board, p.x, p.y)
             ? new Resident(rig, { x: p.x, y: p.y }, pickRole(((h >>> 10) % 1000) / 1000, this.town.dests) ?? "shopper", this.town, h)
-            : new Person(rig, { x: p.x, y: p.y }, board);
+            : new Person(rig, { x: p.x, y: p.y }, board, undefined, this.town);
         this.persons.set(key, person);
         this.root.add(person.puppet.root);
       }
@@ -1305,7 +1473,7 @@ export class Agents {
       for (let i = from; i < to; i++) this.addAnimal(FARM_PETS[h(i) % FARM_PETS.length], p, pen);
     } else if (p.tile.special === "police" && from === 0) {
       this.addPerson(OFFICER, p, board, tileArea(p, -0.08, 0.06, 0.05), "idle");
-      const car = new Car(this.library, { x: p.x, y: p.y }, "car_police", this.headlight);
+      const car = new Car(this.library, { x: p.x, y: p.y }, "car_police", this.headlight, this.town);
       this.cars.push(car);
       this.root.add(car.root);
     } else if (p.tile.special === "school" && from === 0) {
@@ -1354,6 +1522,22 @@ export class Agents {
       }
     }
     for (const t of this.trains.values()) t.update(dt);
+    const transit = this.town.transit;
+    transit.stops.clear();
+    transit.closed.clear();
+    const cars = [...this.trains.values()].flatMap((t) => {
+      const at = t.stoppedAt;
+      if (at) transit.stops.set(cellKey(at), t);
+      return t.carPositions;
+    });
+    this.blink += dt;
+    for (const c of this.town.crossings) {
+      const key = cellKey(c);
+      const closed = crossingClosed(c, cars);
+      if (closed) transit.closed.add(key);
+      const lights = this.crossingLights.get(key);
+      if (lights) lights.forEach((l, i) => (l.visible = closed && Math.floor(this.blink * 2.5 + i) % 2 === 0));
+    }
     for (const p of this.persons.values()) if (night <= p.bedtime) p.update(dt, board);
     for (const a of this.animals.values()) {
       if (night > 0.6) a.rest(dt);

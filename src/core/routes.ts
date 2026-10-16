@@ -1,9 +1,9 @@
 import type { Board, Placed } from "./board";
-import { hasRoad, roadExits } from "./networks";
+import { hasRoad, roadExits, type RailLine } from "./networks";
 import { DIRS, DX, DY } from "./tiles";
 
-export type Errand = "work" | "school" | "shop" | "park" | "shrine" | "pier" | "farm" | "visit" | "stroll";
-export type Role = "commuter" | "student" | "farmer" | "shopper" | "stroller";
+export type Errand = "work" | "school" | "shop" | "park" | "shrine" | "pier" | "farm" | "visit" | "stroll" | "station";
+export type Role = "commuter" | "student" | "farmer" | "shopper" | "stroller" | "traveler";
 
 export interface Cell {
   x: number;
@@ -23,6 +23,7 @@ export const ROLE_ERRANDS: Record<Role, Errand[]> = {
   farmer: ["farm"],
   shopper: ["shop"],
   stroller: LEISURE,
+  traveler: ["station"],
 };
 
 export function errandOf(p: Placed): Errand | null {
@@ -33,7 +34,8 @@ export function errandOf(p: Placed): Errand | null {
   if (t.pier) return "pier";
   if (t.special === "farm" || t.key.startsWith("field")) return "farm";
   if (SHOPS.has(t.key) || t.landmark === "market" || t.landmark === "tavern") return "shop";
-  if (t.station || t.special === "police" || t.special === "zoo" || t.landmark === "stage") return "work";
+  if (t.station) return "station";
+  if (t.special === "police" || t.special === "zoo" || t.landmark === "stage") return "work";
   return null;
 }
 
@@ -42,7 +44,7 @@ export function destinationsOf(board: Board): Destination[] {
   for (const p of board.all()) {
     const errand = errandOf(p);
     if (errand) out.push({ errand, x: p.x, y: p.y });
-    if (errand === "shop") out.push({ errand: "work", x: p.x, y: p.y });
+    if (errand === "shop" || errand === "station") out.push({ errand: "work", x: p.x, y: p.y });
   }
   return out;
 }
@@ -83,7 +85,7 @@ export function rolesAvailable(dests: readonly Destination[]): Role[] {
 export function pickRole(roll: number, dests: readonly Destination[]): Role | null {
   const roles = rolesAvailable(dests);
   if (!roles.length) return null;
-  const weight: Record<Role, number> = { commuter: 3, student: 2, farmer: 1.5, shopper: 2, stroller: 1.5 };
+  const weight: Record<Role, number> = { commuter: 3, student: 2, farmer: 1.5, shopper: 2, stroller: 1.5, traveler: 1.5 };
   const total = roles.reduce((s, r) => s + weight[r], 0);
   let left = roll * total;
   for (const r of roles) if ((left -= weight[r]) < 0) return r;
@@ -102,4 +104,18 @@ export function strollRoute(board: Board, from: Cell, steps: number, rand: () =>
     route.push({ x: c.x + DX[d], y: c.y + DY[d] });
   }
   return route;
+}
+
+export function lineStations(board: Board, line: RailLine): Cell[] {
+  const last = line.steps.length - 1;
+  return line.steps
+    .filter((st, i) => {
+      const t = board.get(st.x, st.y)?.tile;
+      return !!t && (!!t.halt || (!line.loop && !!t.station && (i === 0 || i === last)));
+    })
+    .map(({ x, y }) => ({ x, y }));
+}
+
+export function crossingClosed(cell: Cell, cars: readonly { x: number; z: number }[], radius = 0.6): boolean {
+  return cars.some((c) => Math.hypot(c.x - cell.x, c.z - cell.y) < radius);
 }
