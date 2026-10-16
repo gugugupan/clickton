@@ -21,7 +21,7 @@ import { completedRailLines, completedRoadNetworks, edgeRegions, grassExits, has
 import { hash } from "../core/rng";
 import { DIRS, DX, DY, groupsOf, type Dir, type Special } from "../core/tiles";
 import catalog from "./assets.json";
-import { modelUrl, type ModelKey, type ModelLibrary } from "./models";
+import { loadModel, modelUrl, type ModelKey, type ModelLibrary } from "./models";
 import { glowTexture } from "./scene";
 import { LANDMARK_PROPS, PLATE_TOP, SLOT, regionSlots } from "./tileMeshes";
 import {
@@ -661,7 +661,7 @@ export class Agents {
     let done = 0;
     await Promise.all(
       jobs.map(async ([group, file], i) => {
-        const gltf = await loader.loadAsync(modelUrl(group, file)).catch((e) => {
+        const gltf = await loadModel(loader, modelUrl(group, file)).catch((e) => {
           console.warn("agent skipped", file, e);
           return null;
         });

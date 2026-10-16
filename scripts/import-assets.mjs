@@ -1,7 +1,8 @@
+import { createHash } from "node:crypto";
 import { copyFileSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
-import { basename, dirname, join } from "node:path";
+import { basename, dirname, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { Logger, NodeIO } from "@gltf-transform/core";
+import { Format, Logger, NodeIO } from "@gltf-transform/core";
 import { ALL_EXTENSIONS } from "@gltf-transform/extensions";
 import { dedup, meshopt, prune, quantize, reorder, simplify, weld } from "@gltf-transform/functions";
 import { MeshoptEncoder, MeshoptSimplifier } from "meshoptimizer";
@@ -28,12 +29,24 @@ async function convert(src, dest, { simplifyMesh }) {
   steps.push(prune(), quantize(), reorder({ encoder: MeshoptEncoder }), meshopt({ encoder: MeshoptEncoder, level: "medium" }));
   await doc.transform(...steps);
   for (const buffer of doc.getRoot().listBuffers()) buffer.setURI(`${name}.bin`);
-  for (const tex of doc.getRoot().listTextures()) {
-    const uri = tex.getURI();
-    if (uri) mkdirSync(dirname(join(dest, uri)), { recursive: true });
-  }
-  await io.write(join(dest, `${name}.gltf`), doc);
+  const { json, resources } = await io.writeJSON(doc, { format: Format.GLTF });
+  const hashed = (uri) => {
+    const ext = extname(uri);
+    const out = `${uri.slice(0, -ext.length)}.${digest(resources[uri])}${ext}`;
+    mkdirSync(dirname(join(dest, out)), { recursive: true });
+    writeFileSync(join(dest, out), resources[uri]);
+    return out;
+  };
+  for (const b of json.buffers ?? []) if (b.uri) b.uri = hashed(b.uri);
+  for (const image of json.images ?? []) if (image.uri) image.uri = hashed(image.uri);
+  const text = JSON.stringify(json);
+  const file = `${name}.${digest(text)}.gltf`;
+  writeFileSync(join(dest, file), text);
+  return file;
 }
+
+const digest = (data) => createHash("sha256").update(data).digest("hex").slice(0, 10);
+const manifest = {};
 
 rmSync(out, { recursive: true, force: true });
 for (const [key, pack] of Object.entries(catalog.packs)) {
@@ -45,7 +58,7 @@ for (const [key, pack] of Object.entries(catalog.packs)) {
 let count = 0;
 for (const model of Object.values(catalog.models)) {
   const pack = catalog.packs[model.pack];
-  await convert(join(raw, pack.source, model.file), join(out, model.pack), { simplifyMesh: true });
+  manifest[`${model.pack}/${served(model.file)}`] = await convert(join(raw, pack.source, model.file), join(out, model.pack), { simplifyMesh: true });
   count++;
 }
 
@@ -54,10 +67,13 @@ for (const [key, group] of Object.entries(catalog.agents)) {
   mkdirSync(dest, { recursive: true });
   copyFileSync(join(raw, group.license), join(dest, "LICENSE.txt"));
   for (const file of group.files) {
-    await convert(join(raw, group.source, file), dest, { simplifyMesh: false });
+    manifest[`${key}/${served(file)}`] = await convert(join(raw, group.source, file), dest, { simplifyMesh: false });
     count++;
   }
 }
+
+const sorted = Object.fromEntries(Object.entries(manifest).sort(([a], [b]) => a.localeCompare(b)));
+writeFileSync(join(root, "src", "render", "modelManifest.json"), `${JSON.stringify(sorted, null, 2)}\n`);
 
 let bytes = 0;
 const walk = (dir) => {

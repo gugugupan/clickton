@@ -1,8 +1,9 @@
-import { Box3, BufferAttribute, BufferGeometry, InterleavedBufferAttribute, Matrix4, Mesh, MeshStandardMaterial, Object3D, Texture, Vector3 } from "three";
+import { Box3, BufferAttribute, BufferGeometry, InterleavedBufferAttribute, LoadingManager, Matrix4, Mesh, MeshStandardMaterial, Object3D, Texture, Vector3 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import { GLTFLoader, type GLTF } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import catalog from "./assets.json";
+import manifest from "./modelManifest.json";
 import { soften, tintDark, variantAtlas, windowMask } from "./soften";
 
 export type ModelKey = keyof typeof catalog.models;
@@ -49,7 +50,23 @@ const MODES: Record<MaterialMode, { opacity: number; transparent: boolean }> = {
 
 export function modelUrl(folder: string, file: string): string {
   const name = file.split("/").pop()!.replace(/\.(glb|gltf)$/, "");
-  return `${import.meta.env.BASE_URL}models/${folder}/${name}.gltf`;
+  const hashed = (manifest as Record<string, string>)[`${folder}/${name}`] ?? `${name}.gltf`;
+  return `${import.meta.env.BASE_URL}models/${folder}/${hashed}`;
+}
+
+// A retry with a fresh query on every request (gltf, bin, textures) bypasses an edge cache entry poisoned during a deploy.
+export async function loadModel(loader: GLTFLoader, url: string): Promise<GLTF> {
+  try {
+    return await loader.loadAsync(url);
+  } catch {
+    const bust = `r=${Date.now()}`;
+    const manager = new LoadingManager();
+    manager.setURLModifier((u) => (u.startsWith("data:") || u.startsWith("blob:") ? u : `${u}${u.includes("?") ? "&" : "?"}${bust}`));
+    const retry = new GLTFLoader(manager);
+    const decoder = (loader as unknown as { meshoptDecoder: unknown }).meshoptDecoder;
+    if (decoder) retry.setMeshoptDecoder(decoder as Parameters<GLTFLoader["setMeshoptDecoder"]>[0]);
+    return retry.loadAsync(url);
+  }
 }
 
 function toFloat(attr: BufferAttribute | InterleavedBufferAttribute): BufferAttribute {
@@ -74,7 +91,7 @@ export class ModelLibrary {
     await Promise.all(
       entries.map(async ([key, def]) => {
         const url = modelUrl(def.pack, def.file);
-        const gltf = await loader.loadAsync(url).catch((e) => {
+        const gltf = await loadModel(loader, url).catch((e) => {
           console.warn("model skipped", key, e);
           return null;
         });
