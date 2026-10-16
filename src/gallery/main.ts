@@ -18,6 +18,8 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import { hash, mulberry32 } from "../core/rng";
 import { RULES_VERSION, TILES, starterFor, type TileDef } from "../core/tiles";
+import { starterTown } from "../core/starters";
+import { THEMES } from "../core/themes";
 import { setLang, t, type StringKey } from "../i18n";
 import catalog from "../render/assets.json";
 import { PartBuilder } from "../render/bricks";
@@ -102,6 +104,21 @@ function tileObject(tile: TileDef, seed = 7): Object3D {
   if (water) mesh.add(new Mesh(water, waterMaterial));
   for (const child of library.buildProps(props, "solid")) mesh.add(child);
   return shadows(mesh);
+}
+
+function townObject(theme: string): Object3D {
+  const group = new Object3D();
+  for (const p of starterTown(theme, 0)) {
+    const tile = TILES[p.tile];
+    const { base, water, props } = buildTile(tile, p.rot, mulberry32(hash(7, p.x + 5, p.y + 5)));
+    const mesh = new Mesh(base, tileMaterial);
+    if (water) mesh.add(new Mesh(water, waterMaterial));
+    for (const child of library.buildProps(props, "solid")) mesh.add(child);
+    mesh.position.set(p.x, 0, p.y);
+    group.add(shadows(mesh));
+  }
+  group.scale.setScalar(0.34);
+  return group;
 }
 
 function fitOnPlate(root: Object3D): Object3D {
@@ -209,6 +226,9 @@ function buildCards(): void {
     const grid = section(g.title, tiles.length);
     for (const tile of tiles) addCard(grid, t(`tile_${tile.key}` as StringKey), `${tile.key} · ${weightTag(tile)}`, () => tileObject(tile));
   }
+
+  const towns = section(`开局小镇（规则 v${RULES_VERSION}，按主题）`, THEMES.length);
+  for (const theme of THEMES) addCard(towns, `${theme.emoji} ${t(`theme_${theme.key}` as StringKey)}`, theme.key, () => townObject(theme.key));
 
   const LAYOUT_TILES = ["city_full", "city_three", "forest_full", "field_full"];
   const SEEDS = [1, 2, 3, 4, 5, 6, 7, 8];

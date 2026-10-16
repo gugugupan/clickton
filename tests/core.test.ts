@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Board } from "../src/core/board";
 import { decodeCity, encodeCity, packCity, unpackCity, CODEC_VERSION } from "../src/core/codec";
 import { Game, tileForStep, type Move } from "../src/core/game";
+import { starterTown, starterTurn } from "../src/core/starters";
 import { hash, mulberry32 } from "../src/core/rng";
 import { POINTS, scorePlacement } from "../src/core/scoring";
 import { DIRS, TILES, starterFor, edgeOf, groupsOf, tileByKey, type Rot } from "../src/core/tiles";
@@ -91,8 +92,13 @@ describe("scoring", () => {
 
 describe("game", () => {
   it("starts with the starter tile and draws deterministically", () => {
+    const old = new Game(7, 11);
+    expect(old.board.size).toBe(1);
+    expect(old.board.get(0, 0)?.tile.id).toBe(starterFor(old.version).tile);
     const g = new Game(7);
-    expect(g.board.get(0, 0)?.tile.id).toBe(starterFor(g.version).tile);
+    const town = starterTown(g.mood!.theme.key, starterTurn(7));
+    expect(g.board.size).toBe(9);
+    for (const p of town) expect(g.board.get(p.x, p.y)?.tile.id).toBe(p.tile);
     expect(tileForStep(7, 3)).toBe(tileForStep(7, 3));
     const kinds = new Set(Array.from({ length: 3000 }, (_, i) => tileForStep(123, i)));
     expect(kinds.size).toBe(TILES.filter((t) => t.weight > 0).length);
@@ -133,8 +139,8 @@ describe("codec", () => {
   });
 });
 
-function playRandom(seed: number, n: number): Game {
-  const g = new Game(seed);
+function playRandom(seed: number, n: number, version?: number): Game {
+  const g = new Game(seed, version);
   const rnd = mulberry32(seed ^ 0x5555);
   for (let i = 0; i < n; i++) {
     const f = g.board.frontier();
@@ -163,7 +169,7 @@ describe("share link compatibility", () => {
     const v1 = Array.from({ length: 300 }, (_, i) => tileForStep(42, i, 1));
     const v2 = Array.from({ length: 300 }, (_, i) => tileForStep(42, i, 2));
     expect(v1).not.toEqual(v2);
-    const g = playRandom(42, 30);
+    const g = playRandom(42, 30, 1);
     const city = { version: 1, seed: g.seed, moves: g.moves };
     const decoded = await decodeCity(await encodeCity(city));
     const replayed = Game.replay(decoded.seed, decoded.moves, decoded.version);

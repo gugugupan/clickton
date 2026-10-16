@@ -170,12 +170,14 @@ export function issueQuest(
   tiers: Partial<Record<QuestKind, number>>,
   since = 0,
   version = FOREST_SIZE_VERSION,
+  start?: Board,
 ): Quest {
   const taken = new Set(active.map((q) => q.kind));
   const pool = questKinds(version).filter((k) => !taken.has(k));
   const kind = pool[Math.floor(mulberry32(hash(seed, 0x9e57 + serial))() * pool.length)];
   const def = { ...questDef(kind), ...(version >= FOREST_SIZE_VERSION ? TARGETS_V9[kind] : undefined) };
   let target = def.base + def.growth * (tiers[kind] ?? 0);
+  if (def.lead && start) target += metric(kind, start);
   if (def.lead) target = Math.max(target, metric(kind, board) + def.lead);
   return { kind, serial, target, progress: 0, since, seen: snapshot(kind, board) };
 }

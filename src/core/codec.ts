@@ -4,6 +4,7 @@ import { BIAS_RAMP_V9, QUEST_RULES, QUESTS_V9, TARGETS_V9 } from "./quests";
 import { BALANCE, CROSSING } from "./balance";
 import { moodFor, SPECIAL_BOOST, SPECIAL_BOOST_V10, SPECIAL_BOOST_V11, THEME_EXTRAS, THEMES } from "./themes";
 import { RULES_VERSION, TILES, baseWeights, isKnownVersion, starterFor, type Rot } from "./tiles";
+import { STARTER_TOWNS } from "./starters";
 
 export const CODEC_VERSION = RULES_VERSION;
 
@@ -19,6 +20,7 @@ export const TILESET_FINGERPRINTS: Record<number, string> = {
   9: "0c7c0f76",
   10: "6ec6e048",
   11: "82f3dc42",
+  12: "220fac90",
 };
 
 export function tilesetFingerprint(version = CODEC_VERSION): string {
@@ -34,7 +36,9 @@ export function tilesetFingerprint(version = CODEC_VERSION): string {
   const quests = `${JSON.stringify(QUEST_RULES)}#${landmarks}#${INVENTORY_MAX}:${QUEST_DISCARD_MAX}`;
   const v9 = `${JSON.stringify(THEME_EXTRAS)}#${JSON.stringify(CROSSING)}#${JSON.stringify(QUESTS_V9)}#${JSON.stringify(TARGETS_V9)}#${BIAS_RAMP_V9}`;
   const text =
-    version >= 11
+    version >= 12
+      ? `${special}#${quests}#${v9}#${JSON.stringify(SPECIAL_BOOST_V11)}#${JSON.stringify(STARTER_TOWNS)}`
+      : version >= 11
       ? `${special}#${TILES[starter.tile].key}:${TILES[starter.tile].edges.join(",")}:${starter.rot}#${quests}#${v9}#${JSON.stringify(SPECIAL_BOOST_V11)}`
       : version >= 10
       ? `${special}#${TILES[starter.tile].key}:${TILES[starter.tile].edges.join(",")}:${starter.rot}#${quests}#${v9}#${JSON.stringify(SPECIAL_BOOST_V10)}`

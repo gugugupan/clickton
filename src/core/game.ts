@@ -4,6 +4,7 @@ import { scorePlacement, type PlacementScore } from "./scoring";
 import { balancedWeights } from "./balance";
 import { CHALLENGE_TILES, seedForDay } from "./daily";
 import { moodFor, type WorldMood } from "./themes";
+import { STARTER_TOWN_VERSION, starterTown, starterTurn } from "./starters";
 import { landmarkTile } from "./landmarks";
 import { QUEST_SLOTS, advanceQuest, issueQuest, questBias, questDef, type Quest, type QuestKind } from "./quests";
 import { RULES_VERSION, TILES, starterFor, weightsFor, type Rot } from "./tiles";
@@ -72,6 +73,7 @@ export function tileForStep(
 
 export class Game {
   readonly board = new Board();
+  private start?: Board;
   readonly moves: Move[] = [];
   score = 0;
   placements = 0;
@@ -99,8 +101,13 @@ export class Game {
     this.challenge = (version & CHALLENGE_FLAG) !== 0;
     this.version = version & VERSION_MASK;
     if (this.explicit) return;
-    const starter = starterFor(this.version);
-    this.board.place(starter.tile, starter.rot, 0, 0);
+    if (this.version >= STARTER_TOWN_VERSION) {
+      for (const p of starterTown(moodFor(seed).theme.key, starterTurn(seed))) this.board.place(p.tile, p.rot, p.x, p.y);
+      this.start = this.board.clone();
+    } else {
+      const starter = starterFor(this.version);
+      this.board.place(starter.tile, starter.rot, 0, 0);
+    }
     if (this.questsOn) while (this.quests.length < QUEST_SLOTS) this.quests.push(this.issue());
     if (this.queued) this.advance();
   }
@@ -114,7 +121,7 @@ export class Game {
   }
 
   private issue(): Quest {
-    return issueQuest(this.seed, this.questSerial++, this.board, this.quests, this.tiers, this.placements, this.version);
+    return issueQuest(this.seed, this.questSerial++, this.board, this.quests, this.tiers, this.placements, this.version, this.start);
   }
 
   get linkVersion(): number {
