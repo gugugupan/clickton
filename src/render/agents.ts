@@ -18,7 +18,8 @@ import { MeshoptDecoder } from "three/addons/libs/meshopt_decoder.module.js";
 import type { Board, Placed } from "../core/board";
 import { completedRoadCells, specialStatus } from "../core/specials";
 import { completedRailLines, completedRoadNetworks, edgeRegions, grassExits, hasRoad, isHome, isMeadow, isPond, regionAt, roadExits, type RailLine } from "../core/networks";
-import { hash } from "../core/rng";
+import { hash, mulberry32 } from "../core/rng";
+import { ROLE_ERRANDS, accessCell, destinationsOf, findRoute, pickRole, strollRoute, type Cell, type Destination, type Errand, type Role } from "../core/routes";
 import { DIRS, DX, DY, groupsOf, type Dir, type Special } from "../core/tiles";
 import catalog from "./assets.json";
 import { loadModel, modelUrl, type ModelKey, type ModelLibrary } from "./models";
@@ -95,7 +96,7 @@ function gateOf(farm: Placed, from: Placed): Spot {
   return { x: farm.x + (dx / len) * 0.38, z: farm.y + (dz / len) * 0.38 };
 }
 
-class Person {
+class Person implements Walker {
   readonly puppet: Puppet;
   private readonly pos = new Vector3();
   private readonly target = new Vector3();
@@ -167,6 +168,208 @@ class Person {
     this.cell = { x: this.cell.x + DX[d], y: this.cell.y + DY[d] };
     const node = nodePosition(board, this.cell.x, this.cell.y);
     this.target.set(node.x - DY[d] * this.side, this.pos.y, node.z + DX[d] * this.side);
+  }
+}
+
+const RESIDENT_SHARE = 0.7;
+const BUSY: Record<Errand, { anim: string; min: number; max: number }> = {
+  work: { anim: "interact-right", min: 6, max: 10 },
+  school: { anim: "emote-yes", min: 5, max: 8 },
+  shop: { anim: "interact-right", min: 3, max: 6 },
+  park: { anim: "sit", min: 5, max: 9 },
+  shrine: { anim: "emote-yes", min: 3, max: 5 },
+  pier: { anim: "sit", min: 6, max: 10 },
+  farm: { anim: "pick-up", min: 5, max: 9 },
+  visit: { anim: "emote-yes", min: 3, max: 6 },
+  stroll: { anim: "idle", min: 2, max: 4 },
+};
+const BAG_COLORS = [0xe0a193, 0xedd39b, 0x9dbbd1, 0xa9c89b, 0xc9b8d6];
+
+interface Town {
+  board: Board;
+  dests: Destination[];
+  homes: Cell[];
+}
+
+interface Walker {
+  readonly puppet: Puppet;
+  readonly bedtime: number;
+  readonly inside?: boolean;
+  update(dt: number, board: Board): void;
+}
+
+interface Stop {
+  cell: Cell;
+  access: Cell;
+  errand: Errand | "home";
+}
+
+class Resident implements Walker {
+  readonly puppet: Puppet;
+  readonly bedtime = 0.25 + Math.random() * 0.65;
+  inside = true;
+  private readonly pos = new Vector3();
+  private readonly target = new Vector3();
+  private readonly side = (Math.random() < 0.5 ? -1 : 1) * (0.05 + Math.random() * 0.04);
+  private readonly rand: () => number;
+  private readonly bag: Mesh;
+  private state: "home" | "walk" | "enter" | "busy" | "leave" = "home";
+  private timer: number;
+  private route: Cell[] = [];
+  private step = 0;
+  private stop: Stop | null = null;
+  private legs = 0;
+
+  constructor(
+    rig: Rig,
+    private readonly home: Cell,
+    private readonly role: Role,
+    private readonly town: Town,
+    seed: number,
+  ) {
+    this.puppet = new Puppet(rig, PERSON_HEIGHT, rig.clips);
+    this.rand = mulberry32(seed);
+    this.timer = 1 + this.rand() * 8;
+    this.bag = new Mesh(new BoxGeometry(0.035, 0.04, 0.018), new MeshStandardMaterial({ color: BAG_COLORS[seed % BAG_COLORS.length], roughness: 0.9 }));
+    this.bag.position.set(0.045, 0.055, 0.01);
+    this.bag.visible = false;
+    this.puppet.root.add(this.bag);
+    this.pos.set(home.x, PLATE_TOP + 0.02, home.y);
+    this.puppet.root.position.copy(this.pos);
+  }
+
+  get destination(): Cell | null {
+    return this.inside ? null : (this.stop?.cell ?? null);
+  }
+
+  private homeStop(): Stop | null {
+    const access = accessCell(this.town.board, this.home.x, this.home.y);
+    return access ? { cell: this.home, access, errand: "home" } : null;
+  }
+
+  private choose(from: Cell): { stop: Stop; route: Cell[] } | null {
+    const board = this.town.board;
+    const homeward = this.legs >= 1 && (this.legs >= 2 || this.rand() < 0.55);
+    if (homeward) {
+      const back = this.homeStop();
+      const route = back && findRoute(board, from, back.access);
+      if (back && route) return { stop: back, route };
+    }
+    const wanted = this.legs === 0 ? ROLE_ERRANDS[this.role] : (["shop", "park", "shrine", "pier"] as Errand[]);
+    const visits: Destination[] = this.town.homes.map((h) => ({ ...h, errand: "visit" }));
+    const pools = [this.town.dests.filter((d) => wanted.includes(d.errand)), this.town.dests, visits];
+    for (const pool of pools) {
+      const options = [...pool].sort(() => this.rand() - 0.5).slice(0, 6);
+      for (const d of options) {
+        if (d.x === this.home.x && d.y === this.home.y) continue;
+        const access = accessCell(board, d.x, d.y);
+        if (!access) continue;
+        const route = findRoute(board, from, access);
+        if (route && route.length <= 30) return { stop: { cell: { x: d.x, y: d.y }, access, errand: d.errand }, route };
+      }
+    }
+    const walk = strollRoute(board, from, 2 + Math.floor(this.rand() * 4), this.rand);
+    if (walk.length < 2) return null;
+    const end = walk[walk.length - 1];
+    return { stop: { cell: end, access: end, errand: "stroll" }, route: walk };
+  }
+
+  private node(c: Cell, prev: Cell | null): { x: number; z: number } {
+    const n = nodePosition(this.town.board, c.x, c.y);
+    if (!prev) return n;
+    const dx = Math.sign(c.x - prev.x), dy = Math.sign(c.y - prev.y);
+    return { x: n.x - dy * this.side, z: n.z + dx * this.side };
+  }
+
+  private door(stop: Stop): { x: number; z: number } {
+    const a = nodePosition(this.town.board, stop.access.x, stop.access.y);
+    if (stop.access.x === stop.cell.x && stop.access.y === stop.cell.y) {
+      return { x: a.x + (this.rand() - 0.5) * 0.3, z: a.z + (this.rand() - 0.5) * 0.3 };
+    }
+    return { x: a.x + (stop.cell.x - stop.access.x) * 0.42, z: a.z + (stop.cell.y - stop.access.y) * 0.42 };
+  }
+
+  private depart(): void {
+    const from = this.stop?.access ?? accessCell(this.town.board, this.home.x, this.home.y);
+    const next = from && this.choose(from);
+    if (!next) {
+      this.state = "home";
+      this.inside = true;
+      this.legs = 0;
+      this.timer = 6 + this.rand() * 6;
+      return;
+    }
+    if (this.inside) {
+      const door = this.door(this.homeStop()!);
+      this.pos.set(door.x, PLATE_TOP + 0.02, door.z);
+    }
+    this.inside = false;
+    this.stop = next.stop;
+    this.route = next.route;
+    this.step = 0;
+    this.state = "walk";
+    this.aim();
+  }
+
+  private aim(): void {
+    const c = this.route[this.step];
+    const n = this.node(c, this.step > 0 ? this.route[this.step - 1] : null);
+    this.target.set(n.x, this.pos.y, n.z);
+  }
+
+  update(dt: number): void {
+    this.puppet.update(dt);
+    if (this.state === "home") {
+      this.inside = true;
+      if ((this.timer -= dt) > 0) return;
+      this.legs = 0;
+      this.depart();
+      return;
+    }
+    if (this.state === "busy") {
+      this.puppet.play(BUSY[this.stop!.errand as Errand].anim);
+      if ((this.timer -= dt) > 0) return;
+      if (this.stop!.errand === "shop") this.bag.visible = true;
+      this.legs++;
+      this.state = "leave";
+      const a = nodePosition(this.town.board, this.stop!.access.x, this.stop!.access.y);
+      this.target.set(a.x, this.pos.y, a.z);
+      return;
+    }
+    const dx = this.target.x - this.pos.x, dz = this.target.z - this.pos.z;
+    if (!moveToward(this.pos, this.target, dt * 0.22)) {
+      this.puppet.play("walk");
+      this.puppet.face(dx, dz, dt);
+      this.puppet.root.position.copy(this.pos);
+      return;
+    }
+    this.puppet.root.position.copy(this.pos);
+    if (this.state === "leave") {
+      this.depart();
+      return;
+    }
+    if (this.state === "walk") {
+      if (++this.step < this.route.length) {
+        this.aim();
+        return;
+      }
+      this.state = "enter";
+      const door = this.door(this.stop!);
+      this.target.set(door.x, this.pos.y, door.z);
+      return;
+    }
+    if (this.stop!.errand === "home") {
+      this.state = "home";
+      this.inside = true;
+      this.bag.visible = false;
+      this.timer = 3 + this.rand() * 4;
+      return;
+    }
+    const busy = BUSY[this.stop!.errand];
+    this.state = "busy";
+    this.timer = busy.min + this.rand() * (busy.max - busy.min);
+    const c = this.stop!.cell;
+    this.puppet.face(c.x - this.pos.x, c.y - this.pos.z, 1);
   }
 }
 
@@ -620,7 +823,8 @@ export class Agents {
   private readonly people: Rig[] = [];
   private readonly pets = new Map<string, Rig>();
   private readonly trains = new Map<string, Train>();
-  private readonly persons = new Map<string, Person>();
+  private readonly persons = new Map<string, Walker>();
+  private readonly town: Town = { board: null as unknown as Board, dests: [], homes: [] };
   private readonly animals = new Map<string, Animal>();
   private readonly cars: Car[] = [];
   private readonly roads = new Set<string>();
@@ -679,6 +883,16 @@ export class Agents {
     this.people.splice(0, this.people.length, ...this.people.filter(Boolean));
   }
 
+  debugTargets(): { from: Vector3; to: Cell }[] {
+    const out: { from: Vector3; to: Cell }[] = [];
+    for (const p of this.persons.values()) {
+      if (!(p instanceof Resident)) continue;
+      const to = p.destination;
+      if (to) out.push({ from: p.puppet.root.position, to });
+    }
+    return out;
+  }
+
   census(): { cars: number; trains: number; animals: number } {
     return { cars: this.cars.length, trains: this.trains.size, animals: this.animals.size };
   }
@@ -708,6 +922,9 @@ export class Agents {
     seed: number,
   ): { trains: { x: number; y: number }[]; roads: { x: number; y: number }[]; specials: { kind: Special; x: number; y: number }[] } {
     const opened: { kind: Special; x: number; y: number }[] = [];
+    this.town.board = board;
+    this.town.dests = destinationsOf(board);
+    this.town.homes = [...board.all()].filter(isHome).map((p) => ({ x: p.x, y: p.y }));
     const roadCells = completedRoadCells(board);
     for (const p of board.all()) {
       if (!p.tile.special) continue;
@@ -759,7 +976,11 @@ export class Agents {
       const key = `${p.x},${p.y}`;
       if (isHome(p) && !this.persons.has(key) && this.persons.size < this.cap && this.people.length) {
         const rig = this.people[hash(seed, p.x, p.y, 1) % this.people.length];
-        const person = new Person(rig, { x: p.x, y: p.y }, board);
+        const h = hash(seed, p.x, p.y, 5);
+        const person: Walker =
+          (h % 1000) / 1000 < RESIDENT_SHARE && accessCell(board, p.x, p.y)
+            ? new Resident(rig, { x: p.x, y: p.y }, pickRole(((h >>> 10) % 1000) / 1000, this.town.dests) ?? "shopper", this.town, h)
+            : new Person(rig, { x: p.x, y: p.y }, board);
         this.persons.set(key, person);
         this.root.add(person.puppet.root);
       }
@@ -1127,7 +1348,7 @@ export class Agents {
       for (const list of [this.persons.values(), this.animals.values()]) {
         for (const a of list) {
           const root = a.puppet.root;
-          const home = a instanceof Person && night > a.bedtime;
+          const home = "bedtime" in a && (night > a.bedtime || !!a.inside);
           root.visible = !tiny && !home && this.frustum.containsPoint(root.position);
         }
       }

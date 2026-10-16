@@ -1,5 +1,6 @@
 void import("./fonts");
 import "./style.css";
+import { BufferGeometry, Float32BufferAttribute, LineBasicMaterial, LineSegments } from "three";
 import { playChime, playFirework, playPlace, playPop, playPopper } from "./audio";
 import { decodeCity, encodeCity } from "./core/codec";
 import { DISCARD_EVERY, Game, INVENTORY_MAX, type QuestDone } from "./core/game";
@@ -1166,5 +1167,23 @@ if (import.meta.env.DEV && new URLSearchParams(location.search).has("fx")) {
   time.onclick = () => (dayNight.mode = dayNight.mode === "night" ? "day" : "night");
   panel.append(time);
   document.body.append(panel);
-  Object.assign((window as unknown as { __clickton: object }).__clickton, { fireworks, fireworksFor, popperPair });
+  const lines = new LineSegments(new BufferGeometry(), new LineBasicMaterial({ color: 0xd8402f, depthTest: false }));
+  lines.renderOrder = 11;
+  lines.frustumCulled = false;
+  world.add(lines);
+  const updateOverlay = () => {
+    const pts: number[] = [];
+    for (const t of agents.debugTargets()) {
+      pts.push(t.from.x, t.from.y + 0.2, t.from.z, t.to.x, 0.45, t.to.y);
+      for (const [dx, dz] of [[-0.03, 0], [0.03, 0], [0, -0.03], [0, 0.03]]) pts.push(t.to.x + dx, 0.12, t.to.y + dz, t.to.x + dx, 0.45, t.to.y + dz);
+    }
+    lines.geometry.dispose();
+    lines.geometry = new BufferGeometry().setAttribute("position", new Float32BufferAttribute(pts, 3));
+  };
+  const overlayLoop = () => {
+    updateOverlay();
+    requestAnimationFrame(overlayLoop);
+  };
+  overlayLoop();
+  Object.assign((window as unknown as { __clickton: object }).__clickton, { fireworks, fireworksFor, popperPair, updateOverlay });
 }
